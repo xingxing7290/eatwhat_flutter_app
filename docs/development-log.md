@@ -73,3 +73,40 @@
 - `flutter analyze` 通过，`No issues found!`。
 - `flutter test` 通过。
 - `gradle assembleDebug` 通过，已重新生成 debug APK。
+
+## 2026-06-22 AppScope 读取方式全量排查
+
+### 排查范围
+
+- 扫描 `lib/main.dart` 中全部 `context.app` 调用点。
+- 检查所有 `initState()`、初始化加载函数、异步回调和按钮回调。
+
+### 调整
+
+- 将命令式操作统一改为 `context.appRead`：
+  - 登录页保存账号密码。
+  - 日历排餐保存。
+  - 菜谱图片纠错、菜谱保存。
+  - 饭后回忆保存。
+  - 周计划生成与应用。
+  - 购物清单生成、补充、勾选、删除。
+  - 想吃清单新增、投票、状态变更、删除。
+  - 纪念日模板创建。
+  - 设置页修改资料、小家、默认菜品、图片问题处理、退出登录。
+- 仅保留 `build()` 中用于显示状态的 `context.app` 读取：
+  - 应用鉴权壳。
+  - 顶部小家名称。
+  - 首页昵称。
+  - 设置页小家信息。
+
+### 回归测试
+
+- 新增组件测试：`appRead can be used during initState without subscribing`。
+- 该测试在 `initState()` 中读取 `context.appRead`，防止同类红屏问题回归。
+
+### 验证
+
+- `dart format lib test` 通过。
+- `flutter analyze` 通过，`No issues found!`。
+- `flutter test` 通过，2 个测试全部通过。
+- `gradle assembleDebug` 通过，已重新生成 debug APK。

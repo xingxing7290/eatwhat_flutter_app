@@ -591,7 +591,7 @@ class _LoginPageState extends State<LoginPage> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) async {
-      final saved = await context.app.savedLogin();
+      final saved = await context.appRead.savedLogin();
       if (!mounted) {
         return;
       }
@@ -618,9 +618,9 @@ class _LoginPageState extends State<LoginPage> {
     }
     setState(() => submitting = true);
     try {
-      await context.app
+      await context.appRead
           .login(usernameController.text.trim(), passwordController.text);
-      await context.app.saveLogin(
+      await context.appRead.saveLogin(
           usernameController.text.trim(), passwordController.text, remember);
     } catch (error) {
       if (mounted) {
@@ -756,7 +756,7 @@ class _RegisterPageState extends State<RegisterPage> {
     }
     setState(() => submitting = true);
     try {
-      await context.app.register(
+      await context.appRead.register(
         username: usernameController.text.trim(),
         password: passwordController.text,
         displayName: displayNameController.text.trim(),
@@ -1422,7 +1422,7 @@ class _ScheduleSheetState extends State<ScheduleSheet> {
   Future<void> save() async {
     setState(() => saving = true);
     try {
-      await context.app
+      await context.appRead
           .put('/schedules/${dateString(widget.date)}/$mealType', body: {
         'mealIds': selected.toList(),
       });
@@ -1783,7 +1783,7 @@ Future<void> reportImageIssue(BuildContext context, String mealId) async {
     return;
   }
   try {
-    await context.app.post('/meal-image-issues', body: {
+    await context.appRead.post('/meal-image-issues', body: {
       'mealId': mealId,
       'issueType': 'mismatch',
       'note': note,
@@ -2162,7 +2162,7 @@ class _MealEditPageState extends State<MealEditPage> {
       'rating': rating.toStringAsFixed(1),
     };
     try {
-      await context.app.multipart(
+      await context.appRead.multipart(
         widget.mealId == null ? 'POST' : 'PUT',
         widget.mealId == null ? '/meals' : '/meals/${widget.mealId}',
         fields: fields,
@@ -2549,7 +2549,7 @@ class _MemoryEditPageState extends State<MemoryEditPage> {
   Future<void> save() async {
     setState(() => saving = true);
     try {
-      await context.app.multipart(
+      await context.appRead.multipart(
         'POST',
         '/memories',
         fields: {
@@ -2562,7 +2562,7 @@ class _MemoryEditPageState extends State<MemoryEditPage> {
           'actualCookTime': actualCookTimeController.text.trim(),
           'nextImprovement': nextImprovementController.text.trim(),
           'mealIds': jsonEncode(selectedMealIds.toList()),
-          'participants': jsonEncode([context.app.displayName]),
+          'participants': jsonEncode([context.appRead.displayName]),
         },
         multiFiles: {'photos': photos},
       );
@@ -2716,7 +2716,7 @@ class _WeeklyPlanPageState extends State<WeeklyPlanPage> {
   Future<void> generate() async {
     setState(() => busy = true);
     try {
-      final response = await context.app.post('/weekly-plans/generate',
+      final response = await context.appRead.post('/weekly-plans/generate',
           body: {'weekStart': dateString(weekStart)});
       setState(() => draft = asMap(payload(response)));
     } catch (error) {
@@ -2737,7 +2737,7 @@ class _WeeklyPlanPageState extends State<WeeklyPlanPage> {
     }
     setState(() => busy = true);
     try {
-      await context.app.post('/weekly-plans/apply', body: {
+      await context.appRead.post('/weekly-plans/apply', body: {
         'days': draft!['days'] ?? draft!['plan'] ?? draft,
       });
       if (mounted) {
@@ -2881,7 +2881,7 @@ class _ShoppingListPageState extends State<ShoppingListPage> {
 
   Future<void> generate() async {
     try {
-      await context.app.post('/shopping-list/generate',
+      await context.appRead.post('/shopping-list/generate',
           body: {'weekStart': dateString(weekStart)});
       reload();
     } catch (error) {
@@ -2898,7 +2898,7 @@ class _ShoppingListPageState extends State<ShoppingListPage> {
     }
     final parts = text.trim().split(RegExp(r'\s+'));
     try {
-      await context.app.post('/shopping-list/items', body: {
+      await context.appRead.post('/shopping-list/items', body: {
         'weekStart': dateString(weekStart),
         'name': parts.first,
         'amount': parts.length > 1 ? parts.sublist(1).join(' ') : '',
@@ -2914,7 +2914,7 @@ class _ShoppingListPageState extends State<ShoppingListPage> {
 
   Future<void> clearPurchased() async {
     try {
-      await context.app.delete('/shopping-list/purchased',
+      await context.appRead.delete('/shopping-list/purchased',
           query: {'weekStart': dateString(weekStart)});
       reload();
     } catch (error) {
@@ -3030,7 +3030,7 @@ class ShoppingGroup extends StatelessWidget {
                   icon: const Icon(Icons.delete_outline),
                   onPressed: () async {
                     try {
-                      await context.app
+                      await context.appRead
                           .delete('/shopping-list/items/$id', query: {
                         'weekStart': dateString(mondayOf(DateTime.now())),
                       });
@@ -3044,7 +3044,8 @@ class ShoppingGroup extends StatelessWidget {
                 ),
                 onChanged: (value) async {
                   try {
-                    await context.app.patch('/shopping-list/items/$id', body: {
+                    await context.appRead
+                        .patch('/shopping-list/items/$id', body: {
                       'weekStart': dateString(mondayOf(DateTime.now())),
                       'checked': value ?? false,
                     });
@@ -3090,7 +3091,7 @@ class _WishlistPageState extends State<WishlistPage> {
       return;
     }
     try {
-      await context.app.post('/wishlist', body: {
+      await context.appRead.post('/wishlist', body: {
         'title': title.trim(),
         'note': '',
         'category': '小家想吃',
@@ -3179,7 +3180,7 @@ class WishlistCard extends StatelessWidget {
               children: [
                 OutlinedButton.icon(
                   onPressed: () async {
-                    await context.app.post('/wishlist/$id/vote');
+                    await context.appRead.post('/wishlist/$id/vote');
                     onChanged();
                   },
                   icon: const Icon(Icons.thumb_up_alt_outlined),
@@ -3187,7 +3188,7 @@ class WishlistCard extends StatelessWidget {
                 ),
                 OutlinedButton.icon(
                   onPressed: () async {
-                    await context.app.patch('/wishlist/$id/status',
+                    await context.appRead.patch('/wishlist/$id/status',
                         body: {'status': 'planned'});
                     onChanged();
                   },
@@ -3196,7 +3197,7 @@ class WishlistCard extends StatelessWidget {
                 ),
                 OutlinedButton.icon(
                   onPressed: () async {
-                    await context.app.delete('/wishlist/$id');
+                    await context.appRead.delete('/wishlist/$id');
                     onChanged();
                   },
                   icon: const Icon(Icons.delete_outline),
@@ -3320,11 +3321,12 @@ class _AnniversaryPageState extends State<AnniversaryPage> {
 
   Future<void> create() async {
     try {
-      final templatesResponse = await context.app.get('/anniversary-templates');
+      final templatesResponse =
+          await context.appRead.get('/anniversary-templates');
       final templates = asList(payload(templatesResponse));
       final template =
           templates.isNotEmpty ? asMap(templates.first) : <String, dynamic>{};
-      await context.app.multipart('POST', '/anniversaries', fields: {
+      await context.appRead.multipart('POST', '/anniversaries', fields: {
         'title': textOf(template['title']).isEmpty
             ? '周末小家宴'
             : textOf(template['title']),
@@ -3419,13 +3421,13 @@ class _SettingsPageState extends State<SettingsPage> {
 
   Future<void> updateHousehold() async {
     final name = await textDialog(context,
-        title: '修改小家名称', initial: context.app.householdName);
+        title: '修改小家名称', initial: context.appRead.householdName);
     if (name == null || name.trim().isEmpty) {
       return;
     }
     try {
-      await context.app.put('/household/me', body: {'name': name.trim()});
-      await context.app.refreshMe();
+      await context.appRead.put('/household/me', body: {'name': name.trim()});
+      await context.appRead.refreshMe();
       if (mounted) {
         showMessage(context, '已更新小家名称');
       }
@@ -3438,14 +3440,14 @@ class _SettingsPageState extends State<SettingsPage> {
 
   Future<void> updateProfile() async {
     final name = await textDialog(context,
-        title: '修改昵称', initial: context.app.displayName);
+        title: '修改昵称', initial: context.appRead.displayName);
     if (name == null || name.trim().isEmpty) {
       return;
     }
     try {
-      await context.app
+      await context.appRead
           .put('/auth/profile', body: {'displayName': name.trim()});
-      await context.app.refreshMe();
+      await context.appRead.refreshMe();
       if (mounted) {
         showMessage(context, '已更新昵称');
       }
@@ -3458,7 +3460,7 @@ class _SettingsPageState extends State<SettingsPage> {
 
   Future<void> importDefaults() async {
     try {
-      await context.app.post('/default-meals/import-missing');
+      await context.appRead.post('/default-meals/import-missing');
       reload();
       if (mounted) {
         showMessage(context, '已导入缺失默认菜品');
@@ -3472,7 +3474,7 @@ class _SettingsPageState extends State<SettingsPage> {
 
   Future<void> restoreImages() async {
     try {
-      await context.app.post('/default-meals/restore-images');
+      await context.appRead.post('/default-meals/restore-images');
       reload();
       if (mounted) {
         showMessage(context, '已恢复默认菜品图片');
@@ -3515,7 +3517,7 @@ class _SettingsPageState extends State<SettingsPage> {
                     label: const Text('修改小家'),
                   ),
                   OutlinedButton.icon(
-                    onPressed: () => context.app.logout(),
+                    onPressed: () => context.appRead.logout(),
                     icon: const Icon(Icons.logout),
                     label: const Text('退出登录'),
                   ),
@@ -3623,7 +3625,7 @@ class _SettingsPageState extends State<SettingsPage> {
                           subtitle: Text(textOf(issue['note'])),
                           trailing: TextButton(
                             onPressed: () async {
-                              await context.app.patch(
+                              await context.appRead.patch(
                                   '/meal-image-issues/${idOf(issue)}',
                                   body: {'status': 'fixed'});
                               reload();
