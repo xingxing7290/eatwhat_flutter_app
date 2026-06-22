@@ -204,6 +204,7 @@ class AppState extends ChangeNotifier {
   Map<String, dynamic>? household;
 
   bool get isAuthed => token != null && token!.isNotEmpty;
+  String get userId => textOf(user?['id'] ?? user?['_id'] ?? user?['uid']);
   String get displayName => textOf(user?['displayName']).isNotEmpty
       ? textOf(user?['displayName'])
       : textOf(user?['username']);
@@ -953,7 +954,9 @@ class _DashboardPageState extends State<DashboardPage> {
 
   Future<dynamic> load() => context.appRead.get('/dashboard/summary');
 
-  void reload() => setState(() => future = load());
+  void reload() => setState(() {
+        future = load();
+      });
 
   @override
   Widget build(BuildContext context) {
@@ -1178,7 +1181,9 @@ class _CalendarPageState extends State<CalendarPage> {
         'month': month.month.toString(),
       });
 
-  void reload() => setState(() => future = load());
+  void reload() => setState(() {
+        future = load();
+      });
 
   void changeMonth(int delta) {
     setState(() {
@@ -1353,9 +1358,9 @@ class DayCard extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 10),
-            MealBadges(title: '早', value: schedule['breakfast']),
-            MealBadges(title: '午', value: schedule['lunch']),
-            MealBadges(title: '晚', value: schedule['dinner']),
+            MealBadges(title: '早', value: planMealValue(schedule, 'breakfast')),
+            MealBadges(title: '午', value: planMealValue(schedule, 'lunch')),
+            MealBadges(title: '晚', value: planMealValue(schedule, 'dinner')),
             const Spacer(),
             const Align(
               alignment: Alignment.bottomRight,
@@ -1418,7 +1423,11 @@ List<String> mealNames(dynamic value) {
       result.add(item);
     } else {
       final map = asMap(item);
-      result.add(textOf(map['name'] ?? map['title']));
+      final nestedMeal = asMap(map['meal']);
+      result.add(textOf(map['name'] ??
+          map['title'] ??
+          nestedMeal['name'] ??
+          nestedMeal['title']));
     }
   }
   return result.where((item) => item.isNotEmpty).toList();
@@ -1593,7 +1602,9 @@ class _MealListPageState extends State<MealListPage> {
         'limit': '200',
       });
 
-  void reload() => setState(() => future = load());
+  void reload() => setState(() {
+        future = load();
+      });
 
   @override
   Widget build(BuildContext context) {
@@ -1847,8 +1858,9 @@ class _MealDetailPageState extends State<MealDetailPage> {
     future = context.appRead.get('/meals/${widget.mealId}');
   }
 
-  void reload() =>
-      setState(() => future = context.appRead.get('/meals/${widget.mealId}'));
+  void reload() => setState(() {
+        future = context.appRead.get('/meals/${widget.mealId}');
+      });
 
   @override
   Widget build(BuildContext context) {
@@ -2368,7 +2380,9 @@ class _MemoriesPageState extends State<MemoriesPage> {
 
   Future<dynamic> load() =>
       context.appRead.get('/memories', query: {'month': monthString(month)});
-  void reload() => setState(() => future = load());
+  void reload() => setState(() {
+        future = load();
+      });
 
   void changeMonth(int delta) {
     setState(() {
@@ -2593,7 +2607,9 @@ class _MemoryEditPageState extends State<MemoryEditPage> {
           'actualCookTime': actualCookTimeController.text.trim(),
           'nextImprovement': nextImprovementController.text.trim(),
           'mealIds': jsonEncode(selectedMealIds.toList()),
-          'participants': jsonEncode([context.appRead.displayName]),
+          'participants': jsonEncode(context.appRead.userId.isEmpty
+              ? const []
+              : [context.appRead.userId]),
         },
         multiFiles: {'photos': photos},
       );
@@ -2615,8 +2631,18 @@ class _MemoryEditPageState extends State<MemoryEditPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('记录饭后回忆')),
+      bottomNavigationBar: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 72),
+          child: FilledButton.icon(
+            onPressed: saving ? null : save,
+            icon: const Icon(Icons.save_outlined),
+            label: Text(saving ? '保存中...' : '保存回忆'),
+          ),
+        ),
+      ),
       body: ListView(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 96),
         children: [
           SoftCard(
             child: Column(
@@ -2706,12 +2732,6 @@ class _MemoryEditPageState extends State<MemoryEditPage> {
                       ? '选择照片（支持 PNG/JPG）'
                       : '已选择 ${photos.length} 张'),
                 ),
-                const SizedBox(height: 14),
-                FilledButton.icon(
-                  onPressed: saving ? null : save,
-                  icon: const Icon(Icons.save_outlined),
-                  label: Text(saving ? '保存中...' : '保存回忆'),
-                ),
               ],
             ),
           ),
@@ -2742,7 +2762,9 @@ class _WeeklyPlanPageState extends State<WeeklyPlanPage> {
 
   Future<dynamic> load() => context.appRead
       .get('/weekly-plans', query: {'weekStart': dateString(weekStart)});
-  void reload() => setState(() => future = load());
+  void reload() => setState(() {
+        future = load();
+      });
 
   Future<void> generate() async {
     setState(() => busy = true);
@@ -2839,7 +2861,9 @@ class _WeeklyPlanPageState extends State<WeeklyPlanPage> {
               PlanBlock(title: '当前周计划', data: data),
               if (draft != null) ...[
                 const SizedBox(height: 12),
-                PlanBlock(title: '新生成草稿', data: draft!),
+                PlanBlock(
+                    title: '新生成草稿',
+                    data: {'days': draft!['preview'] ?? draft!['days'] ?? []}),
               ],
             ],
           );
@@ -2857,7 +2881,8 @@ class PlanBlock extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final days = asList(data['days'] ?? data['plan'] ?? data['items']);
+    final days = asList(
+        data['preview'] ?? data['days'] ?? data['plan'] ?? data['items']);
     return SoftCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -2876,9 +2901,10 @@ class PlanBlock extends StatelessWidget {
                   children: [
                     Text(textOf(day['date']),
                         style: const TextStyle(fontWeight: FontWeight.w900)),
-                    MealBadges(title: '早', value: day['breakfast']),
-                    MealBadges(title: '午', value: day['lunch']),
-                    MealBadges(title: '晚', value: day['dinner']),
+                    MealBadges(
+                        title: '早', value: planMealValue(day, 'breakfast')),
+                    MealBadges(title: '午', value: planMealValue(day, 'lunch')),
+                    MealBadges(title: '晚', value: planMealValue(day, 'dinner')),
                   ],
                 ),
               );
@@ -2887,6 +2913,11 @@ class PlanBlock extends StatelessWidget {
       ),
     );
   }
+}
+
+dynamic planMealValue(Map<String, dynamic> day, String type) {
+  final meals = asMap(day['meals']);
+  return day[type] ?? meals[type] ?? const [];
 }
 
 class ShoppingListPage extends StatefulWidget {
@@ -2908,7 +2939,9 @@ class _ShoppingListPageState extends State<ShoppingListPage> {
 
   Future<dynamic> load() => context.appRead
       .get('/shopping-list', query: {'weekStart': dateString(weekStart)});
-  void reload() => setState(() => future = load());
+  void reload() => setState(() {
+        future = load();
+      });
 
   Future<void> generate() async {
     try {
@@ -2933,7 +2966,7 @@ class _ShoppingListPageState extends State<ShoppingListPage> {
         'weekStart': dateString(weekStart),
         'name': parts.first,
         'amount': parts.length > 1 ? parts.sublist(1).join(' ') : '',
-        'category': '其他',
+        'category': 'other',
       });
       reload();
     } catch (error) {
@@ -2973,11 +3006,7 @@ class _ShoppingListPageState extends State<ShoppingListPage> {
           final grouped = <String, List<Map<String, dynamic>>>{};
           for (final item in items) {
             grouped
-                .putIfAbsent(
-                    textOf(item['category']).isEmpty
-                        ? '其他'
-                        : textOf(item['category']),
-                    () => [])
+                .putIfAbsent(shoppingCategoryLabel(item['category']), () => [])
                 .add(item);
           }
           return ListView(
@@ -3026,6 +3055,24 @@ List<Map<String, dynamic>> shoppingItems(dynamic response) {
       ? asList(data['items'] ?? data['manualItems'] ?? data['list'])
       : asList(data);
   return items.map(asMap).toList();
+}
+
+String shoppingCategoryLabel(dynamic value) {
+  switch (textOf(value)) {
+    case 'vegetable':
+      return '蔬菜';
+    case 'meat_egg':
+      return '肉蛋';
+    case 'staple':
+      return '主食';
+    case 'seasoning':
+      return '调料';
+    case 'other':
+    case '':
+      return '其他';
+    default:
+      return textOf(value);
+  }
 }
 
 class ShoppingGroup extends StatelessWidget {
@@ -3114,7 +3161,9 @@ class _WishlistPageState extends State<WishlistPage> {
 
   Future<dynamic> load() =>
       context.appRead.get('/wishlist', query: {'status': 'open'});
-  void reload() => setState(() => future = load());
+  void reload() => setState(() {
+        future = load();
+      });
 
   Future<void> addWish() async {
     final title = await textDialog(context, title: '想吃什么', hint: '比如：周末想吃番茄牛腩');
@@ -3262,7 +3311,9 @@ class _PhotoAlbumPageState extends State<PhotoAlbumPage> {
 
   Future<dynamic> load() =>
       context.appRead.get('/photo-album', query: {'month': monthString(month)});
-  void reload() => setState(() => future = load());
+  void reload() => setState(() {
+        future = load();
+      });
 
   @override
   Widget build(BuildContext context) {
@@ -3348,7 +3399,9 @@ class _AnniversaryPageState extends State<AnniversaryPage> {
     return asList(payload(list is Map ? list['data'] ?? list : list));
   }
 
-  void reload() => setState(() => future = load());
+  void reload() => setState(() {
+        future = load();
+      });
 
   Future<void> create() async {
     try {

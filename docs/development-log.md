@@ -155,3 +155,51 @@
 - 为 multipart 上传增加 15 秒超时。
 - 超时后提示：`服务器响应超时，请检查网络或稍后重试`。
 - 避免后端卡住时手机端一直等待。
+
+## 2026-06-22 真机综合功能测试与修复
+
+### 测试环境
+
+- 设备：Samsung SM G973F，设备 ID `RF8M708L06Z`。
+- 服务入口：`http://113.44.50.108:3002/api`。
+- 测试账号：`phone_test_170142`。
+
+### 发现并修复的问题
+
+- 购物清单手动补充失败：客户端提交中文分类 `其他`，服务端枚举要求 `other`。
+  - 修复：提交 `other`，页面展示时将 `vegetable/meat_egg/staple/seasoning/other` 映射为中文分类。
+- 多个页面刷新触发 Flutter 调试错误：`setState() callback argument returned a Future`。
+  - 修复：将所有异步 `future = load()` 的 `setState` 回调改为同步代码块。
+- 周计划生成草稿显示为空：服务端返回 `preview` 和嵌套 `meals.breakfast/lunch/dinner`，客户端只读取平铺字段。
+  - 修复：周计划展示优先读取 `preview`，并支持 `meals` 嵌套结构。
+- 日历应用周计划后仍显示未安排：日历卡片同样只读取平铺餐次字段。
+  - 修复：日历复用周计划餐次解析函数，支持 `schedule.meals.*`。
+- 回忆保存失败：客户端将显示名传给 `participants`，服务端需要用户 ObjectId。
+  - 修复：新增 `AppState.userId`，回忆保存时传用户 id；缺失 id 时传空数组。
+- 回忆保存按钮靠近系统底部区域，真机自动化容易误触照片选择。
+  - 修复：保存按钮固定到底部操作区，并增加底部触摸安全间距。
+
+### 真机验证结果
+
+- 登录成功，首页、菜谱、日历、回忆、设置页均可打开。
+- 购物清单：手动新增、显示分类、勾选/清空已购流程通过。
+- 想吃清单：新增、投票、标记已安排流程通过。
+- 周计划：生成草稿后显示具体菜名，应用到日历成功。
+- 日历：6 月 22 日显示 `番茄鸡蛋盖饭 / 牛肉盖饭 / 排骨饭`。
+- 饭后回忆：保存 `dinner_memory4` 成功，回忆列表显示该记录。
+- 纪念日菜单：模板创建成功，生成 `生日小餐桌`。
+- 菜谱详情：默认菜品详情、封面、做过一次、编辑、图片纠错、食材入口均可渲染。
+- 设置页：退出登录入口、功能入口、默认菜品状态 `407/407` 正常显示。
+
+### 构建验证
+
+- `dart format lib test` 通过。
+- `flutter analyze` 通过。
+- `flutter test` 通过，2 个测试全部通过。
+- `flutter run -d RF8M708L06Z --debug --no-resident` 多次通过，已安装到真机。
+- `flutter build apk --release` 未通过，原因是本机无法解析/下载 Flutter release engine 依赖：
+  - `storage.flutter-io.cn`
+  - `storage.googleapis.com`
+  - `dl.google.com`
+  - `repo.maven.apache.org`
+  该失败为当前网络/DNS 依赖问题，不是代码编译错误；debug APK 已完成真机验证。
