@@ -48,3 +48,28 @@
 
 - 由于本机已有系统 Gradle 8.1，使用 `gradle assembleDebug` 绕过 Gradle Wrapper 下载超时完成 Android 构建。
 - 没有修改 Flutter SDK、Flutter channel、Android SDK 许可证或全局 Gradle 配置。
+
+## 2026-06-22 登录后红屏修复
+
+### 问题
+
+- 登录成功进入“小家首页”后出现 Flutter 红屏。
+- 错误信息：`dependOnInheritedWidgetOfExactType<AppScope>() ... was called before _DashboardPageState.initState() completed`。
+
+### 原因
+
+- 多个页面在 `initState()` 中通过 `context.app` 读取 `InheritedNotifier`，这会建立依赖关系。
+- Flutter 不允许在 `initState()` 阶段调用会依赖 `InheritedWidget` 的读取方法。
+
+### 修复
+
+- 在 `AppScope` 增加非监听读取方法 `read()`。
+- 新增 `context.appRead`，用于初始化阶段只读取 `AppState`，不建立依赖。
+- 将首页、日历、菜谱、回忆、周计划、购物清单、想吃清单、相册、纪念日、设置等页面初始化请求改为 `context.appRead`。
+
+### 验证
+
+- `dart format lib test` 通过。
+- `flutter analyze` 通过，`No issues found!`。
+- `flutter test` 通过。
+- `gradle assembleDebug` 通过，已重新生成 debug APK。

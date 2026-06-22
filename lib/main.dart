@@ -174,10 +174,18 @@ class AppScope extends InheritedNotifier<AppState> {
     assert(scope != null, 'AppScope is missing');
     return scope!.appState;
   }
+
+  static AppState read(BuildContext context) {
+    final element = context.getElementForInheritedWidgetOfExactType<AppScope>();
+    final scope = element?.widget as AppScope?;
+    assert(scope != null, 'AppScope is missing');
+    return scope!.appState;
+  }
 }
 
 extension AppContext on BuildContext {
   AppState get app => AppScope.of(this);
+  AppState get appRead => AppScope.read(this);
 }
 
 class AppState extends ChangeNotifier {
@@ -912,7 +920,7 @@ class _DashboardPageState extends State<DashboardPage> {
     future = load();
   }
 
-  Future<dynamic> load() => context.app.get('/dashboard/summary');
+  Future<dynamic> load() => context.appRead.get('/dashboard/summary');
 
   void reload() => setState(() => future = load());
 
@@ -1134,7 +1142,7 @@ class _CalendarPageState extends State<CalendarPage> {
     future = load();
   }
 
-  Future<dynamic> load() => context.app.get('/schedules', query: {
+  Future<dynamic> load() => context.appRead.get('/schedules', query: {
         'year': month.year.toString(),
         'month': month.month.toString(),
       });
@@ -1408,7 +1416,7 @@ class _ScheduleSheetState extends State<ScheduleSheet> {
   @override
   void initState() {
     super.initState();
-    mealsFuture = context.app.get('/meals', query: {'limit': '200'});
+    mealsFuture = context.appRead.get('/meals', query: {'limit': '200'});
   }
 
   Future<void> save() async {
@@ -1549,7 +1557,7 @@ class _MealListPageState extends State<MealListPage> {
     super.dispose();
   }
 
-  Future<dynamic> load() => context.app.get('/meals', query: {
+  Future<dynamic> load() => context.appRead.get('/meals', query: {
         'search': searchController.text,
         'limit': '200',
       });
@@ -1805,11 +1813,11 @@ class _MealDetailPageState extends State<MealDetailPage> {
   @override
   void initState() {
     super.initState();
-    future = context.app.get('/meals/${widget.mealId}');
+    future = context.appRead.get('/meals/${widget.mealId}');
   }
 
   void reload() =>
-      setState(() => future = context.app.get('/meals/${widget.mealId}'));
+      setState(() => future = context.appRead.get('/meals/${widget.mealId}'));
 
   @override
   Widget build(BuildContext context) {
@@ -2068,7 +2076,7 @@ class _MealEditPageState extends State<MealEditPage> {
     setState(() => initialLoading = true);
     try {
       final data =
-          asMap(payload(await context.app.get('/meals/${widget.mealId}')));
+          asMap(payload(await context.appRead.get('/meals/${widget.mealId}')));
       nameController.text = textOf(data['name']);
       descriptionController.text = textOf(data['description']);
       categoryController.text = textOf(data['category']);
@@ -2328,7 +2336,7 @@ class _MemoriesPageState extends State<MemoriesPage> {
   }
 
   Future<dynamic> load() =>
-      context.app.get('/memories', query: {'month': monthString(month)});
+      context.appRead.get('/memories', query: {'month': monthString(month)});
   void reload() => setState(() => future = load());
 
   void changeMonth(int delta) {
@@ -2516,7 +2524,7 @@ class _MemoryEditPageState extends State<MemoryEditPage> {
     dateController = TextEditingController(text: dateString(DateTime.now()));
     titleController = TextEditingController(text: widget.initialTitle);
     selectedMealIds.addAll(widget.initialMealIds);
-    mealsFuture = context.app.get('/meals', query: {'limit': '200'});
+    mealsFuture = context.appRead.get('/meals', query: {'limit': '200'});
   }
 
   @override
@@ -2701,7 +2709,7 @@ class _WeeklyPlanPageState extends State<WeeklyPlanPage> {
     future = load();
   }
 
-  Future<dynamic> load() => context.app
+  Future<dynamic> load() => context.appRead
       .get('/weekly-plans', query: {'weekStart': dateString(weekStart)});
   void reload() => setState(() => future = load());
 
@@ -2867,7 +2875,7 @@ class _ShoppingListPageState extends State<ShoppingListPage> {
     future = load();
   }
 
-  Future<dynamic> load() => context.app
+  Future<dynamic> load() => context.appRead
       .get('/shopping-list', query: {'weekStart': dateString(weekStart)});
   void reload() => setState(() => future = load());
 
@@ -3073,7 +3081,7 @@ class _WishlistPageState extends State<WishlistPage> {
   }
 
   Future<dynamic> load() =>
-      context.app.get('/wishlist', query: {'status': 'open'});
+      context.appRead.get('/wishlist', query: {'status': 'open'});
   void reload() => setState(() => future = load());
 
   Future<void> addWish() async {
@@ -3221,7 +3229,7 @@ class _PhotoAlbumPageState extends State<PhotoAlbumPage> {
   }
 
   Future<dynamic> load() =>
-      context.app.get('/photo-album', query: {'month': monthString(month)});
+      context.appRead.get('/photo-album', query: {'month': monthString(month)});
   void reload() => setState(() => future = load());
 
   @override
@@ -3304,7 +3312,7 @@ class _AnniversaryPageState extends State<AnniversaryPage> {
   }
 
   Future<List<dynamic>> load() async {
-    final list = await context.app.get('/anniversaries');
+    final list = await context.appRead.get('/anniversaries');
     return asList(payload(list is Map ? list['data'] ?? list : list));
   }
 
@@ -3396,16 +3404,16 @@ class _SettingsPageState extends State<SettingsPage> {
   @override
   void initState() {
     super.initState();
-    defaultStatusFuture = context.app.get('/default-meals/status');
+    defaultStatusFuture = context.appRead.get('/default-meals/status');
     issuesFuture =
-        context.app.get('/meal-image-issues', query: {'status': 'open'});
+        context.appRead.get('/meal-image-issues', query: {'status': 'open'});
   }
 
   void reload() {
     setState(() {
-      defaultStatusFuture = context.app.get('/default-meals/status');
+      defaultStatusFuture = context.appRead.get('/default-meals/status');
       issuesFuture =
-          context.app.get('/meal-image-issues', query: {'status': 'open'});
+          context.appRead.get('/meal-image-issues', query: {'status': 'open'});
     });
   }
 
