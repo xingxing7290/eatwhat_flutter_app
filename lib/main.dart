@@ -13,6 +13,18 @@ const String kApiBase = 'http://113.44.50.108:3002/api';
 const String kAssetBase = 'http://113.44.50.108:3002';
 const Duration kRequestTimeout = Duration(seconds: 15);
 
+const kCream = Color(0xFFFDF7EF);
+const kOat = Color(0xFFF5EBE6);
+const kPaper = Color(0xFFFFFCF7);
+const kPeach = Color(0xFFFFB4A2);
+const kCoral = Color(0xFFE87867);
+const kCaramel = Color(0xFFE09F67);
+const kCoffee = Color(0xFF4A3E3D);
+const kCocoa = Color(0xFF7D6257);
+const kSage = Color(0xFF8AA36B);
+const kHoney = Color(0xFFF3C96B);
+const kLine = Color(0xFFEAD6C8);
+
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
   runApp(const EatwhatRoot());
@@ -73,91 +85,167 @@ class EatwhatApp extends StatelessWidget {
 }
 
 ThemeData cozyTheme() {
-  const background = Color(0xFFFDFBF7);
-  const surface = Color(0xFFFFFBF6);
-  const peach = Color(0xFFFFB4A2);
-  const caramel = Color(0xFFE09F67);
-  const coffee = Color(0xFF4A3E3D);
-
   final base = ThemeData(
     useMaterial3: true,
     colorScheme: ColorScheme.fromSeed(
-      seedColor: peach,
+      seedColor: kPeach,
       brightness: Brightness.light,
-      primary: caramel,
-      secondary: peach,
-      surface: surface,
-      onSurface: coffee,
+      primary: kCaramel,
+      secondary: kPeach,
+      tertiary: kSage,
+      surface: kPaper,
+      onSurface: kCoffee,
+      error: kCoral,
     ),
-    scaffoldBackgroundColor: background,
+    scaffoldBackgroundColor: kCream,
     fontFamilyFallback: const [
       'Microsoft YaHei',
       'PingFang SC',
       'Noto Sans CJK SC'
     ],
+    visualDensity: VisualDensity.standard,
   );
   return base.copyWith(
+    textTheme: base.textTheme.apply(
+      bodyColor: kCoffee,
+      displayColor: kCoffee,
+      decorationColor: kCoffee,
+    ),
     appBarTheme: const AppBarTheme(
-      backgroundColor: background,
-      foregroundColor: coffee,
+      backgroundColor: kCream,
+      foregroundColor: kCoffee,
       elevation: 0,
       centerTitle: false,
       titleTextStyle: TextStyle(
-        color: coffee,
+        color: kCoffee,
         fontSize: 20,
         fontWeight: FontWeight.w800,
       ),
     ),
     cardTheme: CardTheme(
-      color: surface,
-      elevation: 1,
-      shadowColor: caramel.withValues(alpha: 0.16),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+      color: kPaper,
+      elevation: 0,
+      shadowColor: kCaramel.withValues(alpha: 0.18),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(26)),
     ),
     inputDecorationTheme: InputDecorationTheme(
       filled: true,
-      fillColor: Colors.white,
+      fillColor: Colors.white.withValues(alpha: 0.92),
+      labelStyle: const TextStyle(color: kCocoa, fontWeight: FontWeight.w700),
+      hintStyle: const TextStyle(color: Color(0xFFBFA99C)),
+      prefixIconColor: kCaramel,
+      suffixIconColor: kCocoa,
       border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(18),
-        borderSide: const BorderSide(color: Color(0xFFF2D8C8)),
+        borderRadius: BorderRadius.circular(22),
+        borderSide: const BorderSide(color: kLine),
       ),
       enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(18),
-        borderSide: const BorderSide(color: Color(0xFFF2D8C8)),
+        borderRadius: BorderRadius.circular(22),
+        borderSide: const BorderSide(color: kLine),
       ),
       focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(18),
-        borderSide: const BorderSide(color: caramel, width: 1.4),
+        borderRadius: BorderRadius.circular(22),
+        borderSide: const BorderSide(color: kCaramel, width: 1.6),
       ),
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
     ),
     filledButtonTheme: FilledButtonThemeData(
       style: FilledButton.styleFrom(
-        backgroundColor: caramel,
+        backgroundColor: kCoral,
         foregroundColor: Colors.white,
-        minimumSize: const Size(48, 48),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-        textStyle: const TextStyle(fontWeight: FontWeight.w700),
+        minimumSize: const Size(48, 50),
+        elevation: 0,
+        shadowColor: kCoral.withValues(alpha: 0.28),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
+        textStyle: const TextStyle(fontWeight: FontWeight.w900),
       ),
     ),
     outlinedButtonTheme: OutlinedButtonThemeData(
       style: OutlinedButton.styleFrom(
-        foregroundColor: coffee,
-        side: const BorderSide(color: Color(0xFFEED2BF)),
-        minimumSize: const Size(48, 48),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+        foregroundColor: kCoffee,
+        backgroundColor: Colors.white.withValues(alpha: 0.62),
+        side: const BorderSide(color: kLine),
+        minimumSize: const Size(48, 50),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
+        textStyle: const TextStyle(fontWeight: FontWeight.w800),
+      ),
+    ),
+    floatingActionButtonTheme: const FloatingActionButtonThemeData(
+      backgroundColor: kCoral,
+      foregroundColor: Colors.white,
+      elevation: 3,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.all(Radius.circular(22)),
       ),
     ),
     navigationBarTheme: NavigationBarThemeData(
-      backgroundColor: Colors.white.withValues(alpha: 0.96),
-      indicatorColor: peach.withValues(alpha: 0.28),
+      backgroundColor: Colors.transparent,
+      indicatorColor: kPeach.withValues(alpha: 0.34),
+      iconTheme: WidgetStateProperty.resolveWith(
+        (states) => IconThemeData(
+          color: states.contains(WidgetState.selected) ? kCoral : kCocoa,
+        ),
+      ),
       labelTextStyle: WidgetStateProperty.all(
-        const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+        const TextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.w900,
+          color: kCoffee,
+        ),
+      ),
+    ),
+    segmentedButtonTheme: SegmentedButtonThemeData(
+      style: ButtonStyle(
+        backgroundColor: WidgetStateProperty.resolveWith(
+          (states) => states.contains(WidgetState.selected)
+              ? kPeach.withValues(alpha: 0.34)
+              : Colors.white.withValues(alpha: 0.72),
+        ),
+        foregroundColor: WidgetStateProperty.all(kCoffee),
+        side: WidgetStateProperty.all(const BorderSide(color: kLine)),
+        shape: WidgetStateProperty.all(
+          RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+        ),
+      ),
+    ),
+    checkboxTheme: CheckboxThemeData(
+      fillColor: WidgetStateProperty.resolveWith(
+        (states) => states.contains(WidgetState.selected) ? kCoral : kPaper,
+      ),
+      checkColor: WidgetStateProperty.all(Colors.white),
+      side: const BorderSide(color: kLine, width: 1.2),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+    ),
+    sliderTheme: SliderThemeData(
+      activeTrackColor: kCoral,
+      inactiveTrackColor: kPeach.withValues(alpha: 0.25),
+      thumbColor: kCaramel,
+      overlayColor: kPeach.withValues(alpha: 0.18),
+    ),
+    progressIndicatorTheme: const ProgressIndicatorThemeData(color: kCoral),
+    dialogTheme: DialogTheme(
+      backgroundColor: kPaper,
+      surfaceTintColor: Colors.transparent,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+      titleTextStyle: const TextStyle(
+        color: kCoffee,
+        fontSize: 20,
+        fontWeight: FontWeight.w900,
+      ),
+    ),
+    bottomSheetTheme: const BottomSheetThemeData(
+      backgroundColor: kPaper,
+      surfaceTintColor: Colors.transparent,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
       ),
     ),
     snackBarTheme: SnackBarThemeData(
       behavior: SnackBarBehavior.floating,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      backgroundColor: kCoffee,
+      contentTextStyle:
+          const TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
     ),
   );
 }
@@ -205,12 +293,19 @@ class AppState extends ChangeNotifier {
 
   bool get isAuthed => token != null && token!.isNotEmpty;
   String get userId => textOf(user?['id'] ?? user?['_id'] ?? user?['uid']);
-  String get displayName => textOf(user?['displayName']).isNotEmpty
-      ? textOf(user?['displayName'])
-      : textOf(user?['username']);
-  String get householdName => textOf(household?['name']).isNotEmpty
-      ? textOf(household?['name'])
-      : '我的小家';
+  String get displayName {
+    final name = friendlyText(user?['displayName']);
+    if (name.isNotEmpty) {
+      return name;
+    }
+    final username = friendlyText(user?['username']);
+    return username.isEmpty ? '你' : username;
+  }
+
+  String get householdName {
+    final name = friendlyText(household?['name']);
+    return name.isEmpty ? '我们的小家' : name;
+  }
 
   Future<void> init() async {
     final prefs = await SharedPreferences.getInstance();
@@ -540,6 +635,34 @@ List<dynamic> asList(dynamic value) {
 
 String textOf(dynamic value) => value == null ? '' : value.toString();
 
+String friendlyText(dynamic value) {
+  final text = textOf(value).trim();
+  if (text.isEmpty || looksBrokenText(text)) {
+    return '';
+  }
+  return text;
+}
+
+String difficultyLabel(dynamic value) {
+  final text = friendlyText(value).toLowerCase();
+  return switch (text) {
+    'easy' => '简单',
+    'medium' => '中等',
+    'hard' => '较难',
+    '' => '家常',
+    _ => friendlyText(value),
+  };
+}
+
+bool looksBrokenText(String value) {
+  final compact = value.replaceAll(RegExp(r'\s+'), '');
+  if (compact.isEmpty) {
+    return true;
+  }
+  final questionMarks = RegExp(r'[\?？]').allMatches(compact).length;
+  return questionMarks >= 3 && questionMarks / compact.length > 0.45;
+}
+
 String idOf(dynamic value) {
   final map = asMap(value);
   return textOf(map['_id'] ?? map['id']);
@@ -590,13 +713,16 @@ class SplashPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return const Scaffold(
-      body: Center(
+      body: AppBackdrop(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.restaurant_menu, size: 54, color: Color(0xFFE09F67)),
+            BrandMark(size: 82),
             SizedBox(height: 16),
-            Text('正在准备小家的饭桌...'),
+            Text(
+              '正在准备小家的饭桌...',
+              style: TextStyle(fontWeight: FontWeight.w900, color: kCoffee),
+            ),
             SizedBox(height: 16),
             CircularProgressIndicator(),
           ],
@@ -669,82 +795,98 @@ class _LoginPageState extends State<LoginPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       body: SafeArea(
-        child: Center(
+        child: AppBackdrop(
+          alignment: Alignment.center,
           child: SingleChildScrollView(
-            padding: const EdgeInsets.all(24),
+            padding: const EdgeInsets.all(22),
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 460),
-              child: SoftCard(
-                padding: const EdgeInsets.all(28),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    const Icon(Icons.favorite,
-                        color: Color(0xFFFF8D7E), size: 54),
-                    const SizedBox(height: 14),
-                    Text(
-                      '安排吃啥',
-                      textAlign: TextAlign.center,
-                      style:
-                          Theme.of(context).textTheme.headlineMedium?.copyWith(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const BrandMark(size: 92),
+                  const SizedBox(height: 16),
+                  SoftCard(
+                    padding: const EdgeInsets.fromLTRB(24, 26, 24, 22),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Text(
+                          '安排吃啥',
+                          textAlign: TextAlign.center,
+                          style: Theme.of(context)
+                              .textTheme
+                              .headlineMedium
+                              ?.copyWith(
                                 fontWeight: FontWeight.w900,
-                                color: const Color(0xFF4A3E3D),
+                                color: kCoffee,
                               ),
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          '把两个人的一日三餐，记成一本温暖手账',
+                          textAlign: TextAlign.center,
+                          style:
+                              Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                    color: kCocoa,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                        ),
+                        const SizedBox(height: 22),
+                        const PartnerPresencePill(
+                          text: 'TA 正在等你一起决定今晚吃什么',
+                        ),
+                        const SizedBox(height: 22),
+                        TextField(
+                          controller: usernameController,
+                          textInputAction: TextInputAction.next,
+                          decoration: const InputDecoration(
+                            labelText: '账号',
+                            prefixIcon: Icon(Icons.person_outline),
+                          ),
+                        ),
+                        const SizedBox(height: 14),
+                        TextField(
+                          controller: passwordController,
+                          obscureText: true,
+                          onSubmitted: (_) => submit(),
+                          decoration: const InputDecoration(
+                            labelText: '密码',
+                            prefixIcon: Icon(Icons.lock_outline),
+                          ),
+                        ),
+                        CheckboxListTile(
+                          value: remember,
+                          contentPadding: EdgeInsets.zero,
+                          controlAffinity: ListTileControlAffinity.leading,
+                          title: const Text('记住密码'),
+                          onChanged: (value) =>
+                              setState(() => remember = value ?? false),
+                        ),
+                        const SizedBox(height: 10),
+                        FilledButton.icon(
+                          onPressed: submitting ? null : submit,
+                          icon: submitting
+                              ? const SizedBox.square(
+                                  dimension: 18,
+                                  child:
+                                      CircularProgressIndicator(strokeWidth: 2),
+                                )
+                              : const Icon(Icons.login),
+                          label: const Text('登录'),
+                        ),
+                        const SizedBox(height: 10),
+                        OutlinedButton.icon(
+                          onPressed: submitting
+                              ? null
+                              : () => pushPage(context, const RegisterPage()),
+                          icon: const Icon(Icons.person_add_alt_1),
+                          label: const Text('申请账号 / 加入小家'),
+                        ),
+                      ],
                     ),
-                    const SizedBox(height: 6),
-                    Text(
-                      '情侣夫妻的小家饭桌记录',
-                      textAlign: TextAlign.center,
-                      style: Theme.of(context).textTheme.bodyMedium,
-                    ),
-                    const SizedBox(height: 28),
-                    TextField(
-                      controller: usernameController,
-                      textInputAction: TextInputAction.next,
-                      decoration: const InputDecoration(
-                        labelText: '账号',
-                        prefixIcon: Icon(Icons.person_outline),
-                      ),
-                    ),
-                    const SizedBox(height: 14),
-                    TextField(
-                      controller: passwordController,
-                      obscureText: true,
-                      onSubmitted: (_) => submit(),
-                      decoration: const InputDecoration(
-                        labelText: '密码',
-                        prefixIcon: Icon(Icons.lock_outline),
-                      ),
-                    ),
-                    CheckboxListTile(
-                      value: remember,
-                      contentPadding: EdgeInsets.zero,
-                      controlAffinity: ListTileControlAffinity.leading,
-                      title: const Text('记住密码'),
-                      onChanged: (value) =>
-                          setState(() => remember = value ?? false),
-                    ),
-                    const SizedBox(height: 10),
-                    FilledButton.icon(
-                      onPressed: submitting ? null : submit,
-                      icon: submitting
-                          ? const SizedBox.square(
-                              dimension: 18,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
-                          : const Icon(Icons.login),
-                      label: const Text('登录'),
-                    ),
-                    const SizedBox(height: 10),
-                    OutlinedButton.icon(
-                      onPressed: submitting
-                          ? null
-                          : () => pushPage(context, const RegisterPage()),
-                      icon: const Icon(Icons.person_add_alt_1),
-                      label: const Text('申请账号 / 加入小家'),
-                    ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ),
           ),
@@ -813,53 +955,63 @@ class _RegisterPageState extends State<RegisterPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('申请账号')),
-      body: ListView(
-        padding: const EdgeInsets.all(20),
-        children: [
-          SoftCard(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                const Text(
-                  '没有邀请码会创建新的小家；填写 TA 的邀请码会加入同一个小家。',
-                  style: TextStyle(fontWeight: FontWeight.w700),
-                ),
-                const SizedBox(height: 18),
-                TextField(
-                  controller: usernameController,
-                  decoration: const InputDecoration(labelText: '账号'),
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: displayNameController,
-                  decoration: const InputDecoration(labelText: '昵称'),
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: passwordController,
-                  obscureText: true,
-                  decoration: const InputDecoration(labelText: '密码'),
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: householdNameController,
-                  decoration: const InputDecoration(labelText: '小家名称'),
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: inviteCodeController,
-                  decoration: const InputDecoration(labelText: '邀请码，可不填'),
-                ),
-                const SizedBox(height: 18),
-                FilledButton.icon(
-                  onPressed: submitting ? null : submit,
-                  icon: const Icon(Icons.favorite_border),
-                  label: Text(submitting ? '提交中...' : '创建 / 加入'),
-                ),
-              ],
+      body: AppBackdrop(
+        alignment: Alignment.topCenter,
+        child: ListView(
+          padding: const EdgeInsets.all(20),
+          children: [
+            SoftCard(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  const SectionTitle(
+                      icon: Icons.favorite_border, title: '加入两个人的小家'),
+                  const SizedBox(height: 12),
+                  const Text(
+                    '没有邀请码会创建新的小家；填写 TA 的邀请码会加入同一个小家。',
+                    style: TextStyle(
+                      color: kCocoa,
+                      fontWeight: FontWeight.w800,
+                      height: 1.45,
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+                  TextField(
+                    controller: usernameController,
+                    decoration: const InputDecoration(labelText: '账号'),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: displayNameController,
+                    decoration: const InputDecoration(labelText: '昵称'),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: passwordController,
+                    obscureText: true,
+                    decoration: const InputDecoration(labelText: '密码'),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: householdNameController,
+                    decoration: const InputDecoration(labelText: '小家名称'),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: inviteCodeController,
+                    decoration: const InputDecoration(labelText: '邀请码，可不填'),
+                  ),
+                  const SizedBox(height: 18),
+                  FilledButton.icon(
+                    onPressed: submitting ? null : submit,
+                    icon: const Icon(Icons.favorite_border),
+                    label: Text(submitting ? '提交中...' : '创建 / 加入'),
+                  ),
+                ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -889,50 +1041,126 @@ class _HomeShellState extends State<HomeShell> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(titles[index]),
+        title: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const BrandMark(size: 36, compact: true),
+            const SizedBox(width: 10),
+            Text(titles[index]),
+          ],
+        ),
         actions: [
           Padding(
             padding: const EdgeInsets.only(right: 14),
             child: Center(
-              child: Text(
-                context.app.householdName,
-                style: const TextStyle(fontWeight: FontWeight.w800),
+              child: Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.72),
+                  borderRadius: BorderRadius.circular(999),
+                  border: Border.all(color: kLine),
+                ),
+                child: Text(
+                  context.app.householdName,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w900,
+                    color: kCoffee,
+                    fontSize: 12,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
             ),
           ),
         ],
       ),
-      body: AnimatedSwitcher(
-        duration: const Duration(milliseconds: 260),
-        child: pages[index],
+      body: AppBackdrop(
+        alignment: Alignment.topCenter,
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 2, 16, 8),
+              child:
+                  PartnerPresencePill(text: partnerStatusText(titles[index])),
+            ),
+            Expanded(
+              child: AnimatedSwitcher(
+                duration: const Duration(milliseconds: 320),
+                switchInCurve: Curves.easeOutCubic,
+                switchOutCurve: Curves.easeInCubic,
+                child: pages[index],
+              ),
+            ),
+          ],
+        ),
       ),
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: index,
-        onDestinationSelected: (value) => setState(() => index = value),
-        destinations: const [
-          NavigationDestination(
-              icon: Icon(Icons.home_outlined),
-              selectedIcon: Icon(Icons.home),
-              label: '首页'),
-          NavigationDestination(
-              icon: Icon(Icons.calendar_month_outlined),
-              selectedIcon: Icon(Icons.calendar_month),
-              label: '日历'),
-          NavigationDestination(
-              icon: Icon(Icons.restaurant_menu),
-              selectedIcon: Icon(Icons.restaurant),
-              label: '菜谱'),
-          NavigationDestination(
-              icon: Icon(Icons.photo_album_outlined),
-              selectedIcon: Icon(Icons.photo_album),
-              label: '回忆'),
-          NavigationDestination(
-              icon: Icon(Icons.settings_outlined),
-              selectedIcon: Icon(Icons.settings),
-              label: '设置'),
-        ],
+      bottomNavigationBar: ColoredBox(
+        color: kCream,
+        child: SafeArea(
+          top: false,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(12, 0, 12, 10),
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.92),
+                borderRadius: BorderRadius.circular(30),
+                border: Border.all(color: kLine),
+                boxShadow: [
+                  BoxShadow(
+                    color: kCaramel.withValues(alpha: 0.15),
+                    blurRadius: 24,
+                    offset: const Offset(0, 10),
+                  ),
+                ],
+              ),
+              child: NavigationBar(
+                selectedIndex: index,
+                height: 68,
+                onDestinationSelected: (value) => setState(() => index = value),
+                destinations: const [
+                  NavigationDestination(
+                      icon: Icon(Icons.home_outlined),
+                      selectedIcon: Icon(Icons.home),
+                      label: '首页'),
+                  NavigationDestination(
+                      icon: Icon(Icons.calendar_month_outlined),
+                      selectedIcon: Icon(Icons.calendar_month),
+                      label: '日历'),
+                  NavigationDestination(
+                      icon: Icon(Icons.restaurant_menu),
+                      selectedIcon: Icon(Icons.restaurant),
+                      label: '菜谱'),
+                  NavigationDestination(
+                      icon: Icon(Icons.photo_album_outlined),
+                      selectedIcon: Icon(Icons.photo_album),
+                      label: '回忆'),
+                  NavigationDestination(
+                      icon: Icon(Icons.settings_outlined),
+                      selectedIcon: Icon(Icons.settings),
+                      label: '设置'),
+                ],
+              ),
+            ),
+          ),
+        ),
       ),
     );
+  }
+}
+
+String partnerStatusText(String title) {
+  switch (title) {
+    case '菜谱':
+      return 'TA 正在翻你们的私房菜谱，遇到想吃的就投喂给 TA';
+    case '双人日历':
+      return '今天的饭桌计划可以像贴便签一样慢慢安排';
+    case '回忆':
+      return '饭后照片和小心情，会一起留在你们的小家时间线';
+    case '设置':
+      return '整理默认菜品、图片和小家资料，让两个人都看得舒服';
+    default:
+      return 'TA 正在看小家饭桌，今晚可以安排一道喜欢的菜';
   }
 }
 
@@ -974,27 +1202,60 @@ class _DashboardPageState extends State<DashboardPage> {
           }
           final data = asMap(payload(snapshot.data));
           return ListView(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 120),
             children: [
               SoftCard(
                 gradient: const LinearGradient(
-                  colors: [Color(0xFFFFF5EE), Color(0xFFFFE1D8)],
+                  colors: [Color(0xFFFFF2EA), Color(0xFFFFDCCA)],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      '${context.app.displayName}，今天也好好吃饭',
-                      style: Theme.of(context)
-                          .textTheme
-                          .titleLarge
-                          ?.copyWith(fontWeight: FontWeight.w900),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const BrandMark(size: 68, compact: true),
+                        const SizedBox(width: 14),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                '${context.app.displayName}，今天也好好吃饭',
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .titleLarge
+                                    ?.copyWith(
+                                      fontWeight: FontWeight.w900,
+                                      color: kCoffee,
+                                    ),
+                              ),
+                              const SizedBox(height: 6),
+                              const Text(
+                                'TA 想吃、周计划、饭后回忆都会汇总在这里。',
+                                style: TextStyle(
+                                  color: kCocoa,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
                     ),
-                    const SizedBox(height: 8),
-                    Text('TA 想吃、周计划、饭后回忆都会汇总在这里。'),
                     const SizedBox(height: 16),
+                    const Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        TapedLabel(text: '两人共用', icon: Icons.people_alt),
+                        TapedLabel(text: '本周排餐', icon: Icons.event_note),
+                        TapedLabel(text: '饭后回忆', icon: Icons.photo_camera),
+                      ],
+                    ),
+                    const SizedBox(height: 18),
                     Wrap(
                       spacing: 10,
                       runSpacing: 10,
@@ -1030,7 +1291,7 @@ class _DashboardPageState extends State<DashboardPage> {
                   DashboardTile(
                     icon: Icons.today,
                     label: '今天安排',
-                    value: countText(data['today']),
+                    value: todayArrangementText(data['today']),
                     color: const Color(0xFFFFB4A2),
                   ),
                   DashboardTile(
@@ -1115,6 +1376,28 @@ String countText(dynamic value) {
   return textOf(value);
 }
 
+String todayArrangementText(dynamic value) {
+  final raw = textOf(value).trim();
+  if (RegExp(r'^\d{4}-\d{2}-\d{2}').hasMatch(raw)) {
+    return '待安排';
+  }
+  final map = asMap(value);
+  if (map.isEmpty) {
+    return countText(value);
+  }
+  var count = 0;
+  for (final type in ['breakfast', 'lunch', 'dinner']) {
+    if (mealNames(planMealValue(map, type)).isNotEmpty) {
+      count++;
+    }
+  }
+  if (count > 0) {
+    return '$count 餐';
+  }
+  final direct = countText(map['count'] ?? map['total']);
+  return direct == '0' ? '待安排' : direct;
+}
+
 class DashboardTile extends StatelessWidget {
   const DashboardTile({
     super.key,
@@ -1140,18 +1423,29 @@ class DashboardTile extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            CircleAvatar(
-              backgroundColor: color.withValues(alpha: 0.16),
-              foregroundColor: color,
-              child: Icon(icon),
+            Container(
+              width: 42,
+              height: 42,
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: 0.17),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: Colors.white.withValues(alpha: 0.9)),
+              ),
+              child: Icon(icon, color: color),
             ),
             const SizedBox(height: 14),
             Text(value,
                 style: Theme.of(context)
                     .textTheme
                     .headlineSmall
-                    ?.copyWith(fontWeight: FontWeight.w900)),
-            Text(label, style: Theme.of(context).textTheme.bodySmall),
+                    ?.copyWith(fontWeight: FontWeight.w900, color: kCoffee)),
+            Text(
+              label,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: kCocoa,
+                    fontWeight: FontWeight.w800,
+                  ),
+            ),
           ],
         ),
       ),
@@ -1209,7 +1503,7 @@ class _CalendarPageState extends State<CalendarPage> {
         return RefreshIndicator(
           onRefresh: () async => reload(),
           child: ListView(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 120),
             children: [
               SoftCard(
                 child: Row(
@@ -1240,7 +1534,7 @@ class _CalendarPageState extends State<CalendarPage> {
                 gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                   crossAxisCount:
                       MediaQuery.sizeOf(context).width > 720 ? 4 : 2,
-                  mainAxisExtent: 190,
+                  mainAxisExtent: 232,
                   crossAxisSpacing: 12,
                   mainAxisSpacing: 12,
                 ),
@@ -1323,25 +1617,37 @@ class DayCard extends StatelessWidget {
         }
       },
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 260),
-        padding: const EdgeInsets.all(14),
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeOutCubic,
+        padding: const EdgeInsets.fromLTRB(13, 9, 13, 11),
         decoration: BoxDecoration(
-          color: today ? const Color(0xFFFFF0EA) : Colors.white,
-          borderRadius: BorderRadius.circular(24),
+          color: today ? const Color(0xFFFFF1EA) : kPaper,
+          borderRadius: BorderRadius.circular(28),
           border: Border.all(
-              color: today ? const Color(0xFFFF8D7E) : const Color(0xFFF1DCCF),
-              width: today ? 2 : 1),
+              color: today ? kCoral : Colors.white.withValues(alpha: 0.9),
+              width: today ? 1.8 : 1),
           boxShadow: [
             BoxShadow(
-              color: const Color(0xFFE09F67).withValues(alpha: 0.10),
-              blurRadius: 18,
-              offset: const Offset(0, 8),
+              color: kCaramel.withValues(alpha: today ? 0.20 : 0.12),
+              blurRadius: today ? 24 : 18,
+              offset: const Offset(0, 9),
             ),
           ],
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            Center(
+              child: Container(
+                width: 48,
+                height: 10,
+                decoration: BoxDecoration(
+                  color: (today ? kCoral : kCaramel).withValues(alpha: 0.24),
+                  borderRadius: BorderRadius.circular(999),
+                ),
+              ),
+            ),
+            const SizedBox(height: 7),
             Row(
               children: [
                 Text(
@@ -1349,23 +1655,39 @@ class DayCard extends StatelessWidget {
                   style: Theme.of(context)
                       .textTheme
                       .titleLarge
-                      ?.copyWith(fontWeight: FontWeight.w900),
+                      ?.copyWith(fontWeight: FontWeight.w900, color: kCoffee),
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  weekdayLabel(date.weekday),
+                  style: const TextStyle(
+                    color: kCocoa,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 12,
+                  ),
                 ),
                 const Spacer(),
                 if (today)
-                  const Icon(Icons.favorite,
-                      color: Color(0xFFFF8D7E), size: 18),
+                  Container(
+                    width: 28,
+                    height: 28,
+                    decoration: BoxDecoration(
+                      color: kPeach.withValues(alpha: 0.38),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(Icons.favorite, color: kCoral, size: 16),
+                  ),
               ],
             ),
-            const SizedBox(height: 10),
+            const SizedBox(height: 8),
             MealBadges(title: '早', value: planMealValue(schedule, 'breakfast')),
             MealBadges(title: '午', value: planMealValue(schedule, 'lunch')),
             MealBadges(title: '晚', value: planMealValue(schedule, 'dinner')),
             const Spacer(),
             const Align(
               alignment: Alignment.bottomRight,
-              child: Icon(Icons.edit_calendar_outlined,
-                  size: 18, color: Color(0xFFE09F67)),
+              child:
+                  Icon(Icons.edit_calendar_outlined, size: 18, color: kCaramel),
             ),
           ],
         ),
@@ -1385,31 +1707,64 @@ class MealBadges extends StatelessWidget {
     final names = mealNames(value);
     return Padding(
       padding: const EdgeInsets.only(bottom: 6),
-      child: Row(
-        children: [
-          CircleAvatar(
-            radius: 11,
-            backgroundColor: const Color(0xFFFFE1D8),
-            child: Text(title,
-                style:
-                    const TextStyle(fontSize: 11, fontWeight: FontWeight.w900)),
-          ),
-          const SizedBox(width: 6),
-          Expanded(
-            child: Text(
-              names.isEmpty ? '还没安排' : names.take(2).join('、'),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                fontSize: 12,
-                color: names.isEmpty ? Colors.grey : const Color(0xFF4A3E3D),
-                fontWeight: names.isEmpty ? FontWeight.w500 : FontWeight.w800,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+        decoration: BoxDecoration(
+          color: names.isEmpty
+              ? Colors.white.withValues(alpha: 0.56)
+              : kPeach.withValues(alpha: 0.18),
+          borderRadius: BorderRadius.circular(999),
+          border: Border.all(color: kLine.withValues(alpha: 0.76)),
+        ),
+        child: Row(
+          children: [
+            Icon(
+              mealIcon(title),
+              size: 14,
+              color: names.isEmpty ? const Color(0xFFBCA79B) : kCaramel,
+            ),
+            const SizedBox(width: 5),
+            Text(
+              title,
+              style: const TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w900,
+                color: kCocoa,
               ),
             ),
-          ),
-        ],
+            const SizedBox(width: 5),
+            Expanded(
+              child: Text(
+                names.isEmpty ? '待定' : names.take(2).join('、'),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 12,
+                  color: names.isEmpty ? const Color(0xFF9E8D83) : kCoffee,
+                  fontWeight: names.isEmpty ? FontWeight.w600 : FontWeight.w900,
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
+  }
+}
+
+String weekdayLabel(int weekday) {
+  const labels = ['周一', '周二', '周三', '周四', '周五', '周六', '周日'];
+  return labels[(weekday - 1).clamp(0, 6)];
+}
+
+IconData mealIcon(String title) {
+  switch (title) {
+    case '早':
+      return Icons.wb_twilight_outlined;
+    case '午':
+      return Icons.wb_sunny_outlined;
+    default:
+      return Icons.nights_stay_outlined;
   }
 }
 
@@ -1614,16 +1969,37 @@ class _MealListPageState extends State<MealListPage> {
         children: [
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-            child: TextField(
-              controller: searchController,
-              onSubmitted: (_) => reload(),
-              decoration: InputDecoration(
-                hintText: '搜索菜名、食材、做法...',
-                prefixIcon: const Icon(Icons.search),
-                suffixIcon: IconButton(
-                  icon: const Icon(Icons.tune),
-                  onPressed: reload,
-                ),
+            child: SoftCard(
+              padding: const EdgeInsets.fromLTRB(14, 14, 14, 12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const SectionTitle(icon: Icons.menu_book, title: '私房菜谱本'),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: searchController,
+                    onSubmitted: (_) => reload(),
+                    decoration: InputDecoration(
+                      hintText: '搜索菜名、食材、做法...',
+                      prefixIcon: const Icon(Icons.search),
+                      suffixIcon: IconButton(
+                        tooltip: '筛选 / 刷新',
+                        icon: const Icon(Icons.tune),
+                        onPressed: reload,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  const Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      TapedLabel(text: '默认菜谱', icon: Icons.bookmark),
+                      TapedLabel(text: '照片优先', icon: Icons.image),
+                      TapedLabel(text: '投喂给 TA', icon: Icons.favorite),
+                    ],
+                  ),
+                ],
               ),
             ),
           ),
@@ -1659,7 +2035,8 @@ class _MealListPageState extends State<MealListPage> {
                     gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                       crossAxisCount:
                           MediaQuery.sizeOf(context).width > 760 ? 3 : 1,
-                      mainAxisExtent: 360,
+                      mainAxisExtent:
+                          MediaQuery.sizeOf(context).width > 760 ? 390 : 520,
                       crossAxisSpacing: 14,
                       mainAxisSpacing: 14,
                     ),
@@ -1677,15 +2054,15 @@ class _MealListPageState extends State<MealListPage> {
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
+      floatingActionButton: FloatingActionButton(
+        tooltip: '新增菜谱',
         onPressed: () async {
           final changed = await pushPage(context, const MealEditPage());
           if (changed == true) {
             reload();
           }
         },
-        icon: const Icon(Icons.add),
-        label: const Text('新增菜谱'),
+        child: const Icon(Icons.add),
       ),
     );
   }
@@ -1733,86 +2110,146 @@ class MealCard extends StatelessWidget {
           onChanged();
         }
       },
-      child: SoftCard(
-        padding: EdgeInsets.zero,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            ClipRRect(
-              borderRadius:
-                  const BorderRadius.vertical(top: Radius.circular(28)),
-              child: AspectRatio(
-                aspectRatio: 16 / 9,
-                child: RemoteImage(url: image),
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+      child: HoverLift(
+        child: SoftCard(
+          padding: EdgeInsets.zero,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Stack(
                 children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          textOf(meal['name']).isEmpty
-                              ? '未命名菜品'
-                              : textOf(meal['name']),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: Theme.of(context)
-                              .textTheme
-                              .titleLarge
-                              ?.copyWith(fontWeight: FontWeight.w900),
+                  ClipRRect(
+                    borderRadius:
+                        const BorderRadius.vertical(top: Radius.circular(30)),
+                    child: SizedBox(
+                      height:
+                          MediaQuery.sizeOf(context).width > 760 ? 178 : 230,
+                      width: double.infinity,
+                      child: RemoteImage(url: image),
+                    ),
+                  ),
+                  Positioned(
+                    left: 14,
+                    top: 14,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 7),
+                      decoration: BoxDecoration(
+                        color: kCoffee.withValues(alpha: 0.70),
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                      child: Text(
+                        textOf(meal['isDefault']) == 'true' ||
+                                meal['default'] == true
+                            ? '默认菜谱'
+                            : '小家菜谱',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w900,
                         ),
                       ),
-                      IconButton(
-                        tooltip: '图片不对',
-                        icon: const Icon(Icons.report_gmailerrorred_outlined),
-                        onPressed: () => reportImageIssue(context, id),
-                      ),
-                      IconButton(
-                        tooltip: '编辑',
-                        icon: const Icon(Icons.edit_outlined),
-                        onPressed: () async {
-                          final changed =
-                              await pushPage(context, MealEditPage(mealId: id));
-                          if (changed == true) {
-                            onChanged();
-                          }
-                        },
-                      ),
-                    ],
+                    ),
                   ),
-                  const SizedBox(height: 6),
-                  Text(
-                    textOf(meal['description']).isEmpty
-                        ? '还没有写简介。'
-                        : textOf(meal['description']),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 12),
-                  Wrap(
-                    spacing: 6,
-                    runSpacing: 6,
-                    children: [
-                      InfoChip(
-                          '${textOf(meal['cookTime']).isEmpty ? '30' : textOf(meal['cookTime'])} 分钟'),
-                      InfoChip(textOf(meal['difficulty']).isEmpty
-                          ? '家常'
-                          : textOf(meal['difficulty'])),
-                      InfoChip(
-                          '${textOf(meal['rating']).isEmpty ? '0' : textOf(meal['rating'])} 分'),
-                      ...tags.map(InfoChip.new),
-                      ...health.map(
-                          (item) => InfoChip(item, icon: Icons.eco_outlined)),
-                    ],
+                  Positioned(
+                    top: 10,
+                    right: 20,
+                    child: Container(
+                      width: 46,
+                      height: 12,
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.76),
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                    ),
                   ),
                 ],
               ),
-            ),
-          ],
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            textOf(meal['name']).isEmpty
+                                ? '未命名菜品'
+                                : textOf(meal['name']),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: Theme.of(context)
+                                .textTheme
+                                .titleLarge
+                                ?.copyWith(
+                                  fontWeight: FontWeight.w900,
+                                  color: kCoffee,
+                                  height: 1.08,
+                                ),
+                          ),
+                        ),
+                        _RoundIconButton(
+                          tooltip: '图片不对',
+                          icon: Icons.report_gmailerrorred_outlined,
+                          color: kCocoa,
+                          onPressed: () => reportImageIssue(context, id),
+                        ),
+                        const SizedBox(width: 6),
+                        _RoundIconButton(
+                          tooltip: '编辑',
+                          icon: Icons.edit_outlined,
+                          color: kCoral,
+                          onPressed: () async {
+                            final changed = await pushPage(
+                                context, MealEditPage(mealId: id));
+                            if (changed == true) {
+                              onChanged();
+                            }
+                          },
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      textOf(meal['description']).isEmpty
+                          ? '还没有写简介。'
+                          : textOf(meal['description']),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: kCocoa,
+                        fontWeight: FontWeight.w600,
+                        height: 1.35,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Wrap(
+                      spacing: 6,
+                      runSpacing: 6,
+                      children: [
+                        InfoChip(
+                          '${textOf(meal['cookTime']).isEmpty ? '30' : textOf(meal['cookTime'])} 分钟',
+                          icon: Icons.timer_outlined,
+                        ),
+                        InfoChip(
+                          difficultyLabel(meal['difficulty']),
+                          icon: Icons.local_fire_department_outlined,
+                        ),
+                        InfoChip(
+                          '${textOf(meal['rating']).isEmpty ? '0' : textOf(meal['rating'])} 分',
+                          icon: Icons.star_rounded,
+                        ),
+                        ...tags.map(InfoChip.new),
+                        ...health.map(
+                            (item) => InfoChip(item, icon: Icons.eco_outlined)),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -1866,155 +2303,199 @@ class _MealDetailPageState extends State<MealDetailPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('菜谱详情')),
-      body: FutureBuilder<dynamic>(
-        future: future,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const LoadingList();
-          }
-          if (snapshot.hasError) {
-            return ErrorState(
-                message: errorText(snapshot.error!), onRetry: reload);
-          }
-          final meal = asMap(payload(snapshot.data));
-          final image =
-              imageUrl(meal['image'] ?? meal['coverImage'] ?? meal['imageUrl']);
-          final photos = asList(meal['photos'])
-              .map(imageUrl)
-              .where((item) => item.isNotEmpty)
-              .toList();
-          return ListView(
-            padding: const EdgeInsets.all(16),
-            children: [
-              ClipRRect(
-                borderRadius: BorderRadius.circular(28),
-                child: AspectRatio(
-                    aspectRatio: 16 / 10, child: RemoteImage(url: image)),
-              ),
-              const SizedBox(height: 16),
-              SoftCard(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      textOf(meal['name']),
-                      style: Theme.of(context)
-                          .textTheme
-                          .headlineSmall
-                          ?.copyWith(fontWeight: FontWeight.w900),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(textOf(meal['description']).isEmpty
-                        ? '还没有简介。'
-                        : textOf(meal['description'])),
-                    const SizedBox(height: 14),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
+      body: AppBackdrop(
+        alignment: Alignment.topCenter,
+        child: FutureBuilder<dynamic>(
+          future: future,
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const LoadingList();
+            }
+            if (snapshot.hasError) {
+              return ErrorState(
+                  message: errorText(snapshot.error!), onRetry: reload);
+            }
+            final meal = asMap(payload(snapshot.data));
+            final image = imageUrl(
+                meal['image'] ?? meal['coverImage'] ?? meal['imageUrl']);
+            final photos = asList(meal['photos'])
+                .map(imageUrl)
+                .where((item) => item.isNotEmpty)
+                .toList();
+            return ListView(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+              children: [
+                SoftCard(
+                  padding: EdgeInsets.zero,
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(30),
+                    child: Stack(
                       children: [
-                        InfoChip(
-                            '${textOf(meal['prepTime']).isEmpty ? '0' : textOf(meal['prepTime'])} 分钟准备'),
-                        InfoChip(
-                            '${textOf(meal['cookTime']).isEmpty ? '30' : textOf(meal['cookTime'])} 分钟烹饪'),
-                        InfoChip(textOf(meal['difficulty']).isEmpty
-                            ? '家常'
-                            : textOf(meal['difficulty'])),
-                        InfoChip(
-                            '${textOf(meal['rating']).isEmpty ? '0' : textOf(meal['rating'])} 分'),
-                        ...asList(meal['healthTags'])
-                            .map(textOf)
-                            .where((item) => item.isNotEmpty)
-                            .map((item) =>
-                                InfoChip(item, icon: Icons.eco_outlined)),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-                    Wrap(
-                      spacing: 10,
-                      runSpacing: 10,
-                      children: [
-                        FilledButton.icon(
-                          onPressed: () async {
-                            final changed = await pushPage(
-                              context,
-                              MemoryEditPage(
-                                initialMealIds: [widget.mealId],
-                                initialTitle: '做了 ${textOf(meal['name'])}',
+                        AspectRatio(
+                          aspectRatio: 16 / 11,
+                          child: RemoteImage(url: image),
+                        ),
+                        Positioned.fill(
+                          child: DecoratedBox(
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                colors: [
+                                  Colors.transparent,
+                                  kCoffee.withValues(alpha: 0.70),
+                                ],
+                                begin: Alignment.topCenter,
+                                end: Alignment.bottomCenter,
                               ),
-                            );
-                            if (changed == true && mounted) {
-                              showMessage(context, '已记录这顿饭');
-                            }
-                          },
-                          icon: const Icon(Icons.check_circle_outline),
-                          label: const Text('做过一次'),
+                            ),
+                          ),
                         ),
-                        OutlinedButton.icon(
-                          onPressed: () async {
-                            final changed = await pushPage(
-                                context, MealEditPage(mealId: widget.mealId));
-                            if (changed == true) {
-                              reload();
-                            }
-                          },
-                          icon: const Icon(Icons.edit_outlined),
-                          label: const Text('编辑'),
-                        ),
-                        OutlinedButton.icon(
-                          onPressed: () =>
-                              reportImageIssue(context, widget.mealId),
-                          icon: const Icon(Icons.report_outlined),
-                          label: const Text('图片不对'),
+                        Positioned(
+                          left: 16,
+                          right: 16,
+                          bottom: 16,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const TapedLabel(
+                                  text: '今晚可以投喂给 TA', icon: Icons.favorite),
+                              const SizedBox(height: 10),
+                              Text(
+                                textOf(meal['name']).isEmpty
+                                    ? '未命名菜品'
+                                    : textOf(meal['name']),
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .headlineSmall
+                                    ?.copyWith(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.w900,
+                                      height: 1.06,
+                                    ),
+                              ),
+                            ],
+                          ),
                         ),
                       ],
                     ),
-                  ],
+                  ),
                 ),
-              ),
-              const SizedBox(height: 12),
-              DetailSection(
-                  title: '主要食材',
-                  icon: Icons.local_dining,
-                  children: ingredientWidgets(meal['ingredients'])),
-              DetailSection(
-                  title: '做法步骤',
-                  icon: Icons.menu_book_outlined,
-                  children: stepWidgets(meal['steps'])),
-              if (textOf(meal['tips']).isNotEmpty)
-                DetailSection(
-                  title: '小技巧',
-                  icon: Icons.lightbulb_outline,
-                  children: [Text(textOf(meal['tips']))],
-                ),
-              if (photos.isNotEmpty)
+                const SizedBox(height: 16),
                 SoftCard(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const SectionTitle(
-                          icon: Icons.photo_library_outlined, title: '照片墙'),
-                      const SizedBox(height: 12),
-                      GridView.builder(
-                        shrinkWrap: true,
-                        physics: const NeverScrollableScrollPhysics(),
-                        gridDelegate:
-                            const SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: 3,
-                          crossAxisSpacing: 8,
-                          mainAxisSpacing: 8,
-                        ),
-                        itemCount: photos.length,
-                        itemBuilder: (context, index) => ClipRRect(
-                          borderRadius: BorderRadius.circular(16),
-                          child: RemoteImage(url: photos[index]),
-                        ),
+                      Text(textOf(meal['description']).isEmpty
+                          ? '还没有简介。'
+                          : textOf(meal['description'])),
+                      const SizedBox(height: 14),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
+                          InfoChip(
+                              '${textOf(meal['prepTime']).isEmpty ? '0' : textOf(meal['prepTime'])} 分钟准备'),
+                          InfoChip(
+                              '${textOf(meal['cookTime']).isEmpty ? '30' : textOf(meal['cookTime'])} 分钟烹饪'),
+                          InfoChip(difficultyLabel(meal['difficulty'])),
+                          InfoChip(
+                              '${textOf(meal['rating']).isEmpty ? '0' : textOf(meal['rating'])} 分'),
+                          ...asList(meal['healthTags'])
+                              .map(textOf)
+                              .where((item) => item.isNotEmpty)
+                              .map((item) =>
+                                  InfoChip(item, icon: Icons.eco_outlined)),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      Wrap(
+                        spacing: 10,
+                        runSpacing: 10,
+                        children: [
+                          FilledButton.icon(
+                            onPressed: () async {
+                              final changed = await pushPage(
+                                context,
+                                MemoryEditPage(
+                                  initialMealIds: [widget.mealId],
+                                  initialTitle: '做了 ${textOf(meal['name'])}',
+                                ),
+                              );
+                              if (changed == true && mounted) {
+                                showMessage(context, '已记录这顿饭');
+                              }
+                            },
+                            icon: const Icon(Icons.check_circle_outline),
+                            label: const Text('做过一次'),
+                          ),
+                          OutlinedButton.icon(
+                            onPressed: () async {
+                              final changed = await pushPage(
+                                  context, MealEditPage(mealId: widget.mealId));
+                              if (changed == true) {
+                                reload();
+                              }
+                            },
+                            icon: const Icon(Icons.edit_outlined),
+                            label: const Text('编辑'),
+                          ),
+                          OutlinedButton.icon(
+                            onPressed: () =>
+                                reportImageIssue(context, widget.mealId),
+                            icon: const Icon(Icons.report_outlined),
+                            label: const Text('图片不对'),
+                          ),
+                        ],
                       ),
                     ],
                   ),
                 ),
-            ],
-          );
-        },
+                const SizedBox(height: 12),
+                DetailSection(
+                    title: '主要食材',
+                    icon: Icons.local_dining,
+                    children: ingredientWidgets(meal['ingredients'])),
+                DetailSection(
+                    title: '做法步骤',
+                    icon: Icons.menu_book_outlined,
+                    children: stepWidgets(meal['steps'])),
+                if (textOf(meal['tips']).isNotEmpty)
+                  DetailSection(
+                    title: '小技巧',
+                    icon: Icons.lightbulb_outline,
+                    children: [Text(textOf(meal['tips']))],
+                  ),
+                if (photos.isNotEmpty)
+                  SoftCard(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const SectionTitle(
+                            icon: Icons.photo_library_outlined, title: '照片墙'),
+                        const SizedBox(height: 12),
+                        GridView.builder(
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          gridDelegate:
+                              const SliverGridDelegateWithFixedCrossAxisCount(
+                            crossAxisCount: 3,
+                            crossAxisSpacing: 8,
+                            mainAxisSpacing: 8,
+                          ),
+                          itemCount: photos.length,
+                          itemBuilder: (context, index) => ClipRRect(
+                            borderRadius: BorderRadius.circular(16),
+                            child: RemoteImage(url: photos[index]),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+              ],
+            );
+          },
+        ),
       ),
     );
   }
@@ -2229,126 +2710,131 @@ class _MealEditPageState extends State<MealEditPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: Text(widget.mealId == null ? '新增菜谱' : '编辑菜谱')),
-      body: initialLoading
-          ? const LoadingList()
-          : ListView(
-              padding: const EdgeInsets.all(16),
-              children: [
-                SoftCard(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      GestureDetector(
-                        onTap: pickImage,
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(22),
-                          child: AspectRatio(
-                            aspectRatio: 16 / 9,
-                            child: image != null
-                                ? Image.file(io.File(image!.path),
-                                    fit: BoxFit.cover)
-                                : RemoteImage(
-                                    url: existingImage,
-                                    placeholder: const Icon(
-                                        Icons.add_photo_alternate_outlined,
-                                        size: 48),
-                                  ),
+      body: AppBackdrop(
+        alignment: Alignment.topCenter,
+        child: initialLoading
+            ? const LoadingList()
+            : ListView(
+                padding: const EdgeInsets.all(16),
+                children: [
+                  SoftCard(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        GestureDetector(
+                          onTap: pickImage,
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(22),
+                            child: AspectRatio(
+                              aspectRatio: 16 / 9,
+                              child: image != null
+                                  ? Image.file(io.File(image!.path),
+                                      fit: BoxFit.cover)
+                                  : RemoteImage(
+                                      url: existingImage,
+                                      placeholder: const Icon(
+                                          Icons.add_photo_alternate_outlined,
+                                          size: 48),
+                                    ),
+                            ),
                           ),
                         ),
-                      ),
-                      const SizedBox(height: 14),
-                      TextField(
-                          controller: nameController,
-                          decoration: const InputDecoration(labelText: '菜名')),
-                      const SizedBox(height: 12),
-                      TextField(
-                        controller: descriptionController,
-                        minLines: 2,
-                        maxLines: 4,
-                        decoration: const InputDecoration(labelText: '简介'),
-                      ),
-                      const SizedBox(height: 12),
-                      TextField(
-                          controller: categoryController,
-                          decoration: const InputDecoration(labelText: '分类')),
-                      const SizedBox(height: 12),
-                      TextField(
-                          controller: tagsController,
-                          decoration:
-                              const InputDecoration(labelText: '标签，用逗号分隔')),
-                      const SizedBox(height: 12),
-                      TextField(
-                          controller: healthController,
-                          decoration:
-                              const InputDecoration(labelText: '健康/均衡标签')),
-                      const SizedBox(height: 12),
-                      TextField(
-                        controller: ingredientsController,
-                        minLines: 4,
-                        maxLines: 8,
-                        decoration: const InputDecoration(
-                          labelText: '食材',
-                          helperText: '每行一个，例如：鸡蛋 2个',
+                        const SizedBox(height: 14),
+                        TextField(
+                            controller: nameController,
+                            decoration: const InputDecoration(labelText: '菜名')),
+                        const SizedBox(height: 12),
+                        TextField(
+                          controller: descriptionController,
+                          minLines: 2,
+                          maxLines: 4,
+                          decoration: const InputDecoration(labelText: '简介'),
                         ),
-                      ),
-                      const SizedBox(height: 12),
-                      TextField(
-                        controller: stepsController,
-                        minLines: 5,
-                        maxLines: 10,
-                        decoration: const InputDecoration(
-                          labelText: '做法步骤',
-                          helperText: '每行一个步骤',
+                        const SizedBox(height: 12),
+                        TextField(
+                            controller: categoryController,
+                            decoration: const InputDecoration(labelText: '分类')),
+                        const SizedBox(height: 12),
+                        TextField(
+                            controller: tagsController,
+                            decoration:
+                                const InputDecoration(labelText: '标签，用逗号分隔')),
+                        const SizedBox(height: 12),
+                        TextField(
+                            controller: healthController,
+                            decoration:
+                                const InputDecoration(labelText: '健康/均衡标签')),
+                        const SizedBox(height: 12),
+                        TextField(
+                          controller: ingredientsController,
+                          minLines: 4,
+                          maxLines: 8,
+                          decoration: const InputDecoration(
+                            labelText: '食材',
+                            helperText: '每行一个，例如：鸡蛋 2个',
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 12),
-                      TextField(
-                          controller: tipsController,
-                          decoration: const InputDecoration(labelText: '小技巧')),
-                      const SizedBox(height: 12),
-                      TextField(
-                        controller: cookTimeController,
-                        keyboardType: TextInputType.number,
-                        decoration:
-                            const InputDecoration(labelText: '烹饪时间（分钟）'),
-                      ),
-                      const SizedBox(height: 12),
-                      DropdownButtonFormField<String>(
-                        value: difficulty,
-                        decoration: const InputDecoration(labelText: '难度'),
-                        items: const ['简单', '中等', '进阶']
-                            .map((item) => DropdownMenuItem(
-                                value: item, child: Text(item)))
-                            .toList(),
-                        onChanged: (value) =>
-                            setState(() => difficulty = value ?? '简单'),
-                      ),
-                      const SizedBox(height: 12),
-                      SwitchListTile(
-                        value: favorite,
-                        title: const Text('收藏'),
-                        contentPadding: EdgeInsets.zero,
-                        onChanged: (value) => setState(() => favorite = value),
-                      ),
-                      Text('评分 ${rating.toStringAsFixed(1)}'),
-                      Slider(
-                        value: rating,
-                        min: 0,
-                        max: 5,
-                        divisions: 10,
-                        onChanged: (value) => setState(() => rating = value),
-                      ),
-                      const SizedBox(height: 14),
-                      FilledButton.icon(
-                        onPressed: loading ? null : save,
-                        icon: const Icon(Icons.save_outlined),
-                        label: Text(loading ? '保存中...' : '保存菜谱'),
-                      ),
-                    ],
+                        const SizedBox(height: 12),
+                        TextField(
+                          controller: stepsController,
+                          minLines: 5,
+                          maxLines: 10,
+                          decoration: const InputDecoration(
+                            labelText: '做法步骤',
+                            helperText: '每行一个步骤',
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        TextField(
+                            controller: tipsController,
+                            decoration:
+                                const InputDecoration(labelText: '小技巧')),
+                        const SizedBox(height: 12),
+                        TextField(
+                          controller: cookTimeController,
+                          keyboardType: TextInputType.number,
+                          decoration:
+                              const InputDecoration(labelText: '烹饪时间（分钟）'),
+                        ),
+                        const SizedBox(height: 12),
+                        DropdownButtonFormField<String>(
+                          value: difficulty,
+                          decoration: const InputDecoration(labelText: '难度'),
+                          items: const ['简单', '中等', '进阶']
+                              .map((item) => DropdownMenuItem(
+                                  value: item, child: Text(item)))
+                              .toList(),
+                          onChanged: (value) =>
+                              setState(() => difficulty = value ?? '简单'),
+                        ),
+                        const SizedBox(height: 12),
+                        SwitchListTile(
+                          value: favorite,
+                          title: const Text('收藏'),
+                          contentPadding: EdgeInsets.zero,
+                          onChanged: (value) =>
+                              setState(() => favorite = value),
+                        ),
+                        Text('评分 ${rating.toStringAsFixed(1)}'),
+                        Slider(
+                          value: rating,
+                          min: 0,
+                          max: 5,
+                          divisions: 10,
+                          onChanged: (value) => setState(() => rating = value),
+                        ),
+                        const SizedBox(height: 14),
+                        FilledButton.icon(
+                          onPressed: loading ? null : save,
+                          icon: const Icon(Icons.save_outlined),
+                          label: Text(loading ? '保存中...' : '保存菜谱'),
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-              ],
-            ),
+                ],
+              ),
+      ),
     );
   }
 }
@@ -2409,7 +2895,7 @@ class _MemoriesPageState extends State<MemoriesPage> {
           return RefreshIndicator(
             onRefresh: () async => reload(),
             child: ListView(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 120),
               children: [
                 SoftCard(
                   child: Row(
@@ -2641,101 +3127,104 @@ class _MemoryEditPageState extends State<MemoryEditPage> {
           ),
         ),
       ),
-      body: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 16, 16, 96),
-        children: [
-          SoftCard(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                TextField(
-                    controller: dateController,
-                    decoration:
-                        const InputDecoration(labelText: '日期 YYYY-MM-DD')),
-                const SizedBox(height: 12),
-                SegmentedButton<String>(
-                  segments: const [
-                    ButtonSegment(value: 'breakfast', label: Text('早餐')),
-                    ButtonSegment(value: 'lunch', label: Text('午餐')),
-                    ButtonSegment(value: 'dinner', label: Text('晚餐')),
-                  ],
-                  selected: {mealType},
-                  onSelectionChanged: (value) =>
-                      setState(() => mealType = value.first),
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                    controller: titleController,
-                    decoration: const InputDecoration(labelText: '标题')),
-                const SizedBox(height: 12),
-                TextField(
-                    controller: moodController,
-                    decoration: const InputDecoration(labelText: '心情')),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: noteController,
-                  minLines: 4,
-                  maxLines: 8,
-                  decoration: const InputDecoration(labelText: '备注'),
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: actualCookTimeController,
-                  keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(labelText: '实际耗时（分钟）'),
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: nextImprovementController,
-                  decoration: const InputDecoration(labelText: '下次改进'),
-                ),
-                const SizedBox(height: 12),
-                Text('评分 ${rating.toStringAsFixed(0)} 星'),
-                Slider(
-                  value: rating,
-                  min: 1,
-                  max: 5,
-                  divisions: 4,
-                  onChanged: (value) => setState(() => rating = value),
-                ),
-                const SizedBox(height: 12),
-                FutureBuilder<dynamic>(
-                  future: mealsFuture,
-                  builder: (context, snapshot) {
-                    final meals = snapshot.hasData
-                        ? mealListFrom(snapshot.data)
-                        : const <dynamic>[];
-                    return ExpansionTile(
-                      tilePadding: EdgeInsets.zero,
-                      title: Text('相关菜品 ${selectedMealIds.length} 个'),
-                      children: meals.map((item) {
-                        final meal = asMap(item);
-                        final id = idOf(meal);
-                        return CheckboxListTile(
-                          value: selectedMealIds.contains(id),
-                          title: Text(textOf(meal['name'])),
-                          onChanged: (_) => setState(() {
-                            selectedMealIds.contains(id)
-                                ? selectedMealIds.remove(id)
-                                : selectedMealIds.add(id);
-                          }),
-                        );
-                      }).toList(),
-                    );
-                  },
-                ),
-                const SizedBox(height: 12),
-                OutlinedButton.icon(
-                  onPressed: pickPhotos,
-                  icon: const Icon(Icons.image_outlined),
-                  label: Text(photos.isEmpty
-                      ? '选择照片（支持 PNG/JPG）'
-                      : '已选择 ${photos.length} 张'),
-                ),
-              ],
+      body: AppBackdrop(
+        alignment: Alignment.topCenter,
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 96),
+          children: [
+            SoftCard(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  TextField(
+                      controller: dateController,
+                      decoration:
+                          const InputDecoration(labelText: '日期 YYYY-MM-DD')),
+                  const SizedBox(height: 12),
+                  SegmentedButton<String>(
+                    segments: const [
+                      ButtonSegment(value: 'breakfast', label: Text('早餐')),
+                      ButtonSegment(value: 'lunch', label: Text('午餐')),
+                      ButtonSegment(value: 'dinner', label: Text('晚餐')),
+                    ],
+                    selected: {mealType},
+                    onSelectionChanged: (value) =>
+                        setState(() => mealType = value.first),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                      controller: titleController,
+                      decoration: const InputDecoration(labelText: '标题')),
+                  const SizedBox(height: 12),
+                  TextField(
+                      controller: moodController,
+                      decoration: const InputDecoration(labelText: '心情')),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: noteController,
+                    minLines: 4,
+                    maxLines: 8,
+                    decoration: const InputDecoration(labelText: '备注'),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: actualCookTimeController,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(labelText: '实际耗时（分钟）'),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: nextImprovementController,
+                    decoration: const InputDecoration(labelText: '下次改进'),
+                  ),
+                  const SizedBox(height: 12),
+                  Text('评分 ${rating.toStringAsFixed(0)} 星'),
+                  Slider(
+                    value: rating,
+                    min: 1,
+                    max: 5,
+                    divisions: 4,
+                    onChanged: (value) => setState(() => rating = value),
+                  ),
+                  const SizedBox(height: 12),
+                  FutureBuilder<dynamic>(
+                    future: mealsFuture,
+                    builder: (context, snapshot) {
+                      final meals = snapshot.hasData
+                          ? mealListFrom(snapshot.data)
+                          : const <dynamic>[];
+                      return ExpansionTile(
+                        tilePadding: EdgeInsets.zero,
+                        title: Text('相关菜品 ${selectedMealIds.length} 个'),
+                        children: meals.map((item) {
+                          final meal = asMap(item);
+                          final id = idOf(meal);
+                          return CheckboxListTile(
+                            value: selectedMealIds.contains(id),
+                            title: Text(textOf(meal['name'])),
+                            onChanged: (_) => setState(() {
+                              selectedMealIds.contains(id)
+                                  ? selectedMealIds.remove(id)
+                                  : selectedMealIds.add(id);
+                            }),
+                          );
+                        }).toList(),
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 12),
+                  OutlinedButton.icon(
+                    onPressed: pickPhotos,
+                    icon: const Icon(Icons.image_outlined),
+                    label: Text(photos.isEmpty
+                        ? '选择照片（支持 PNG/JPG）'
+                        : '已选择 ${photos.length} 张'),
+                  ),
+                ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -2812,62 +3301,65 @@ class _WeeklyPlanPageState extends State<WeeklyPlanPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('本周饭桌计划')),
-      body: FutureBuilder<dynamic>(
-        future: future,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const LoadingList();
-          }
-          if (snapshot.hasError) {
-            return ErrorState(
-                message: errorText(snapshot.error!), onRetry: reload);
-          }
-          final data = asMap(payload(snapshot.data));
-          return ListView(
-            padding: const EdgeInsets.all(16),
-            children: [
-              SoftCard(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Text(
-                      '${dateString(weekStart)} 这一周',
-                      style: Theme.of(context)
-                          .textTheme
-                          .titleLarge
-                          ?.copyWith(fontWeight: FontWeight.w900),
-                    ),
-                    const SizedBox(height: 12),
-                    Wrap(
-                      spacing: 10,
-                      runSpacing: 10,
-                      children: [
-                        FilledButton.icon(
-                          onPressed: busy ? null : generate,
-                          icon: const Icon(Icons.auto_awesome),
-                          label: const Text('生成草稿'),
-                        ),
-                        OutlinedButton.icon(
-                          onPressed: busy ? null : apply,
-                          icon: const Icon(Icons.check),
-                          label: const Text('应用到日历'),
-                        ),
-                      ],
-                    ),
-                  ],
+      body: AppBackdrop(
+        alignment: Alignment.topCenter,
+        child: FutureBuilder<dynamic>(
+          future: future,
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const LoadingList();
+            }
+            if (snapshot.hasError) {
+              return ErrorState(
+                  message: errorText(snapshot.error!), onRetry: reload);
+            }
+            final data = asMap(payload(snapshot.data));
+            return ListView(
+              padding: const EdgeInsets.all(16),
+              children: [
+                SoftCard(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Text(
+                        '${dateString(weekStart)} 这一周',
+                        style: Theme.of(context)
+                            .textTheme
+                            .titleLarge
+                            ?.copyWith(fontWeight: FontWeight.w900),
+                      ),
+                      const SizedBox(height: 12),
+                      Wrap(
+                        spacing: 10,
+                        runSpacing: 10,
+                        children: [
+                          FilledButton.icon(
+                            onPressed: busy ? null : generate,
+                            icon: const Icon(Icons.auto_awesome),
+                            label: const Text('生成草稿'),
+                          ),
+                          OutlinedButton.icon(
+                            onPressed: busy ? null : apply,
+                            icon: const Icon(Icons.check),
+                            label: const Text('应用到日历'),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-              const SizedBox(height: 12),
-              PlanBlock(title: '当前周计划', data: data),
-              if (draft != null) ...[
                 const SizedBox(height: 12),
-                PlanBlock(
-                    title: '新生成草稿',
-                    data: {'days': draft!['preview'] ?? draft!['days'] ?? []}),
+                PlanBlock(title: '当前周计划', data: data),
+                if (draft != null) ...[
+                  const SizedBox(height: 12),
+                  PlanBlock(title: '新生成草稿', data: {
+                    'days': draft!['preview'] ?? draft!['days'] ?? []
+                  }),
+                ],
               ],
-            ],
-          );
-        },
+            );
+          },
+        ),
       ),
     );
   }
@@ -2992,58 +3484,62 @@ class _ShoppingListPageState extends State<ShoppingListPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('购物清单')),
-      body: FutureBuilder<dynamic>(
-        future: future,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const LoadingList();
-          }
-          if (snapshot.hasError) {
-            return ErrorState(
-                message: errorText(snapshot.error!), onRetry: reload);
-          }
-          final items = shoppingItems(snapshot.data);
-          final grouped = <String, List<Map<String, dynamic>>>{};
-          for (final item in items) {
-            grouped
-                .putIfAbsent(shoppingCategoryLabel(item['category']), () => [])
-                .add(item);
-          }
-          return ListView(
-            padding: const EdgeInsets.all(16),
-            children: [
-              SoftCard(
-                child: Wrap(
-                  spacing: 10,
-                  runSpacing: 10,
-                  children: [
-                    FilledButton.icon(
-                      onPressed: generate,
-                      icon: const Icon(Icons.playlist_add_check),
-                      label: const Text('从周计划生成'),
-                    ),
-                    OutlinedButton.icon(
-                      onPressed: addItem,
-                      icon: const Icon(Icons.add),
-                      label: const Text('手动补充'),
-                    ),
-                    OutlinedButton.icon(
-                      onPressed: clearPurchased,
-                      icon: const Icon(Icons.cleaning_services_outlined),
-                      label: const Text('清空已购'),
-                    ),
-                  ],
+      body: AppBackdrop(
+        alignment: Alignment.topCenter,
+        child: FutureBuilder<dynamic>(
+          future: future,
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const LoadingList();
+            }
+            if (snapshot.hasError) {
+              return ErrorState(
+                  message: errorText(snapshot.error!), onRetry: reload);
+            }
+            final items = shoppingItems(snapshot.data);
+            final grouped = <String, List<Map<String, dynamic>>>{};
+            for (final item in items) {
+              grouped
+                  .putIfAbsent(
+                      shoppingCategoryLabel(item['category']), () => [])
+                  .add(item);
+            }
+            return ListView(
+              padding: const EdgeInsets.all(16),
+              children: [
+                SoftCard(
+                  child: Wrap(
+                    spacing: 10,
+                    runSpacing: 10,
+                    children: [
+                      FilledButton.icon(
+                        onPressed: generate,
+                        icon: const Icon(Icons.playlist_add_check),
+                        label: const Text('从周计划生成'),
+                      ),
+                      OutlinedButton.icon(
+                        onPressed: addItem,
+                        icon: const Icon(Icons.add),
+                        label: const Text('手动补充'),
+                      ),
+                      OutlinedButton.icon(
+                        onPressed: clearPurchased,
+                        icon: const Icon(Icons.cleaning_services_outlined),
+                        label: const Text('清空已购'),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-              const SizedBox(height: 12),
-              if (items.isEmpty)
-                const EmptyState(title: '暂无采购项')
-              else
-                ...grouped.entries.map((entry) => ShoppingGroup(
-                    title: entry.key, items: entry.value, onChanged: reload)),
-            ],
-          );
-        },
+                const SizedBox(height: 12),
+                if (items.isEmpty)
+                  const EmptyState(title: '暂无采购项')
+                else
+                  ...grouped.entries.map((entry) => ShoppingGroup(
+                      title: entry.key, items: entry.value, onChanged: reload)),
+              ],
+            );
+          },
+        ),
       ),
     );
   }
@@ -3189,36 +3685,39 @@ class _WishlistPageState extends State<WishlistPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('想吃清单')),
-      body: FutureBuilder<dynamic>(
-        future: future,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const LoadingList();
-          }
-          if (snapshot.hasError) {
-            return ErrorState(
-                message: errorText(snapshot.error!), onRetry: reload);
-          }
-          final items = wishlistItems(snapshot.data);
-          return ListView(
-            padding: const EdgeInsets.all(16),
-            children: [
-              SoftCard(
-                child: FilledButton.icon(
-                  onPressed: addWish,
-                  icon: const Icon(Icons.favorite_border),
-                  label: const Text('添加想吃'),
+      body: AppBackdrop(
+        alignment: Alignment.topCenter,
+        child: FutureBuilder<dynamic>(
+          future: future,
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const LoadingList();
+            }
+            if (snapshot.hasError) {
+              return ErrorState(
+                  message: errorText(snapshot.error!), onRetry: reload);
+            }
+            final items = wishlistItems(snapshot.data);
+            return ListView(
+              padding: const EdgeInsets.all(16),
+              children: [
+                SoftCard(
+                  child: FilledButton.icon(
+                    onPressed: addWish,
+                    icon: const Icon(Icons.favorite_border),
+                    label: const Text('添加想吃'),
+                  ),
                 ),
-              ),
-              const SizedBox(height: 12),
-              if (items.isEmpty)
-                const EmptyState(title: '暂时没有想吃项')
-              else
-                ...items
-                    .map((item) => WishlistCard(item: item, onChanged: reload)),
-            ],
-          );
-        },
+                const SizedBox(height: 12),
+                if (items.isEmpty)
+                  const EmptyState(title: '暂时没有想吃项')
+                else
+                  ...items.map(
+                      (item) => WishlistCard(item: item, onChanged: reload)),
+              ],
+            );
+          },
+        ),
       ),
     );
   }
@@ -3319,47 +3818,62 @@ class _PhotoAlbumPageState extends State<PhotoAlbumPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('饭桌相册')),
-      body: FutureBuilder<dynamic>(
-        future: future,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const LoadingList();
-          }
-          if (snapshot.hasError) {
-            return ErrorState(
-                message: errorText(snapshot.error!), onRetry: reload);
-          }
-          final photos = photoItems(snapshot.data);
-          return GridView.builder(
-            padding: const EdgeInsets.all(16),
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 2,
-              crossAxisSpacing: 12,
-              mainAxisSpacing: 12,
-            ),
-            itemCount: photos.length,
-            itemBuilder: (context, index) {
-              final photo = photos[index];
-              return ClipRRect(
-                borderRadius: BorderRadius.circular(24),
-                child: GridTile(
-                  footer: Container(
-                    color: Colors.black.withValues(alpha: 0.42),
-                    padding: const EdgeInsets.all(8),
-                    child: Text(
-                      textOf(photo['title'] ?? photo['date']),
-                      style: const TextStyle(
-                          color: Colors.white, fontWeight: FontWeight.w700),
+      body: AppBackdrop(
+        alignment: Alignment.topCenter,
+        child: FutureBuilder<dynamic>(
+          future: future,
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const LoadingList();
+            }
+            if (snapshot.hasError) {
+              return ErrorState(
+                  message: errorText(snapshot.error!), onRetry: reload);
+            }
+            final photos = photoItems(snapshot.data);
+            if (photos.isEmpty) {
+              return ListView(
+                padding: const EdgeInsets.all(16),
+                children: const [
+                  EmptyState(title: '这个月还没有饭桌照片'),
+                ],
+              );
+            }
+            return GridView.builder(
+              padding: const EdgeInsets.all(16),
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 2,
+                crossAxisSpacing: 12,
+                mainAxisSpacing: 12,
+              ),
+              itemCount: photos.length,
+              itemBuilder: (context, index) {
+                final photo = photos[index];
+                return HoverLift(
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(24),
+                    child: GridTile(
+                      footer: Container(
+                        color: kCoffee.withValues(alpha: 0.62),
+                        padding: const EdgeInsets.all(8),
+                        child: Text(
+                          textOf(photo['title'] ?? photo['date']),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                              color: Colors.white, fontWeight: FontWeight.w800),
+                        ),
+                      ),
+                      child: RemoteImage(
+                          url: imageUrl(
+                              photo['url'] ?? photo['photo'] ?? photo['src'])),
                     ),
                   ),
-                  child: RemoteImage(
-                      url: imageUrl(
-                          photo['url'] ?? photo['photo'] ?? photo['src'])),
-                ),
-              );
-            },
-          );
-        },
+                );
+              },
+            );
+          },
+        ),
       ),
     );
   }
@@ -3433,44 +3947,47 @@ class _AnniversaryPageState extends State<AnniversaryPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('纪念日菜单')),
-      body: FutureBuilder<List<dynamic>>(
-        future: future,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const LoadingList();
-          }
-          if (snapshot.hasError) {
-            return ErrorState(
-                message: errorText(snapshot.error!), onRetry: reload);
-          }
-          final items = (snapshot.data ?? const []).map(asMap).toList();
-          return ListView(
-            padding: const EdgeInsets.all(16),
-            children: [
-              SoftCard(
-                child: FilledButton.icon(
-                  onPressed: create,
-                  icon: const Icon(Icons.celebration_outlined),
-                  label: const Text('用模板创建纪念日菜单'),
+      body: AppBackdrop(
+        alignment: Alignment.topCenter,
+        child: FutureBuilder<List<dynamic>>(
+          future: future,
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const LoadingList();
+            }
+            if (snapshot.hasError) {
+              return ErrorState(
+                  message: errorText(snapshot.error!), onRetry: reload);
+            }
+            final items = (snapshot.data ?? const []).map(asMap).toList();
+            return ListView(
+              padding: const EdgeInsets.all(16),
+              children: [
+                SoftCard(
+                  child: FilledButton.icon(
+                    onPressed: create,
+                    icon: const Icon(Icons.celebration_outlined),
+                    label: const Text('用模板创建纪念日菜单'),
+                  ),
                 ),
-              ),
-              const SizedBox(height: 12),
-              if (items.isEmpty)
-                const EmptyState(title: '还没有纪念日菜单')
-              else
-                ...items.map((item) => SoftCard(
-                      child: ListTile(
-                        contentPadding: EdgeInsets.zero,
-                        leading: const CircleAvatar(
-                            child: Icon(Icons.celebration_outlined)),
-                        title: Text(textOf(item['title'])),
-                        subtitle: Text(
-                            '${textOf(item['date']).split('T').first} · ${textOf(item['theme'])}'),
-                      ),
-                    )),
-            ],
-          );
-        },
+                const SizedBox(height: 12),
+                if (items.isEmpty)
+                  const EmptyState(title: '还没有纪念日菜单')
+                else
+                  ...items.map((item) => SoftCard(
+                        child: ListTile(
+                          contentPadding: EdgeInsets.zero,
+                          leading: const CircleAvatar(
+                              child: Icon(Icons.celebration_outlined)),
+                          title: Text(textOf(item['title'])),
+                          subtitle: Text(
+                              '${textOf(item['date']).split('T').first} · ${textOf(item['theme'])}'),
+                        ),
+                      )),
+              ],
+            );
+          },
+        ),
       ),
     );
   }
@@ -3574,7 +4091,7 @@ class _SettingsPageState extends State<SettingsPage> {
   Widget build(BuildContext context) {
     final household = context.app.household ?? const {};
     return ListView(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 120),
       children: [
         SoftCard(
           child: Column(
@@ -3661,7 +4178,7 @@ class _SettingsPageState extends State<SettingsPage> {
                   const SizedBox(height: 8),
                   Text(
                       '总数：${countText(data['total'] ?? data['defaultTotal'])}  已导入：${countText(data['imported'] ?? data['importedCount'])}  缺失：${countText(data['missing'] ?? data['missingCount'])}'),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 80),
                   Wrap(
                     spacing: 10,
                     runSpacing: 10,
@@ -3735,6 +4252,305 @@ List<Map<String, dynamic>> imageIssues(dynamic response) {
   return items.map(asMap).toList();
 }
 
+class AppBackdrop extends StatelessWidget {
+  const AppBackdrop({
+    super.key,
+    required this.child,
+    this.alignment = Alignment.center,
+  });
+
+  final Widget child;
+  final AlignmentGeometry alignment;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          colors: [kCream, kOat, Color(0xFFFFF8F0)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+      ),
+      child: Stack(
+        children: [
+          Positioned(
+            top: -70,
+            right: -54,
+            child: _BackdropCircle(
+              size: 190,
+              color: kPeach.withValues(alpha: 0.22),
+            ),
+          ),
+          Positioned(
+            left: -48,
+            bottom: 90,
+            child: _BackdropCircle(
+              size: 150,
+              color: kCaramel.withValues(alpha: 0.13),
+            ),
+          ),
+          Positioned(
+            left: 22,
+            top: 74,
+            child: Icon(Icons.ramen_dining_outlined,
+                size: 72, color: kCaramel.withValues(alpha: 0.07)),
+          ),
+          Positioned(
+            right: 28,
+            bottom: 36,
+            child: Icon(Icons.favorite,
+                size: 58, color: kCoral.withValues(alpha: 0.06)),
+          ),
+          Align(alignment: alignment, child: child),
+        ],
+      ),
+    );
+  }
+}
+
+class _BackdropCircle extends StatelessWidget {
+  const _BackdropCircle({required this.size, required this.color});
+
+  final double size;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: color,
+      ),
+    );
+  }
+}
+
+class BrandMark extends StatelessWidget {
+  const BrandMark({super.key, this.size = 64, this.compact = false});
+
+  final double size;
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    final bowlSize = size * (compact ? 0.45 : 0.52);
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Color(0xFFFFE3D8), Color(0xFFFFF8EC)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(size * 0.28),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.84)),
+        boxShadow: [
+          BoxShadow(
+            color: kCaramel.withValues(alpha: 0.22),
+            blurRadius: compact ? 8 : 20,
+            offset: Offset(0, compact ? 3 : 9),
+          ),
+        ],
+      ),
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          Positioned(
+            top: size * 0.16,
+            child: Icon(
+              Icons.favorite,
+              color: Colors.white.withValues(alpha: 0.88),
+              size: size * 0.25,
+            ),
+          ),
+          Positioned(
+            left: size * 0.19,
+            bottom: size * 0.22,
+            child:
+                Icon(Icons.rice_bowl_outlined, color: kCaramel, size: bowlSize),
+          ),
+          Positioned(
+            right: size * 0.17,
+            bottom: size * 0.20,
+            child: Icon(Icons.soup_kitchen_outlined,
+                color: kCoral, size: bowlSize),
+          ),
+          Positioned(
+            bottom: size * 0.12,
+            child: Container(
+              width: size * 0.62,
+              height: compact ? 2 : 4,
+              decoration: BoxDecoration(
+                color: kSage.withValues(alpha: 0.34),
+                borderRadius: BorderRadius.circular(999),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class PartnerPresencePill extends StatelessWidget {
+  const PartnerPresencePill({super.key, required this.text});
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 300),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.76),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: kLine),
+        boxShadow: [
+          BoxShadow(
+            color: kCaramel.withValues(alpha: 0.08),
+            blurRadius: 16,
+            offset: const Offset(0, 7),
+          ),
+        ],
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 28,
+            height: 28,
+            decoration: BoxDecoration(
+              color: kPeach.withValues(alpha: 0.42),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(Icons.favorite, size: 15, color: kCoral),
+          ),
+          const SizedBox(width: 8),
+          Flexible(
+            child: Text(
+              text,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: kCoffee,
+                fontWeight: FontWeight.w800,
+                fontSize: 12,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class TapedLabel extends StatelessWidget {
+  const TapedLabel({super.key, required this.text, this.icon});
+
+  final String text;
+  final IconData? icon;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.74),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: kLine),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (icon != null) ...[
+            Icon(icon, size: 15, color: kCaramel),
+            const SizedBox(width: 5),
+          ],
+          Text(
+            text,
+            style: const TextStyle(
+              fontSize: 12,
+              color: kCocoa,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class HoverLift extends StatefulWidget {
+  const HoverLift({super.key, required this.child});
+
+  final Widget child;
+
+  @override
+  State<HoverLift> createState() => _HoverLiftState();
+}
+
+class _HoverLiftState extends State<HoverLift> {
+  bool hovering = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return MouseRegion(
+      onEnter: (_) => setState(() => hovering = true),
+      onExit: (_) => setState(() => hovering = false),
+      child: AnimatedScale(
+        scale: hovering ? 1.018 : 1,
+        duration: const Duration(milliseconds: 260),
+        curve: Curves.easeOutCubic,
+        child: AnimatedSlide(
+          offset: hovering ? const Offset(0, -0.01) : Offset.zero,
+          duration: const Duration(milliseconds: 260),
+          curve: Curves.easeOutCubic,
+          child: widget.child,
+        ),
+      ),
+    );
+  }
+}
+
+class _RoundIconButton extends StatelessWidget {
+  const _RoundIconButton({
+    required this.tooltip,
+    required this.icon,
+    required this.color,
+    required this.onPressed,
+  });
+
+  final String tooltip;
+  final IconData icon;
+  final Color color;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: tooltip,
+      child: InkResponse(
+        onTap: onPressed,
+        radius: 24,
+        child: Container(
+          width: 34,
+          height: 34,
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: 0.13),
+            shape: BoxShape.circle,
+          ),
+          child: Icon(icon, size: 18, color: color),
+        ),
+      ),
+    );
+  }
+}
+
 class SoftCard extends StatelessWidget {
   const SoftCard({
     super.key,
@@ -3750,18 +4566,24 @@ class SoftCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return AnimatedContainer(
-      duration: const Duration(milliseconds: 260),
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeOutCubic,
       padding: padding,
       decoration: BoxDecoration(
-        color: gradient == null ? Colors.white : null,
+        color: gradient == null ? kPaper.withValues(alpha: 0.94) : null,
         gradient: gradient,
-        borderRadius: BorderRadius.circular(28),
-        border: Border.all(color: const Color(0xFFF0D8C9)),
+        borderRadius: BorderRadius.circular(30),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.72)),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFFE09F67).withValues(alpha: 0.10),
-            blurRadius: 22,
-            offset: const Offset(0, 10),
+            color: kCaramel.withValues(alpha: 0.13),
+            blurRadius: 26,
+            offset: const Offset(0, 12),
+          ),
+          BoxShadow(
+            color: Colors.white.withValues(alpha: 0.72),
+            blurRadius: 0,
+            offset: const Offset(0, 1),
           ),
         ],
       ),
@@ -3780,15 +4602,24 @@ class SectionTitle extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        Icon(icon, color: const Color(0xFFE09F67)),
-        const SizedBox(width: 8),
+        Container(
+          width: 34,
+          height: 34,
+          decoration: BoxDecoration(
+            color: kPeach.withValues(alpha: 0.26),
+            borderRadius: BorderRadius.circular(13),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.82)),
+          ),
+          child: Icon(icon, color: kCaramel, size: 19),
+        ),
+        const SizedBox(width: 10),
         Expanded(
           child: Text(
             title,
             style: Theme.of(context)
                 .textTheme
                 .titleMedium
-                ?.copyWith(fontWeight: FontWeight.w900),
+                ?.copyWith(fontWeight: FontWeight.w900, color: kCoffee),
           ),
         ),
       ],
@@ -3837,20 +4668,23 @@ class InfoChip extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color: const Color(0xFFFFF0EA),
+        color: kPeach.withValues(alpha: 0.16),
         borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: const Color(0xFFF2D8C8)),
+        border: Border.all(color: kLine),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           if (icon != null) ...[
-            Icon(icon, size: 14, color: const Color(0xFFE09F67)),
+            Icon(icon, size: 14, color: kCaramel),
             const SizedBox(width: 4),
           ],
           Text(label,
-              style:
-                  const TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
+              style: const TextStyle(
+                fontSize: 12,
+                color: kCocoa,
+                fontWeight: FontWeight.w800,
+              )),
         ],
       ),
     );
@@ -3870,32 +4704,83 @@ class RemoteImage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (url.isEmpty) {
-      return Container(
-        color: const Color(0xFFFFE1D8),
-        child: Center(
-          child: placeholder ??
-              const Icon(Icons.restaurant, size: 42, color: Color(0xFFE09F67)),
-        ),
-      );
+      return ImagePlaceholder(placeholder: placeholder);
     }
     return Image.network(
       url,
       fit: BoxFit.cover,
-      errorBuilder: (context, error, stackTrace) => Container(
-        color: const Color(0xFFFFE1D8),
-        child: const Center(
-            child: Icon(Icons.broken_image_outlined,
-                size: 42, color: Color(0xFFE09F67))),
-      ),
+      errorBuilder: (context, error, stackTrace) =>
+          const ImagePlaceholder(message: '图片暂时加载失败'),
       loadingBuilder: (context, child, loadingProgress) {
         if (loadingProgress == null) {
           return child;
         }
         return Container(
-          color: const Color(0xFFFFF0EA),
-          child: const Center(child: CircularProgressIndicator()),
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              colors: [Color(0xFFFFF4EC), Color(0xFFFFE2D5)],
+            ),
+          ),
+          child: Center(
+            child: SizedBox(
+              width: 28,
+              height: 28,
+              child: CircularProgressIndicator(
+                strokeWidth: 2.5,
+                value: loadingProgress.expectedTotalBytes == null
+                    ? null
+                    : loadingProgress.cumulativeBytesLoaded /
+                        loadingProgress.expectedTotalBytes!,
+              ),
+            ),
+          ),
         );
       },
+    );
+  }
+}
+
+class ImagePlaceholder extends StatelessWidget {
+  const ImagePlaceholder({super.key, this.placeholder, this.message});
+
+  final Widget? placeholder;
+  final String? message;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          colors: [Color(0xFFFFEFE7), Color(0xFFFFD9CC)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+      ),
+      child: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            placeholder ??
+                const Icon(Icons.ramen_dining_outlined,
+                    size: 44, color: kCaramel),
+            if (message != null) ...[
+              const SizedBox(height: 8),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                child: Text(
+                  message!,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    color: kCocoa,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
     );
   }
 }
@@ -3935,8 +4820,7 @@ class ErrorState extends StatelessWidget {
         SoftCard(
           child: Column(
             children: [
-              const Icon(Icons.error_outline,
-                  color: Color(0xFFFF8D7E), size: 48),
+              const Icon(Icons.error_outline, color: kCoral, size: 48),
               const SizedBox(height: 12),
               Text(message, textAlign: TextAlign.center),
               const SizedBox(height: 12),
@@ -3966,8 +4850,7 @@ class EmptyState extends StatelessWidget {
     return SoftCard(
       child: Column(
         children: [
-          const Icon(Icons.local_dining_outlined,
-              size: 48, color: Color(0xFFE09F67)),
+          const BrandMark(size: 62, compact: true),
           const SizedBox(height: 12),
           Text(title,
               style: Theme.of(context)
