@@ -110,3 +110,48 @@
 - `flutter analyze` 通过，`No issues found!`。
 - `flutter test` 通过，2 个测试全部通过。
 - `gradle assembleDebug` 通过，已重新生成 debug APK。
+
+## 2026-06-22 手机真机测试与网络诊断
+
+### 真机环境
+
+- 设备：Samsung SM G973F
+- 设备 ID：`RF8M708L06Z`
+- 系统：Android 12 / API 31
+
+### 构建和安装
+
+- 首次执行 `flutter run -d RF8M708L06Z --debug --no-resident` 时，Gradle Wrapper 卡在 `services.gradle.org` 下载。
+- 将项目内 Gradle Wrapper 下载源切换为腾讯云 Gradle 镜像：`https://mirrors.cloud.tencent.com/gradle/gradle-8.3-bin.zip`。
+- 再次执行 `flutter run -d RF8M708L06Z --debug --no-resident` 成功构建、安装并启动。
+
+### 手机端页面验证
+
+- 首次启动显示登录页正常。
+- 没有复现登录后 `AppScope` 红屏。
+- ADB 抓屏和 UI 树已保存到 `test-results/phone/`。
+
+### 服务端连通性诊断
+
+- 本机 TCP 探测：
+  - `22`：OPEN，但 SSH 卡在 banner 阶段。
+  - `3000`：OPEN。
+  - `3001`：OPEN，但 HTTP 请求超时。
+  - `3002`：OPEN，`/health` 返回 `healthy`。
+  - `8088`：CLOSED。
+  - `8089`：CLOSED。
+  - `27018`：CLOSED。
+- 手机侧：
+  - `3002/health` 可以返回 `healthy`。
+  - `3002/api/auth/me` 超时。
+- 结论：
+  - 目前不是 `3002` 安全组未放行导致的问题。
+  - `3002` Nginx 健康入口可用，但 `/api/*` 后端链路超时，疑似 backend 容器、Mongo 连接或服务器负载异常。
+  - `22` TCP 可连接但 SSH banner 超时，疑似服务器 sshd 或系统负载异常。
+
+### 客户端修复
+
+- 为所有普通 HTTP 请求增加 15 秒超时。
+- 为 multipart 上传增加 15 秒超时。
+- 超时后提示：`服务器响应超时，请检查网络或稍后重试`。
+- 避免后端卡住时手机端一直等待。

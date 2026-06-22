@@ -1,5 +1,6 @@
 // ignore_for_file: use_build_context_synchronously, unnecessary_to_list_in_spreads
 
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io' as io;
 
@@ -10,6 +11,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 const String kApiBase = 'http://113.44.50.108:3002/api';
 const String kAssetBase = 'http://113.44.50.108:3002';
+const Duration kRequestTimeout = Duration(seconds: 15);
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -353,24 +355,42 @@ class AppState extends ChangeNotifier {
 
     late final http.Response response;
     final encoded = body == null ? null : jsonEncode(body);
-    switch (method) {
-      case 'GET':
-        response = await _client.get(uri, headers: headers);
-        break;
-      case 'POST':
-        response = await _client.post(uri, headers: headers, body: encoded);
-        break;
-      case 'PUT':
-        response = await _client.put(uri, headers: headers, body: encoded);
-        break;
-      case 'PATCH':
-        response = await _client.patch(uri, headers: headers, body: encoded);
-        break;
-      case 'DELETE':
-        response = await _client.delete(uri, headers: headers);
-        break;
-      default:
-        throw ApiException('不支持的请求方法: $method');
+    try {
+      switch (method) {
+        case 'GET':
+          response =
+              await _client.get(uri, headers: headers).timeout(kRequestTimeout);
+          break;
+        case 'POST':
+          response = await _client
+              .post(uri, headers: headers, body: encoded)
+              .timeout(kRequestTimeout);
+          break;
+        case 'PUT':
+          response = await _client
+              .put(uri, headers: headers, body: encoded)
+              .timeout(kRequestTimeout);
+          break;
+        case 'PATCH':
+          response = await _client
+              .patch(uri, headers: headers, body: encoded)
+              .timeout(kRequestTimeout);
+          break;
+        case 'DELETE':
+          response = await _client
+              .delete(uri, headers: headers)
+              .timeout(kRequestTimeout);
+          break;
+        default:
+          throw ApiException('不支持的请求方法: $method');
+      }
+    } on ApiException {
+      rethrow;
+    } catch (error) {
+      if (error is TimeoutException) {
+        throw const ApiException('服务器响应超时，请检查网络或稍后重试');
+      }
+      throw ApiException('网络请求失败：$error');
     }
     return decodeResponse(response);
   }
@@ -404,8 +424,19 @@ class AppState extends ChangeNotifier {
         ));
       }
     }
-    final streamed = await request.send();
-    final response = await http.Response.fromStream(streamed);
+    late final http.StreamedResponse streamed;
+    try {
+      streamed = await request.send().timeout(kRequestTimeout);
+    } catch (error) {
+      if (error is TimeoutException) {
+        throw const ApiException('服务器响应超时，请检查网络或稍后重试');
+      }
+      throw ApiException('上传请求失败：$error');
+    }
+    final response = await http.Response.fromStream(streamed)
+        .timeout(kRequestTimeout, onTimeout: () {
+      throw const ApiException('服务器响应超时，请检查网络或稍后重试');
+    });
     return decodeResponse(response);
   }
 
