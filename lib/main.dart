@@ -1201,9 +1201,17 @@ class _DashboardPageState extends State<DashboardPage> {
                 message: errorText(snapshot.error!), onRetry: reload);
           }
           final data = asMap(payload(snapshot.data));
+          final today = DateTime.now();
+          final todaySchedule = dashboardTodaySchedule(data);
           return ListView(
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 120),
             children: [
+              TodayScheduleCard(
+                date: today,
+                schedule: todaySchedule,
+                onChanged: reload,
+              ),
+              const SizedBox(height: 14),
               SoftCard(
                 gradient: const LinearGradient(
                   colors: [Color(0xFFFFF2EA), Color(0xFFFFDCCA)],
@@ -1291,7 +1299,7 @@ class _DashboardPageState extends State<DashboardPage> {
                   DashboardTile(
                     icon: Icons.today,
                     label: '今天安排',
-                    value: todayArrangementText(data['today']),
+                    value: todayArrangementText(todaySchedule),
                     color: const Color(0xFFFFB4A2),
                   ),
                   DashboardTile(
@@ -1398,6 +1406,110 @@ String todayArrangementText(dynamic value) {
   return direct == '0' ? '待安排' : direct;
 }
 
+Map<String, dynamic> dashboardTodaySchedule(Map<String, dynamic> data) {
+  final schedule = asMap(data['todaySchedule'] ?? data['schedule']);
+  if (schedule.isNotEmpty) {
+    return schedule;
+  }
+  return asMap(data['today']);
+}
+
+class TodayScheduleCard extends StatelessWidget {
+  const TodayScheduleCard({
+    super.key,
+    required this.date,
+    required this.schedule,
+    required this.onChanged,
+  });
+
+  final DateTime date;
+  final Map<String, dynamic> schedule;
+  final VoidCallback onChanged;
+
+  bool get hasMeals =>
+      mealNames(planMealValue(schedule, 'breakfast')).isNotEmpty ||
+      mealNames(planMealValue(schedule, 'lunch')).isNotEmpty ||
+      mealNames(planMealValue(schedule, 'dinner')).isNotEmpty;
+
+  Future<void> openSchedule(BuildContext context) async {
+    final changed = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      builder: (_) => ScheduleSheet(date: date, schedule: schedule),
+    );
+    if (changed == true) {
+      onChanged();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SoftCard(
+      gradient: const LinearGradient(
+        colors: [Color(0xFFFFFCF7), Color(0xFFFFEFE7)],
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  color: kPeach.withValues(alpha: 0.36),
+                  borderRadius: BorderRadius.circular(18),
+                ),
+                child: const Icon(Icons.favorite, color: kCoral),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '今日饭桌',
+                      style: Theme.of(context)
+                          .textTheme
+                          .titleLarge
+                          ?.copyWith(fontWeight: FontWeight.w900),
+                    ),
+                    Text(
+                      '${dateString(date)} · ${weekdayLabel(date.weekday)}',
+                      style: const TextStyle(
+                        color: kCocoa,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              OutlinedButton.icon(
+                onPressed: () => openSchedule(context),
+                icon: const Icon(Icons.edit_calendar_outlined),
+                label: Text(hasMeals ? '调整' : '安排'),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          MealBadges(title: '早', value: planMealValue(schedule, 'breakfast')),
+          MealBadges(title: '午', value: planMealValue(schedule, 'lunch')),
+          MealBadges(title: '晚', value: planMealValue(schedule, 'dinner')),
+          if (!hasMeals) ...[
+            const SizedBox(height: 6),
+            const Text(
+              '今天还没有安排，先给两个人定一餐喜欢的。',
+              style: TextStyle(color: kCocoa, fontWeight: FontWeight.w700),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
 class DashboardTile extends StatelessWidget {
   const DashboardTile({
     super.key,
@@ -1500,6 +1612,9 @@ class _CalendarPageState extends State<CalendarPage> {
         }
         final schedules = scheduleMap(payload(snapshot.data));
         final days = DateUtils.getDaysInMonth(month.year, month.month);
+        final today = DateTime.now();
+        final isCurrentMonth =
+            month.year == today.year && month.month == today.month;
         return RefreshIndicator(
           onRefresh: () async => reload(),
           child: ListView(
@@ -1528,6 +1643,15 @@ class _CalendarPageState extends State<CalendarPage> {
                 ),
               ),
               const SizedBox(height: 12),
+              if (isCurrentMonth) ...[
+                TodayScheduleCard(
+                  date: today,
+                  schedule:
+                      schedules[dateString(today)] ?? const <String, dynamic>{},
+                  onChanged: reload,
+                ),
+                const SizedBox(height: 12),
+              ],
               GridView.builder(
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
@@ -1805,13 +1929,85 @@ class ScheduleSheet extends StatefulWidget {
 class _ScheduleSheetState extends State<ScheduleSheet> {
   String mealType = 'dinner';
   final selected = <String>{};
+  final searchController = TextEditingController();
+  String searchText = '';
+  String category = '全部';
   late Future<dynamic> mealsFuture;
   bool saving = false;
 
   @override
   void initState() {
     super.initState();
-    mealsFuture = context.appRead.get('/meals', query: {'limit': '200'});
+    mealsFuture = loadMeals();
+  }
+
+  @override
+  void dispose() {
+    searchController.dispose();
+    super.dispose();
+  }
+
+  List<String> categoriesFor(List<dynamic> meals) {
+    final result = <String>{'全部'};
+    for (final item in meals) {
+      final meal = asMap(item);
+      final value = textOf(meal['category']).trim();
+      if (value.isNotEmpty) {
+        result.add(value);
+      }
+    }
+    return result.toList();
+  }
+
+  List<dynamic> visibleMeals(List<dynamic> meals) {
+    final query = searchText.trim().toLowerCase();
+    return meals.where((item) {
+      final meal = asMap(item);
+      final mealCategory = textOf(meal['category']).trim();
+      final subcategory = textOf(meal['subcategory']).trim();
+      final categoryMatched = category == '全部' ||
+          mealCategory == category ||
+          subcategory == category;
+      if (!categoryMatched) {
+        return false;
+      }
+      if (query.isEmpty) {
+        return true;
+      }
+      final ingredients = asList(meal['ingredients']).map((item) {
+        final ingredient = asMap(item);
+        return textOf(ingredient['name'] ?? item);
+      }).join(' ');
+      final steps = asList(meal['steps']).map((item) {
+        final step = asMap(item);
+        return textOf(step['description'] ?? item);
+      }).join(' ');
+      final searchable = [
+        meal['name'],
+        meal['description'],
+        meal['category'],
+        meal['subcategory'],
+        asList(meal['tags']).map(textOf).join(' '),
+        asList(meal['healthTags']).map(textOf).join(' '),
+        ingredients,
+        steps,
+      ].map(textOf).join(' ').toLowerCase();
+      return searchable.contains(query);
+    }).toList();
+  }
+
+  Future<dynamic> loadMeals() {
+    final query = searchController.text.trim();
+    return context.appRead.get('/meals', query: {
+      'limit': '80',
+      if (query.isNotEmpty) 'search': query,
+    });
+  }
+
+  void reloadMeals() {
+    setState(() {
+      mealsFuture = loadMeals();
+    });
   }
 
   Future<void> save() async {
@@ -1848,79 +2044,177 @@ class _ScheduleSheetState extends State<ScheduleSheet> {
         child: FutureBuilder<dynamic>(
           future: mealsFuture,
           builder: (context, snapshot) {
+            final isLoading =
+                snapshot.connectionState == ConnectionState.waiting;
+            final hasError = snapshot.hasError;
             final meals = snapshot.hasData
                 ? mealListFrom(snapshot.data)
                 : const <dynamic>[];
-            return Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Text(
-                  '${dateString(widget.date)} 安排一餐',
-                  style: Theme.of(context)
-                      .textTheme
-                      .titleLarge
-                      ?.copyWith(fontWeight: FontWeight.w900),
-                ),
-                const SizedBox(height: 12),
-                SegmentedButton<String>(
-                  segments: const [
-                    ButtonSegment(
-                        value: 'breakfast',
-                        label: Text('早餐'),
-                        icon: Icon(Icons.wb_twilight)),
-                    ButtonSegment(
-                        value: 'lunch',
-                        label: Text('午餐'),
-                        icon: Icon(Icons.wb_sunny_outlined)),
-                    ButtonSegment(
-                        value: 'dinner',
-                        label: Text('晚餐'),
-                        icon: Icon(Icons.nightlight_outlined)),
-                  ],
-                  selected: {mealType},
-                  onSelectionChanged: (value) => setState(() {
-                    mealType = value.first;
-                    selected.clear();
-                  }),
-                ),
-                const SizedBox(height: 12),
-                if (snapshot.connectionState == ConnectionState.waiting)
-                  const Padding(
-                    padding: EdgeInsets.all(18),
-                    child: Center(child: CircularProgressIndicator()),
-                  )
-                else
-                  ConstrainedBox(
-                    constraints: const BoxConstraints(maxHeight: 360),
-                    child: ListView.builder(
-                      shrinkWrap: true,
-                      itemCount: meals.length,
+            final categories = categoriesFor(meals);
+            final filteredMeals = visibleMeals(meals);
+            if (!categories.contains(category)) {
+              category = '全部';
+            }
+            return ConstrainedBox(
+              constraints: BoxConstraints(
+                maxHeight: MediaQuery.sizeOf(context).height * 0.84,
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text(
+                    '${dateString(widget.date)} 安排一餐',
+                    style: Theme.of(context)
+                        .textTheme
+                        .titleLarge
+                        ?.copyWith(fontWeight: FontWeight.w900),
+                  ),
+                  const SizedBox(height: 12),
+                  SegmentedButton<String>(
+                    segments: const [
+                      ButtonSegment(
+                          value: 'breakfast',
+                          label: Text('早餐'),
+                          icon: Icon(Icons.wb_twilight)),
+                      ButtonSegment(
+                          value: 'lunch',
+                          label: Text('午餐'),
+                          icon: Icon(Icons.wb_sunny_outlined)),
+                      ButtonSegment(
+                          value: 'dinner',
+                          label: Text('晚餐'),
+                          icon: Icon(Icons.nightlight_outlined)),
+                    ],
+                    selected: {mealType},
+                    onSelectionChanged: (value) => setState(() {
+                      mealType = value.first;
+                      selected.clear();
+                    }),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: searchController,
+                    textInputAction: TextInputAction.search,
+                    onChanged: (value) => setState(() => searchText = value),
+                    onSubmitted: (_) => reloadMeals(),
+                    decoration: InputDecoration(
+                      hintText: '搜索菜名、分类、食材或做法',
+                      prefixIcon: const Icon(Icons.search),
+                      suffixIcon: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (searchText.isNotEmpty)
+                            IconButton(
+                              tooltip: '清空',
+                              icon: const Icon(Icons.close),
+                              onPressed: () {
+                                setState(() {
+                                  searchController.clear();
+                                  searchText = '';
+                                  category = '全部';
+                                });
+                                reloadMeals();
+                              },
+                            ),
+                          IconButton(
+                            tooltip: '搜索菜品',
+                            icon: const Icon(Icons.manage_search),
+                            onPressed: reloadMeals,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  SizedBox(
+                    height: 42,
+                    child: ListView.separated(
+                      scrollDirection: Axis.horizontal,
+                      itemCount: categories.length,
+                      separatorBuilder: (_, __) => const SizedBox(width: 8),
                       itemBuilder: (context, index) {
-                        final meal = asMap(meals[index]);
-                        final id = idOf(meal);
-                        return CheckboxListTile(
-                          value: selected.contains(id),
-                          title: Text(textOf(meal['name'])),
-                          subtitle: Text(textOf(meal['category'])),
-                          onChanged: (_) => setState(() {
-                            if (selected.contains(id)) {
-                              selected.remove(id);
-                            } else {
-                              selected.add(id);
-                            }
-                          }),
+                        final item = categories[index];
+                        return ChoiceChip(
+                          label: Text(item),
+                          selected: category == item,
+                          onSelected: (_) => setState(() => category = item),
                         );
                       },
                     ),
                   ),
-                const SizedBox(height: 12),
-                FilledButton.icon(
-                  onPressed: saving ? null : save,
-                  icon: const Icon(Icons.check),
-                  label: Text(saving ? '保存中...' : '保存安排'),
-                ),
-              ],
+                  const SizedBox(height: 8),
+                  Text(
+                    isLoading
+                        ? '正在加载菜品目录...'
+                        : hasError
+                            ? '菜品目录加载失败'
+                            : filteredMeals.isEmpty
+                                ? '没有匹配的菜品'
+                                : '可选菜品 ${filteredMeals.length} 个，已选 ${selected.length} 个',
+                    style: const TextStyle(
+                      color: kCocoa,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  if (isLoading)
+                    const Expanded(
+                      child: Center(
+                        child: CircularProgressIndicator(),
+                      ),
+                    )
+                  else if (hasError)
+                    Expanded(
+                      child: Center(
+                        child: OutlinedButton.icon(
+                          onPressed: reloadMeals,
+                          icon: const Icon(Icons.refresh),
+                          label: const Text('重新加载菜品目录'),
+                        ),
+                      ),
+                    )
+                  else if (filteredMeals.isEmpty)
+                    const Expanded(
+                      child: Center(
+                        child: Text(
+                          '换个关键词，或者切回“全部”目录试试',
+                          style: TextStyle(
+                            color: kCocoa,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                    )
+                  else
+                    Expanded(
+                      child: ListView.builder(
+                        itemCount: filteredMeals.length,
+                        itemBuilder: (context, index) {
+                          final meal = asMap(filteredMeals[index]);
+                          final id = idOf(meal);
+                          return CheckboxListTile(
+                            value: selected.contains(id),
+                            title: Text(textOf(meal['name'])),
+                            subtitle: Text(textOf(meal['category'])),
+                            onChanged: (_) => setState(() {
+                              if (selected.contains(id)) {
+                                selected.remove(id);
+                              } else {
+                                selected.add(id);
+                              }
+                            }),
+                          );
+                        },
+                      ),
+                    ),
+                  const SizedBox(height: 12),
+                  FilledButton.icon(
+                    onPressed: saving ? null : save,
+                    icon: const Icon(Icons.check),
+                    label: Text(saving ? '保存中...' : '保存安排'),
+                  ),
+                ],
+              ),
             );
           },
         ),
@@ -3045,9 +3339,11 @@ class _MemoryEditPageState extends State<MemoryEditPage> {
   String mealType = 'dinner';
   double rating = 5;
   final selectedMealIds = <String>{};
+  final imagePicker = ImagePicker();
   final photos = <XFile>[];
   late Future<dynamic> mealsFuture;
   bool saving = false;
+  bool pickingPhotos = false;
 
   @override
   void initState() {
@@ -3056,6 +3352,7 @@ class _MemoryEditPageState extends State<MemoryEditPage> {
     titleController = TextEditingController(text: widget.initialTitle);
     selectedMealIds.addAll(widget.initialMealIds);
     mealsFuture = context.appRead.get('/meals', query: {'limit': '200'});
+    recoverLostPhotos();
   }
 
   @override
@@ -3069,35 +3366,277 @@ class _MemoryEditPageState extends State<MemoryEditPage> {
     super.dispose();
   }
 
-  Future<void> pickPhotosFromGallery() async {
-    final picker = ImagePicker();
+  void addPhotos(List<XFile> selected) {
+    if (selected.isEmpty) {
+      return;
+    }
+    setState(() => photos.addAll(selected));
+    showMessage(context, '已添加 ${selected.length} 张照片');
+  }
+
+  Future<void> recoverLostPhotos() async {
     try {
-      final selected = await picker.pickMultiImage(imageQuality: 86);
-      if (selected.isNotEmpty) {
-        setState(() => photos.addAll(selected));
+      final response = await imagePicker.retrieveLostData();
+      if (!mounted || response.isEmpty) {
+        return;
+      }
+      final recovered = response.files ??
+          (response.file == null ? const <XFile>[] : <XFile>[response.file!]);
+      if (recovered.isNotEmpty) {
+        addPhotos(recovered);
+      } else if (response.exception != null) {
+        showMessage(context, '恢复照片失败：${response.exception}');
       }
     } catch (error) {
       if (mounted) {
-        showMessage(context, errorText(error));
+        showMessage(context, '恢复照片失败：${errorText(error)}');
+      }
+    }
+  }
+
+  Future<void> choosePhotoSource() async {
+    final action = await showModalBottomSheet<String>(
+      context: context,
+      builder: (sheetContext) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 18),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 44,
+                height: 5,
+                margin: const EdgeInsets.only(bottom: 12),
+                decoration: BoxDecoration(
+                  color: kLine,
+                  borderRadius: BorderRadius.circular(99),
+                ),
+              ),
+              ListTile(
+                leading: const Icon(Icons.photo_library_outlined),
+                title: const Text('从图库选择'),
+                subtitle: const Text('支持一次选择多张饭后照片'),
+                onTap: () => Navigator.pop(sheetContext, 'gallery'),
+              ),
+              ListTile(
+                leading: const Icon(Icons.photo_camera_outlined),
+                title: const Text('调用相机拍摄'),
+                subtitle: const Text('现场拍一张，直接加入这顿回忆'),
+                onTap: () => Navigator.pop(sheetContext, 'camera'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    if (action == 'gallery') {
+      await pickPhotosFromGallery();
+    } else if (action == 'camera') {
+      await takePhoto();
+    }
+  }
+
+  Future<void> pickPhotosFromGallery() async {
+    if (pickingPhotos) {
+      return;
+    }
+    setState(() => pickingPhotos = true);
+    try {
+      final selected = await imagePicker.pickMultiImage(imageQuality: 86);
+      if (mounted) {
+        addPhotos(selected);
+      }
+    } catch (error) {
+      if (mounted) {
+        showMessage(context, '图库选择失败：${errorText(error)}');
+      }
+    } finally {
+      if (mounted) {
+        setState(() => pickingPhotos = false);
       }
     }
   }
 
   Future<void> takePhoto() async {
-    final picker = ImagePicker();
+    if (pickingPhotos) {
+      return;
+    }
+    setState(() => pickingPhotos = true);
     try {
-      final selected = await picker.pickImage(
+      final selected = await imagePicker.pickImage(
         source: ImageSource.camera,
         imageQuality: 86,
+        preferredCameraDevice: CameraDevice.rear,
       );
-      if (selected != null) {
-        setState(() => photos.add(selected));
+      if (selected != null && mounted) {
+        addPhotos([selected]);
       }
     } catch (error) {
       if (mounted) {
-        showMessage(context, errorText(error));
+        showMessage(context, '拍照失败：${errorText(error)}');
+      }
+    } finally {
+      if (mounted) {
+        setState(() => pickingPhotos = false);
       }
     }
+  }
+
+  void removePhoto(int index) {
+    setState(() => photos.removeAt(index));
+  }
+
+  Widget buildPhotoPickerSection(BuildContext context) {
+    final title = photos.isEmpty ? '饭后照片' : '饭后照片 ${photos.length} 张';
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: kPaper,
+        border: Border.all(color: kLine),
+        borderRadius: BorderRadius.circular(24),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 42,
+                height: 42,
+                decoration: BoxDecoration(
+                  color: kPeach.withValues(alpha: 0.22),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child:
+                    const Icon(Icons.photo_camera_back_outlined, color: kCoral),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.w900,
+                          ),
+                    ),
+                    const Text(
+                      '支持图库多选，也可以现场拍照加入回忆',
+                      style: TextStyle(color: kCocoa),
+                    ),
+                  ],
+                ),
+              ),
+              IconButton.filledTonal(
+                onPressed: pickingPhotos ? null : choosePhotoSource,
+                icon: pickingPhotos
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.add_a_photo_outlined),
+                tooltip: '添加照片',
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          if (photos.isEmpty)
+            InkWell(
+              borderRadius: BorderRadius.circular(20),
+              onTap: pickingPhotos ? null : choosePhotoSource,
+              child: Container(
+                height: 116,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: kOat.withValues(alpha: 0.48),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: kLine),
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.add_photo_alternate_outlined,
+                      color: pickingPhotos ? kCocoa : kCoral,
+                      size: 34,
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      pickingPhotos ? '正在打开照片入口...' : '添加图库照片或调用相机',
+                      style: const TextStyle(
+                        color: kCoffee,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            )
+          else
+            GridView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: photos.length,
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 3,
+                crossAxisSpacing: 8,
+                mainAxisSpacing: 8,
+              ),
+              itemBuilder: (context, index) {
+                final photo = photos[index];
+                return ClipRRect(
+                  borderRadius: BorderRadius.circular(18),
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      Image.file(io.File(photo.path), fit: BoxFit.cover),
+                      Positioned(
+                        top: 6,
+                        right: 6,
+                        child: InkWell(
+                          onTap: () => removePhoto(index),
+                          child: Container(
+                            width: 28,
+                            height: 28,
+                            decoration: BoxDecoration(
+                              color: Colors.black.withValues(alpha: 0.5),
+                              borderRadius: BorderRadius.circular(99),
+                            ),
+                            child: const Icon(
+                              Icons.close,
+                              color: Colors.white,
+                              size: 18,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 10,
+            runSpacing: 10,
+            children: [
+              OutlinedButton.icon(
+                onPressed: pickingPhotos ? null : pickPhotosFromGallery,
+                icon: const Icon(Icons.photo_library_outlined),
+                label: const Text('从图库选择'),
+              ),
+              OutlinedButton.icon(
+                onPressed: pickingPhotos ? null : takePhoto,
+                icon: const Icon(Icons.photo_camera_outlined),
+                label: const Text('拍照添加'),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> save() async {
@@ -3236,27 +3775,7 @@ class _MemoryEditPageState extends State<MemoryEditPage> {
                     },
                   ),
                   const SizedBox(height: 12),
-                  Text(
-                    photos.isEmpty ? '还没有添加照片' : '已选择 ${photos.length} 张照片',
-                    style: Theme.of(context).textTheme.bodyMedium,
-                  ),
-                  const SizedBox(height: 8),
-                  Wrap(
-                    spacing: 10,
-                    runSpacing: 10,
-                    children: [
-                      OutlinedButton.icon(
-                        onPressed: pickPhotosFromGallery,
-                        icon: const Icon(Icons.photo_library_outlined),
-                        label: const Text('从图库选择'),
-                      ),
-                      OutlinedButton.icon(
-                        onPressed: takePhoto,
-                        icon: const Icon(Icons.photo_camera_outlined),
-                        label: const Text('拍照添加'),
-                      ),
-                    ],
-                  ),
+                  buildPhotoPickerSection(context),
                 ],
               ),
             ),
