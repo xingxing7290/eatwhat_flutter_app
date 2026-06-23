@@ -3069,11 +3069,34 @@ class _MemoryEditPageState extends State<MemoryEditPage> {
     super.dispose();
   }
 
-  Future<void> pickPhotos() async {
+  Future<void> pickPhotosFromGallery() async {
     final picker = ImagePicker();
-    final selected = await picker.pickMultiImage(imageQuality: 86);
-    if (selected.isNotEmpty) {
-      setState(() => photos.addAll(selected));
+    try {
+      final selected = await picker.pickMultiImage(imageQuality: 86);
+      if (selected.isNotEmpty) {
+        setState(() => photos.addAll(selected));
+      }
+    } catch (error) {
+      if (mounted) {
+        showMessage(context, errorText(error));
+      }
+    }
+  }
+
+  Future<void> takePhoto() async {
+    final picker = ImagePicker();
+    try {
+      final selected = await picker.pickImage(
+        source: ImageSource.camera,
+        imageQuality: 86,
+      );
+      if (selected != null) {
+        setState(() => photos.add(selected));
+      }
+    } catch (error) {
+      if (mounted) {
+        showMessage(context, errorText(error));
+      }
     }
   }
 
@@ -3213,12 +3236,26 @@ class _MemoryEditPageState extends State<MemoryEditPage> {
                     },
                   ),
                   const SizedBox(height: 12),
-                  OutlinedButton.icon(
-                    onPressed: pickPhotos,
-                    icon: const Icon(Icons.image_outlined),
-                    label: Text(photos.isEmpty
-                        ? '选择照片（支持 PNG/JPG）'
-                        : '已选择 ${photos.length} 张'),
+                  Text(
+                    photos.isEmpty ? '还没有添加照片' : '已选择 ${photos.length} 张照片',
+                    style: Theme.of(context).textTheme.bodyMedium,
+                  ),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 10,
+                    runSpacing: 10,
+                    children: [
+                      OutlinedButton.icon(
+                        onPressed: pickPhotosFromGallery,
+                        icon: const Icon(Icons.photo_library_outlined),
+                        label: const Text('从图库选择'),
+                      ),
+                      OutlinedButton.icon(
+                        onPressed: takePhoto,
+                        icon: const Icon(Icons.photo_camera_outlined),
+                        label: const Text('拍照添加'),
+                      ),
+                    ],
                   ),
                 ],
               ),
