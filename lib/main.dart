@@ -10,9 +10,13 @@ import 'package:http_parser/http_parser.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-const String kApiBase = 'http://113.44.50.108:3002/api';
-const String kAssetBase = 'http://113.44.50.108:3002';
-const Duration kRequestTimeout = Duration(seconds: 15);
+const String kPrimaryApiBase = 'http://113.44.50.108:8088/api';
+const String kFallbackApiBase = 'http://113.44.50.108:3002/api';
+const String kApiBase = kPrimaryApiBase;
+const List<String> kReadApiBases = [kPrimaryApiBase, kFallbackApiBase];
+const String kAssetBase = 'http://113.44.50.108:8088';
+const Duration kRequestTimeout = Duration(seconds: 30);
+const Duration kUploadTimeout = Duration(seconds: 90);
 const double kUploadImageMaxSide = 1600;
 const int kUploadImageQuality = 68;
 
@@ -288,8 +292,6 @@ class AppState extends ChangeNotifier {
   static const _savedPasswordKey = 'eatwhat.savedPassword';
   static const _rememberKey = 'eatwhat.rememberPassword';
 
-  final http.Client _client = http.Client();
-
   bool loading = true;
   String? token;
   Map<String, dynamic>? user;
@@ -443,9 +445,11 @@ class AppState extends ChangeNotifier {
     Map<String, String>? query,
     bool auth = true,
   }) async {
-    final uri = Uri.parse('$kApiBase$path')
-        .replace(queryParameters: cleanedQuery(query));
-    final headers = <String, String>{'Accept': 'application/json'};
+    final headers = <String, String>{
+      'Accept': 'application/json',
+      'Accept-Encoding': 'gzip',
+      'X-Mobile-Client': 'eatwhat-flutter',
+    };
     if (body != null) {
       headers['Content-Type'] = 'application/json';
     }
@@ -453,46 +457,88 @@ class AppState extends ChangeNotifier {
       headers['Authorization'] = 'Bearer $token';
     }
 
-    late final http.Response response;
     final encoded = body == null ? null : jsonEncode(body);
-    try {
-      switch (method) {
-        case 'GET':
-          response =
-              await _client.get(uri, headers: headers).timeout(kRequestTimeout);
-          break;
-        case 'POST':
-          response = await _client
-              .post(uri, headers: headers, body: encoded)
-              .timeout(kRequestTimeout);
-          break;
-        case 'PUT':
-          response = await _client
-              .put(uri, headers: headers, body: encoded)
-              .timeout(kRequestTimeout);
-          break;
-        case 'PATCH':
-          response = await _client
-              .patch(uri, headers: headers, body: encoded)
-              .timeout(kRequestTimeout);
-          break;
-        case 'DELETE':
-          response = await _client
-              .delete(uri, headers: headers)
-              .timeout(kRequestTimeout);
-          break;
-        default:
-          throw ApiException('不支持的请求方法: $method');
-      }
-    } on ApiException {
-      rethrow;
-    } catch (error) {
-      if (error is TimeoutException) {
-        throw const ApiException('服务器响应超时，请检查网络或稍后重试');
-      }
-      throw ApiException('网络请求失败：$error');
+    if (!['GET', 'POST', 'PUT', 'PATCH', 'DELETE'].contains(method)) {
+      throw ApiException('Unsupported request method: $method');
     }
-    return decodeResponse(response);
+    final bases = method == 'GET' ? kReadApiBases : const [kApiBase];
+    Object? lastError;
+    for (var index = 0; index < bases.length; index += 1) {
+      final uri = Uri.parse('${bases[index]}$path')
+          .replace(queryParameters: cleanedQuery(query));
+      try {
+        final response = await rawHttpRequest(method, uri, headers, encoded);
+        return decodeResponse(response);
+      } on ApiException {
+        rethrow;
+      } catch (error) {
+        lastError = error;
+        if (index < bases.length - 1 && isRetriableNetworkError(error)) {
+          await Future<void>.delayed(const Duration(milliseconds: 300));
+          continue;
+        }
+        break;
+      }
+    }
+    throw networkApiException(lastError);
+  }
+
+  Future<http.Response> rawHttpRequest(
+    String method,
+    Uri uri,
+    Map<String, String> headers,
+    String? body,
+  ) async {
+    if (uri.scheme != 'http') {
+      throw ApiException('Unsupported API scheme: ${uri.scheme}');
+    }
+    final socket = await io.Socket.connect(
+      uri.host,
+      uri.hasPort ? uri.port : 80,
+      timeout: const Duration(seconds: 10),
+    ).timeout(kRequestTimeout);
+    try {
+      final bodyBytes = body == null ? null : utf8.encode(body);
+      final requestPath =
+          '${uri.path.isEmpty ? '/' : uri.path}${uri.hasQuery ? '?${uri.query}' : ''}';
+      final hostHeader = '${uri.host}${uri.hasPort ? ':${uri.port}' : ''}';
+      final requestHeaders = StringBuffer()
+        ..write('$method $requestPath HTTP/1.0\r\n')
+        ..write('Host: $hostHeader\r\n')
+        ..write('Connection: close\r\n');
+      headers.forEach((name, value) {
+        final lower = name.toLowerCase();
+        if (lower != 'host' &&
+            lower != 'connection' &&
+            lower != 'content-length') {
+          requestHeaders.write('$name: $value\r\n');
+        }
+      });
+      if (bodyBytes != null) {
+        requestHeaders.write('Content-Length: ${bodyBytes.length}\r\n');
+      }
+      requestHeaders.write('\r\n');
+      socket.add(latin1.encode(requestHeaders.toString()));
+      if (bodyBytes != null) {
+        socket.add(bodyBytes);
+      }
+      await socket.flush().timeout(kRequestTimeout);
+      final rawResponse =
+          await readSocketResponse(socket).timeout(kRequestTimeout);
+      final parsed = parseHttpResponse(rawResponse);
+      final responseBody = parsed.headers['content-encoding'] == 'gzip'
+          ? io.gzip.decode(parsed.bodyBytes)
+          : parsed.bodyBytes;
+      return http.Response.bytes(
+        responseBody,
+        parsed.statusCode,
+        headers: parsed.headers,
+        reasonPhrase: parsed.reasonPhrase,
+        request: http.Request(method, uri),
+      );
+    } finally {
+      socket.destroy();
+    }
   }
 
   Future<dynamic> multipart(
@@ -528,7 +574,8 @@ class AppState extends ChangeNotifier {
     }
     late final http.StreamedResponse streamed;
     try {
-      streamed = await request.send().timeout(kRequestTimeout);
+      request.headers['Accept-Encoding'] = 'identity';
+      streamed = await request.send().timeout(kUploadTimeout);
     } catch (error) {
       if (error is TimeoutException) {
         throw const ApiException('服务器响应超时，请检查网络或稍后重试');
@@ -536,7 +583,7 @@ class AppState extends ChangeNotifier {
       throw ApiException('上传请求失败：$error');
     }
     final response = await http.Response.fromStream(streamed)
-        .timeout(kRequestTimeout, onTimeout: () {
+        .timeout(kUploadTimeout, onTimeout: () {
       throw const ApiException('服务器响应超时，请检查网络或稍后重试');
     });
     return decodeResponse(response);
@@ -562,12 +609,6 @@ class AppState extends ChangeNotifier {
     }
     return body;
   }
-
-  @override
-  void dispose() {
-    _client.close();
-    super.dispose();
-  }
 }
 
 class SavedLogin {
@@ -588,6 +629,196 @@ class ApiException implements Exception {
 
   @override
   String toString() => message;
+}
+
+bool isRetriableNetworkError(Object error) {
+  return error is TimeoutException ||
+      error is io.SocketException ||
+      error is http.ClientException;
+}
+
+ApiException networkApiException(Object? error, {String prefix = '网络请求失败'}) {
+  if (error is TimeoutException) {
+    return const ApiException('网络连接超时，已自动重试，请稍后再试');
+  }
+  if (error is io.SocketException) {
+    return ApiException('网络连接失败，请检查手机网络后重试：${error.message}');
+  }
+  if (error == null) {
+    return ApiException(prefix);
+  }
+  return ApiException('$prefix：$error');
+}
+
+class ParsedHttpResponse {
+  const ParsedHttpResponse({
+    required this.statusCode,
+    required this.reasonPhrase,
+    required this.headers,
+    required this.bodyBytes,
+  });
+
+  final int statusCode;
+  final String reasonPhrase;
+  final Map<String, String> headers;
+  final List<int> bodyBytes;
+}
+
+Future<List<int>> readSocketResponse(io.Socket socket) {
+  final completer = Completer<List<int>>();
+  final bytes = <int>[];
+  Timer? idleTimer;
+  late final StreamSubscription<List<int>> subscription;
+
+  void complete() {
+    idleTimer?.cancel();
+    if (!completer.isCompleted) {
+      completer.complete(List<int>.unmodifiable(bytes));
+    }
+  }
+
+  void scheduleIdleCompletion() {
+    idleTimer?.cancel();
+    idleTimer = Timer(const Duration(milliseconds: 500), () {
+      subscription.cancel().whenComplete(complete);
+    });
+  }
+
+  subscription = socket.listen(
+    (chunk) {
+      bytes.addAll(chunk);
+      final parsedLength = parsedSocketContentLength(bytes);
+      final headerEnd = httpHeaderEndIndex(bytes);
+      if (headerEnd >= 0 &&
+          parsedLength != null &&
+          bytes.length - headerEnd - 4 >= parsedLength) {
+        subscription.cancel().whenComplete(complete);
+      } else {
+        scheduleIdleCompletion();
+      }
+    },
+    onError: (Object error, StackTrace stackTrace) {
+      idleTimer?.cancel();
+      if (!completer.isCompleted) {
+        completer.completeError(error, stackTrace);
+      }
+    },
+    onDone: complete,
+    cancelOnError: true,
+  );
+
+  return completer.future;
+}
+
+int? parsedSocketContentLength(List<int> bytes) {
+  final headerEnd = httpHeaderEndIndex(bytes);
+  if (headerEnd < 0) {
+    return null;
+  }
+  final headerText = latin1.decode(bytes.sublist(0, headerEnd));
+  for (final line in headerText.split('\r\n').skip(1)) {
+    final separator = line.indexOf(':');
+    if (separator <= 0) {
+      continue;
+    }
+    final name = line.substring(0, separator).trim().toLowerCase();
+    if (name == 'content-length') {
+      return int.tryParse(line.substring(separator + 1).trim());
+    }
+  }
+  return null;
+}
+
+ParsedHttpResponse parseHttpResponse(List<int> bytes) {
+  final headerEnd = httpHeaderEndIndex(bytes);
+  if (headerEnd < 0) {
+    throw const ApiException('服务器响应格式无效');
+  }
+  final headerText = latin1.decode(bytes.sublist(0, headerEnd));
+  final lines = headerText.split('\r\n');
+  final statusParts = lines.first.split(' ');
+  if (statusParts.length < 2) {
+    throw const ApiException('服务器响应状态无效');
+  }
+  final statusCode = int.tryParse(statusParts[1]);
+  if (statusCode == null) {
+    throw const ApiException('服务器响应状态无效');
+  }
+  final headers = <String, String>{};
+  for (final line in lines.skip(1)) {
+    final separator = line.indexOf(':');
+    if (separator > 0) {
+      headers[line.substring(0, separator).trim().toLowerCase()] =
+          line.substring(separator + 1).trim();
+    }
+  }
+  return ParsedHttpResponse(
+    statusCode: statusCode,
+    reasonPhrase: statusParts.length > 2 ? statusParts.skip(2).join(' ') : '',
+    headers: headers,
+    bodyBytes: bytes.sublist(headerEnd + 4),
+  );
+}
+
+int httpHeaderEndIndex(List<int> bytes) {
+  for (var index = 0; index <= bytes.length - 4; index += 1) {
+    if (bytes[index] == 13 &&
+        bytes[index + 1] == 10 &&
+        bytes[index + 2] == 13 &&
+        bytes[index + 3] == 10) {
+      return index;
+    }
+  }
+  return -1;
+}
+
+Future<List<int>> readResponseBytes(io.HttpClientResponse response) {
+  final expectedLength = response.contentLength;
+  if (expectedLength == 0) {
+    return Future<List<int>>.value(const <int>[]);
+  }
+
+  final completer = Completer<List<int>>();
+  final bytes = <int>[];
+  Timer? idleTimer;
+  late final StreamSubscription<List<int>> subscription;
+
+  void complete() {
+    idleTimer?.cancel();
+    if (!completer.isCompleted) {
+      completer.complete(List<int>.unmodifiable(bytes));
+    }
+  }
+
+  void scheduleIdleCompletion() {
+    if (expectedLength > 0) {
+      return;
+    }
+    idleTimer?.cancel();
+    idleTimer = Timer(const Duration(milliseconds: 500), () {
+      subscription.cancel().whenComplete(complete);
+    });
+  }
+
+  subscription = response.listen(
+    (chunk) {
+      bytes.addAll(chunk);
+      if (expectedLength > 0 && bytes.length >= expectedLength) {
+        subscription.cancel().whenComplete(complete);
+      } else {
+        scheduleIdleCompletion();
+      }
+    },
+    onError: (Object error, StackTrace stackTrace) {
+      if (!completer.isCompleted) {
+        completer.completeError(error, stackTrace);
+      }
+    },
+    onDone: complete,
+    cancelOnError: true,
+  );
+
+  return completer.future;
 }
 
 Map<String, String>? cleanedQuery(Map<String, String>? query) {
@@ -1209,7 +1440,32 @@ class _DashboardPageState extends State<DashboardPage> {
     future = load();
   }
 
-  Future<dynamic> load() => context.appRead.get('/dashboard/summary');
+  Future<dynamic> load() async {
+    final today = DateTime.now();
+    final results = await Future.wait<dynamic>([
+      loadPart(
+          () => context.appRead.get('/schedules/day/${dateString(today)}')),
+      loadPart(() => context.appRead.get('/meals', query: {'limit': '1'})),
+      loadPart(() => context.appRead.get('/default-meals/status')),
+    ]);
+    final meals = mealListFrom(results[1]);
+    return <String, dynamic>{
+      'todaySchedule': asMap(payload(results[0])),
+      'mealCount': dashboardMealCount(results[1], meals),
+      'wishlist': 0,
+      'memories': 0,
+      'defaultMeals': asMap(payload(results[2])),
+      'imageIssues': {'open': 0},
+    };
+  }
+
+  Future<dynamic> loadPart(Future<dynamic> Function() request) async {
+    try {
+      return await request().timeout(const Duration(seconds: 8));
+    } catch (_) {
+      return null;
+    }
+  }
 
   void reload() => setState(() {
         future = load();
@@ -1411,6 +1667,17 @@ String countText(dynamic value) {
     return value.length.toString();
   }
   return textOf(value);
+}
+
+int dashboardMealCount(dynamic response, List<dynamic> meals) {
+  final data = payload(response);
+  if (data is Map) {
+    final total = int.tryParse(textOf(data['total'] ?? data['count']));
+    if (total != null) {
+      return total;
+    }
+  }
+  return meals.length;
 }
 
 String todayArrangementText(dynamic value) {
@@ -2028,7 +2295,7 @@ class _ScheduleSheetState extends State<ScheduleSheet> {
   Future<dynamic> loadMeals() {
     final query = searchController.text.trim();
     return context.appRead.get('/meals', query: {
-      'limit': '80',
+      'limit': '1',
       if (query.isNotEmpty) 'search': query,
     });
   }
@@ -2277,7 +2544,7 @@ class _MealListPageState extends State<MealListPage> {
 
   Future<dynamic> load() => context.appRead.get('/meals', query: {
         'search': searchController.text,
-        'limit': '200',
+        'limit': '1',
       });
 
   void reload() => setState(() {
@@ -3384,7 +3651,7 @@ class _MemoryEditPageState extends State<MemoryEditPage> {
     dateController = TextEditingController(text: dateString(DateTime.now()));
     titleController = TextEditingController(text: widget.initialTitle);
     selectedMealIds.addAll(widget.initialMealIds);
-    mealsFuture = context.appRead.get('/meals', query: {'limit': '200'});
+    mealsFuture = context.appRead.get('/meals', query: {'limit': '1'});
     recoverLostPhotos();
   }
 
