@@ -12,6 +12,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 const String kApiBase = 'http://113.44.50.108:3002/api';
 const String kAssetBase = 'http://113.44.50.108:3002';
 const Duration kRequestTimeout = Duration(seconds: 15);
+const double kUploadImageMaxSide = 1600;
+const int kUploadImageQuality = 68;
 
 const kCream = Color(0xFFFDF7EF);
 const kOat = Color(0xFFF5EBE6);
@@ -2930,8 +2932,12 @@ class _MealEditPageState extends State<MealEditPage> {
 
   Future<void> pickImage() async {
     final picker = ImagePicker();
-    final selected =
-        await picker.pickImage(source: ImageSource.gallery, imageQuality: 86);
+    final selected = await picker.pickImage(
+      source: ImageSource.gallery,
+      maxWidth: kUploadImageMaxSide,
+      maxHeight: kUploadImageMaxSide,
+      imageQuality: kUploadImageQuality,
+    );
     if (selected != null) {
       setState(() => image = selected);
     }
@@ -3442,7 +3448,11 @@ class _MemoryEditPageState extends State<MemoryEditPage> {
     }
     setState(() => pickingPhotos = true);
     try {
-      final selected = await imagePicker.pickMultiImage(imageQuality: 86);
+      final selected = await imagePicker.pickMultiImage(
+        maxWidth: kUploadImageMaxSide,
+        maxHeight: kUploadImageMaxSide,
+        imageQuality: kUploadImageQuality,
+      );
       if (mounted) {
         addPhotos(selected);
       }
@@ -3465,7 +3475,9 @@ class _MemoryEditPageState extends State<MemoryEditPage> {
     try {
       final selected = await imagePicker.pickImage(
         source: ImageSource.camera,
-        imageQuality: 86,
+        maxWidth: kUploadImageMaxSide,
+        maxHeight: kUploadImageMaxSide,
+        imageQuality: kUploadImageQuality,
         preferredCameraDevice: CameraDevice.rear,
       );
       if (selected != null && mounted) {
