@@ -3,10 +3,13 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io' as io;
+import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart';
+import 'package:image/image.dart' as img;
 import 'package:image_picker/image_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -31,7 +34,7 @@ const kCocoa = Color(0xFF7D6257);
 const kSage = Color(0xFF8AA36B);
 const kHoney = Color(0xFFF3C96B);
 const kLine = Color(0xFFEAD6C8);
-const kImageExtensionPattern = r'\.(jpe?g|png|gif|webp)$';
+const kImageExtensionPattern = r'\.(jpe?g|png|gif|webp|heic|heif)$';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -953,10 +956,119 @@ MediaType uploadContentType(XFile file) {
     return MediaType.parse(mime);
   }
   final name = uploadFileName(file).toLowerCase();
+  if (name.endsWith('.heic')) return MediaType('image', 'heic');
+  if (name.endsWith('.heif')) return MediaType('image', 'heif');
   if (name.endsWith('.png')) return MediaType('image', 'png');
   if (name.endsWith('.gif')) return MediaType('image', 'gif');
   if (name.endsWith('.webp')) return MediaType('image', 'webp');
   return MediaType('image', 'jpeg');
+}
+
+Future<XFile> createFoodFocusPhoto(XFile source) async {
+  final bytes = await source.readAsBytes();
+  final processed = await compute(renderFoodFocusBytes, bytes);
+  final sourceName = uploadFileName(source);
+  final baseName = sourceName.replaceFirst(RegExp(r'\.[^.]+$'), '');
+  final safeName = baseName.replaceAll(RegExp(r'[^a-zA-Z0-9_-]+'), '-');
+  final outputName =
+      '${safeName.isEmpty ? 'food' : safeName}-focus-${DateTime.now().millisecondsSinceEpoch}.jpg';
+  final outputPath = [
+    io.Directory.systemTemp.path,
+    outputName,
+  ].join(io.Platform.pathSeparator);
+  final outputFile = io.File(outputPath);
+  await outputFile.writeAsBytes(processed, flush: true);
+  return XFile(outputPath, name: outputName, mimeType: 'image/jpeg');
+}
+
+List<int> renderFoodFocusBytes(Uint8List inputBytes) {
+  final decoded = img.decodeImage(inputBytes);
+  if (decoded == null) {
+    throw const FormatException('Unsupported image format');
+  }
+
+  var source = img.bakeOrientation(decoded);
+  final maxSide = math.max(source.width, source.height);
+  if (maxSide > 1400) {
+    source = source.width >= source.height
+        ? img.copyResize(source,
+            width: 1400, interpolation: img.Interpolation.cubic)
+        : img.copyResize(source,
+            height: 1400, interpolation: img.Interpolation.cubic);
+  }
+
+  final blurRadius =
+      math.max(7, math.min(18, math.max(source.width, source.height) ~/ 95));
+  final blurred = img.gaussianBlur(source.clone(), radius: blurRadius);
+  final output = img.Image.from(source, noAnimation: true);
+  final width = source.width;
+  final height = source.height;
+  final centerX = width * 0.5;
+  final centerY = height * 0.54;
+  final radiusX = width * 0.43;
+  final radiusY = height * 0.37;
+  const feather = 0.28;
+
+  for (var y = 0; y < height; y += 1) {
+    for (var x = 0; x < width; x += 1) {
+      final fg = source.getPixel(x, y);
+      final bg = blurred.getPixel(x, y);
+      final nx = (x - centerX) / radiusX;
+      final ny = (y - centerY) / radiusY;
+      final distance = math.sqrt(nx * nx + ny * ny);
+      final backgroundWeight = smoothStep(1 - feather, 1 + feather, distance);
+      final highlightWeight = 1 - smoothStep(0.72, 1.0, distance);
+
+      final mutedBackground = mutedFoodBackground(bg.r, bg.g, bg.b);
+      final foreground = [
+        clampColor(
+            fg.r * (1.04 + 0.05 * highlightWeight) + 5 * highlightWeight),
+        clampColor(
+            fg.g * (1.03 + 0.04 * highlightWeight) + 4 * highlightWeight),
+        clampColor(
+            fg.b * (1.02 + 0.03 * highlightWeight) + 2 * highlightWeight),
+      ];
+
+      final vignette = 1 - 0.10 * smoothStep(0.82, 1.45, distance);
+      output.setPixelRgb(
+        x,
+        y,
+        clampColor(lerpDoubleValue(
+                foreground[0], mutedBackground[0], backgroundWeight) *
+            vignette),
+        clampColor(lerpDoubleValue(
+                foreground[1], mutedBackground[1], backgroundWeight) *
+            vignette),
+        clampColor(lerpDoubleValue(
+                foreground[2], mutedBackground[2], backgroundWeight) *
+            vignette),
+      );
+    }
+  }
+
+  return img.encodeJpg(output, quality: 86);
+}
+
+List<int> mutedFoodBackground(num red, num green, num blue) {
+  final gray = red * 0.299 + green * 0.587 + blue * 0.114;
+  return [
+    clampColor((red * 0.42 + gray * 0.58) * 0.80 + 14),
+    clampColor((green * 0.42 + gray * 0.58) * 0.80 + 10),
+    clampColor((blue * 0.42 + gray * 0.58) * 0.76 + 8),
+  ];
+}
+
+double smoothStep(double edge0, double edge1, double value) {
+  final t = ((value - edge0) / (edge1 - edge0)).clamp(0.0, 1.0);
+  return t * t * (3 - 2 * t);
+}
+
+double lerpDoubleValue(num start, num end, double amount) {
+  return start + (end - start) * amount;
+}
+
+int clampColor(num value) {
+  return value.round().clamp(0, 255);
 }
 
 void showMessage(BuildContext context, String message) {
@@ -3233,7 +3345,13 @@ class _MealEditPageState extends State<MealEditPage> {
       imageQuality: kUploadImageQuality,
     );
     if (selected != null) {
-      setState(() => image = selected);
+      try {
+        final focused = await createFoodFocusPhoto(selected);
+        setState(() => image = focused);
+        showMessage(context, '已自动突出菜品主体，柔化背景');
+      } catch (_) {
+        setState(() => image = selected);
+      }
     }
   }
 
@@ -3666,12 +3784,37 @@ class _MemoryEditPageState extends State<MemoryEditPage> {
     super.dispose();
   }
 
-  void addPhotos(List<XFile> selected) {
+  void addPhotos(List<XFile> selected, {String? message}) {
     if (selected.isEmpty) {
       return;
     }
     setState(() => photos.addAll(selected));
-    showMessage(context, '已添加 ${selected.length} 张照片');
+    showMessage(context, message ?? '已添加 ${selected.length} 张照片');
+  }
+
+  Future<void> addFoodFocusedPhotos(List<XFile> selected) async {
+    if (selected.isEmpty) {
+      return;
+    }
+    final focusedPhotos = <XFile>[];
+    var focusedCount = 0;
+    for (final photo in selected) {
+      try {
+        focusedPhotos.add(await createFoodFocusPhoto(photo));
+        focusedCount += 1;
+      } catch (_) {
+        focusedPhotos.add(photo);
+      }
+    }
+    if (!mounted) {
+      return;
+    }
+    addPhotos(
+      focusedPhotos,
+      message: focusedCount > 0
+          ? '已自动突出菜品主体，柔化背景 $focusedCount 张'
+          : '已添加 ${selected.length} 张照片',
+    );
   }
 
   Future<void> recoverLostPhotos() async {
@@ -3683,7 +3826,7 @@ class _MemoryEditPageState extends State<MemoryEditPage> {
       final recovered = response.files ??
           (response.file == null ? const <XFile>[] : <XFile>[response.file!]);
       if (recovered.isNotEmpty) {
-        addPhotos(recovered);
+        await addFoodFocusedPhotos(recovered);
       } else if (response.exception != null) {
         showMessage(context, '恢复照片失败：${response.exception}');
       }
@@ -3748,7 +3891,7 @@ class _MemoryEditPageState extends State<MemoryEditPage> {
         imageQuality: kUploadImageQuality,
       );
       if (mounted) {
-        addPhotos(selected);
+        await addFoodFocusedPhotos(selected);
       }
     } catch (error) {
       if (mounted) {
@@ -3775,7 +3918,7 @@ class _MemoryEditPageState extends State<MemoryEditPage> {
         preferredCameraDevice: CameraDevice.rear,
       );
       if (selected != null && mounted) {
-        addPhotos([selected]);
+        await addFoodFocusedPhotos([selected]);
       }
     } catch (error) {
       if (mounted) {

@@ -1,6 +1,9 @@
+import 'dart:typed_data';
+
 import 'package:eatwhat_flutter_app/main.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter/widgets.dart';
+import 'package:image/image.dart' as img;
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
@@ -26,6 +29,28 @@ void main() {
     ));
 
     expect(find.text('not authed'), findsOneWidget);
+  });
+
+  test('food focus renderer highlights center subject', () {
+    final source = img.Image(width: 48, height: 48);
+    for (var y = 0; y < source.height; y += 1) {
+      for (var x = 0; x < source.width; x += 1) {
+        source.setPixelRgb(x, y, 70, 150, 110);
+      }
+    }
+    for (var y = 14; y < 36; y += 1) {
+      for (var x = 12; x < 38; x += 1) {
+        source.setPixelRgb(x, y, 220, 90, 65);
+      }
+    }
+
+    final outputBytes =
+        renderFoodFocusBytes(Uint8List.fromList(img.encodeJpg(source)));
+    final output = img.decodeImage(Uint8List.fromList(outputBytes));
+
+    expect(outputBytes.length, greaterThan(100));
+    expect(output, isNotNull);
+    expect(output!.getPixel(24, 25).r, greaterThan(output.getPixel(2, 2).r));
   });
 }
 
