@@ -6,6 +6,7 @@ import 'dart:io' as io;
 
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:http_parser/http_parser.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -26,6 +27,7 @@ const kCocoa = Color(0xFF7D6257);
 const kSage = Color(0xFF8AA36B);
 const kHoney = Color(0xFFF3C96B);
 const kLine = Color(0xFFEAD6C8);
+const kImageExtensionPattern = r'\.(jpe?g|png|gif|webp)$';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -510,7 +512,8 @@ class AppState extends ChangeNotifier {
       request.files.add(http.MultipartFile.fromBytes(
         entry.key,
         await entry.value.readAsBytes(),
-        filename: entry.value.name,
+        filename: uploadFileName(entry.value),
+        contentType: uploadContentType(entry.value),
       ));
     }
     for (final entry in (multiFiles ?? {}).entries) {
@@ -518,7 +521,8 @@ class AppState extends ChangeNotifier {
         request.files.add(http.MultipartFile.fromBytes(
           entry.key,
           await file.readAsBytes(),
-          filename: file.name,
+          filename: uploadFileName(file),
+          contentType: uploadContentType(file),
         ));
       }
     }
@@ -699,6 +703,29 @@ String errorText(Object error) {
     return error.message;
   }
   return error.toString().replaceFirst('Exception: ', '');
+}
+
+String uploadFileName(XFile file) {
+  final rawName = file.name.trim().isNotEmpty
+      ? file.name.trim()
+      : file.path.split(RegExp(r'[\\/]')).last;
+  final name = rawName.trim().isNotEmpty ? rawName.trim() : 'upload';
+  if (RegExp(kImageExtensionPattern).hasMatch(name.toLowerCase())) {
+    return name;
+  }
+  return '$name.jpg';
+}
+
+MediaType uploadContentType(XFile file) {
+  final mime = file.mimeType?.toLowerCase().trim();
+  if (mime != null && mime.startsWith('image/')) {
+    return MediaType.parse(mime);
+  }
+  final name = uploadFileName(file).toLowerCase();
+  if (name.endsWith('.png')) return MediaType('image', 'png');
+  if (name.endsWith('.gif')) return MediaType('image', 'gif');
+  if (name.endsWith('.webp')) return MediaType('image', 'webp');
+  return MediaType('image', 'jpeg');
 }
 
 void showMessage(BuildContext context, String message) {
