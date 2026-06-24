@@ -1,8 +1,11 @@
+import 'dart:convert';
+import 'dart:io' as io;
 import 'dart:typed_data';
 
 import 'package:eatwhat_flutter_app/main.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter/widgets.dart';
+import 'package:http/http.dart' as http;
 import 'package:image/image.dart' as img;
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -31,6 +34,88 @@ void main() {
     expect(find.text('not authed'), findsOneWidget);
   });
 
+  test('init keeps valid cached session when profile refresh is offline',
+      () async {
+    final token = fakeJwt(DateTime.now().add(const Duration(hours: 2)));
+    SharedPreferences.setMockInitialValues({
+      'eatwhat.accessToken': token,
+      'eatwhat.cachedUser': jsonEncode({
+        'id': 'u1',
+        'displayName': 'Codex Test',
+      }),
+      'eatwhat.cachedHousehold': jsonEncode({'name': 'QA Home'}),
+    });
+
+    final appState = _FakeAppState((method, uri, headers, body) {
+      throw const io.SocketException('offline');
+    });
+    addTearDown(appState.dispose);
+
+    await appState.init();
+
+    expect(appState.loading, isFalse);
+    expect(appState.isAuthed, isTrue);
+    expect(appState.displayName, 'Codex Test');
+    expect(appState.householdName, 'QA Home');
+  });
+
+  test('init clears expired saved token and asks user to log in again',
+      () async {
+    SharedPreferences.setMockInitialValues({
+      'eatwhat.accessToken':
+          fakeJwt(DateTime.now().subtract(const Duration(minutes: 2))),
+      'eatwhat.cachedUser': jsonEncode({'id': 'u1'}),
+      'eatwhat.cachedHousehold': jsonEncode({'name': 'QA Home'}),
+    });
+
+    final appState = AppState();
+    addTearDown(appState.dispose);
+    await appState.init();
+    final prefs = await SharedPreferences.getInstance();
+
+    expect(appState.isAuthed, isFalse);
+    expect(appState.sessionNotice, contains('登录已过期'));
+    expect(prefs.getString('eatwhat.accessToken'), isNull);
+  });
+
+  test('401 from authenticated request clears local session', () async {
+    final token = fakeJwt(DateTime.now().add(const Duration(hours: 2)));
+    SharedPreferences.setMockInitialValues({'eatwhat.accessToken': token});
+
+    final appState = _FakeAppState((method, uri, headers, body) async {
+      return http.Response.bytes(
+        utf8.encode(jsonEncode({'error': 'token expired'})),
+        401,
+      );
+    })
+      ..token = token
+      ..user = {'id': 'u1'};
+    addTearDown(appState.dispose);
+
+    await expectLater(appState.get('/protected'), throwsA(isA<ApiException>()));
+    final prefs = await SharedPreferences.getInstance();
+
+    expect(appState.isAuthed, isFalse);
+    expect(appState.sessionNotice, contains('登录已过期'));
+    expect(prefs.getString('eatwhat.accessToken'), isNull);
+  });
+
+  test('saveLogin always keeps username and only stores remembered password',
+      () async {
+    SharedPreferences.setMockInitialValues({});
+    final appState = AppState();
+    addTearDown(appState.dispose);
+
+    await appState.saveLogin('alice', 'secret', false);
+    final prefs = await SharedPreferences.getInstance();
+    expect(prefs.getString('eatwhat.savedUsername'), 'alice');
+    expect(prefs.getString('eatwhat.savedPassword'), isNull);
+
+    await appState.saveLogin('alice', 'secret', true);
+    expect(prefs.getString('eatwhat.savedUsername'), 'alice');
+    expect(prefs.getString('eatwhat.savedPassword'), 'secret');
+  });
+
   test('food focus renderer highlights center subject', () {
     final source = img.Image(width: 48, height: 48);
     for (var y = 0; y < source.height; y += 1) {
@@ -52,6 +137,39 @@ void main() {
     expect(output, isNotNull);
     expect(output!.getPixel(24, 25).r, greaterThan(output.getPixel(2, 2).r));
   });
+}
+
+String fakeJwt(DateTime expiresAt) {
+  String encodePart(Map<String, dynamic> data) {
+    return base64Url.encode(utf8.encode(jsonEncode(data))).replaceAll('=', '');
+  }
+
+  return [
+    encodePart({'alg': 'none', 'typ': 'JWT'}),
+    encodePart({'exp': expiresAt.toUtc().millisecondsSinceEpoch ~/ 1000}),
+    'signature',
+  ].join('.');
+}
+
+class _FakeAppState extends AppState {
+  _FakeAppState(this.handler);
+
+  final Future<http.Response> Function(
+    String method,
+    Uri uri,
+    Map<String, String> headers,
+    String? body,
+  ) handler;
+
+  @override
+  Future<http.Response> rawHttpRequest(
+    String method,
+    Uri uri,
+    Map<String, String> headers,
+    String? body,
+  ) {
+    return handler(method, uri, headers, body);
+  }
 }
 
 class _InitReadProbe extends StatefulWidget {

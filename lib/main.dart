@@ -291,6 +291,9 @@ extension AppContext on BuildContext {
 
 class AppState extends ChangeNotifier {
   static const _tokenKey = 'eatwhat.accessToken';
+  static const _cachedUserKey = 'eatwhat.cachedUser';
+  static const _cachedHouseholdKey = 'eatwhat.cachedHousehold';
+  static const _lastLoginAtKey = 'eatwhat.lastLoginAt';
   static const _savedUserKey = 'eatwhat.savedUsername';
   static const _savedPasswordKey = 'eatwhat.savedPassword';
   static const _rememberKey = 'eatwhat.rememberPassword';
@@ -299,8 +302,11 @@ class AppState extends ChangeNotifier {
   String? token;
   Map<String, dynamic>? user;
   Map<String, dynamic>? household;
+  DateTime? lastLoginAt;
+  String? sessionNotice;
 
   bool get isAuthed => token != null && token!.isNotEmpty;
+  DateTime? get tokenExpiresAt => jwtExpiresAt(token);
   String get userId => textOf(user?['id'] ?? user?['_id'] ?? user?['uid']);
   String get displayName {
     final name = friendlyText(user?['displayName']);
@@ -319,12 +325,20 @@ class AppState extends ChangeNotifier {
   Future<void> init() async {
     final prefs = await SharedPreferences.getInstance();
     token = prefs.getString(_tokenKey);
+    user = jsonMap(prefs.getString(_cachedUserKey));
+    household = jsonMap(prefs.getString(_cachedHouseholdKey));
+    lastLoginAt = DateTime.tryParse(prefs.getString(_lastLoginAtKey) ?? '');
     if (isAuthed) {
-      try {
-        await refreshMe();
-      } catch (_) {
-        token = null;
-        await prefs.remove(_tokenKey);
+      if (isJwtExpired(token)) {
+        await clearSession(
+          notice: '登录已过期，请重新登录',
+          notify: false,
+        );
+      } else {
+        loading = false;
+        notifyListeners();
+        unawaited(refreshMe().catchError((_) {}));
+        return;
       }
     }
     loading = false;
@@ -344,11 +358,15 @@ class AppState extends ChangeNotifier {
       String username, String password, bool remember) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(_rememberKey, remember);
-    if (remember) {
-      await prefs.setString(_savedUserKey, username);
-      await prefs.setString(_savedPasswordKey, password);
+    final savedUsername = username.trim();
+    if (savedUsername.isNotEmpty) {
+      await prefs.setString(_savedUserKey, savedUsername);
     } else {
       await prefs.remove(_savedUserKey);
+    }
+    if (remember) {
+      await prefs.setString(_savedPasswordKey, password);
+    } else {
       await prefs.remove(_savedPasswordKey);
     }
   }
@@ -367,8 +385,9 @@ class AppState extends ChangeNotifier {
     }
     user = asMap(data['user']);
     household = asMap(data['household']);
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_tokenKey, token!);
+    sessionNotice = null;
+    lastLoginAt = DateTime.now();
+    await persistSession();
     notifyListeners();
   }
 
@@ -397,8 +416,9 @@ class AppState extends ChangeNotifier {
     token = newToken;
     user = asMap(data['user']);
     household = asMap(data['household']);
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_tokenKey, token!);
+    sessionNotice = null;
+    lastLoginAt = DateTime.now();
+    await persistSession();
     notifyListeners();
   }
 
@@ -407,16 +427,53 @@ class AppState extends ChangeNotifier {
     final data = asMap(payload(response));
     user = asMap(data['user'] ?? data);
     household = asMap(data['household']);
+    await persistCachedProfile();
     notifyListeners();
   }
 
   Future<void> logout() async {
+    await clearSession();
+  }
+
+  Future<void> clearSession({String? notice, bool notify = true}) async {
     token = null;
     user = null;
     household = null;
+    lastLoginAt = null;
+    sessionNotice = notice;
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_tokenKey);
-    notifyListeners();
+    await prefs.remove(_cachedUserKey);
+    await prefs.remove(_cachedHouseholdKey);
+    await prefs.remove(_lastLoginAtKey);
+    if (notify) {
+      notifyListeners();
+    }
+  }
+
+  Future<void> persistSession() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (token != null && token!.isNotEmpty) {
+      await prefs.setString(_tokenKey, token!);
+    }
+    if (lastLoginAt != null) {
+      await prefs.setString(_lastLoginAtKey, lastLoginAt!.toIso8601String());
+    }
+    await persistCachedProfile(prefs: prefs);
+  }
+
+  Future<void> persistCachedProfile({SharedPreferences? prefs}) async {
+    final store = prefs ?? await SharedPreferences.getInstance();
+    if (user == null || user!.isEmpty) {
+      await store.remove(_cachedUserKey);
+    } else {
+      await store.setString(_cachedUserKey, jsonEncode(user));
+    }
+    if (household == null || household!.isEmpty) {
+      await store.remove(_cachedHouseholdKey);
+    } else {
+      await store.setString(_cachedHouseholdKey, jsonEncode(household));
+    }
   }
 
   Future<dynamic> get(String path,
@@ -457,6 +514,10 @@ class AppState extends ChangeNotifier {
       headers['Content-Type'] = 'application/json';
     }
     if (auth && isAuthed) {
+      if (isJwtExpired(token)) {
+        await clearSession(notice: '登录已过期，请重新登录');
+        throw const ApiException('登录已过期，请重新登录', statusCode: 401);
+      }
       headers['Authorization'] = 'Bearer $token';
     }
 
@@ -472,7 +533,10 @@ class AppState extends ChangeNotifier {
       try {
         final response = await rawHttpRequest(method, uri, headers, encoded);
         return decodeResponse(response);
-      } on ApiException {
+      } on ApiException catch (error) {
+        if (auth && error.isAuthExpired) {
+          await clearSession(notice: '登录已过期，请重新登录');
+        }
         rethrow;
       } catch (error) {
         lastError = error;
@@ -554,6 +618,10 @@ class AppState extends ChangeNotifier {
     final request = http.MultipartRequest(method, Uri.parse('$kApiBase$path'));
     request.headers['Accept'] = 'application/json';
     if (isAuthed) {
+      if (isJwtExpired(token)) {
+        await clearSession(notice: '登录已过期，请重新登录');
+        throw const ApiException('登录已过期，请重新登录', statusCode: 401);
+      }
       request.headers['Authorization'] = 'Bearer $token';
     }
     request.fields.addAll(fields ?? {});
@@ -589,7 +657,14 @@ class AppState extends ChangeNotifier {
         .timeout(kUploadTimeout, onTimeout: () {
       throw const ApiException('服务器响应超时，请检查网络或稍后重试');
     });
-    return decodeResponse(response);
+    try {
+      return decodeResponse(response);
+    } on ApiException catch (error) {
+      if (error.isAuthExpired) {
+        await clearSession(notice: '登录已过期，请重新登录');
+      }
+      rethrow;
+    }
   }
 
   dynamic decodeResponse(http.Response response) {
@@ -608,7 +683,9 @@ class AppState extends ChangeNotifier {
       final message =
           body is Map ? textOf(body['message'] ?? body['error']) : text;
       throw ApiException(
-          message.isEmpty ? '服务器请求失败 ${response.statusCode}' : message);
+        message.isEmpty ? '服务器请求失败 ${response.statusCode}' : message,
+        statusCode: response.statusCode,
+      );
     }
     return body;
   }
@@ -627,8 +704,11 @@ class SavedLogin {
 }
 
 class ApiException implements Exception {
-  const ApiException(this.message);
+  const ApiException(this.message, {this.statusCode});
   final String message;
+  final int? statusCode;
+
+  bool get isAuthExpired => statusCode == 401 || statusCode == 403;
 
   @override
   String toString() => message;
@@ -854,6 +934,49 @@ Map<String, dynamic> asMap(dynamic value) {
   return <String, dynamic>{};
 }
 
+Map<String, dynamic>? jsonMap(String? value) {
+  if (value == null || value.trim().isEmpty) {
+    return null;
+  }
+  try {
+    final map = asMap(jsonDecode(value));
+    return map.isEmpty ? null : map;
+  } catch (_) {
+    return null;
+  }
+}
+
+DateTime? jwtExpiresAt(String? token) {
+  if (token == null || token.trim().isEmpty) {
+    return null;
+  }
+  final parts = token.split('.');
+  if (parts.length < 2) {
+    return null;
+  }
+  try {
+    final payloadBytes = base64Url.decode(base64Url.normalize(parts[1]));
+    final payloadMap = asMap(jsonDecode(utf8.decode(payloadBytes)));
+    final seconds = int.tryParse(textOf(payloadMap['exp']));
+    if (seconds == null) {
+      return null;
+    }
+    return DateTime.fromMillisecondsSinceEpoch(seconds * 1000, isUtc: true);
+  } catch (_) {
+    return null;
+  }
+}
+
+bool isJwtExpired(String? token) {
+  final expiresAt = jwtExpiresAt(token);
+  if (expiresAt == null) {
+    return false;
+  }
+  return DateTime.now().toUtc().isAfter(
+        expiresAt.subtract(const Duration(seconds: 30)),
+      );
+}
+
 List<dynamic> asList(dynamic value) {
   if (value is List) {
     return value;
@@ -926,6 +1049,14 @@ String two(int value) => value.toString().padLeft(2, '0');
 String dateString(DateTime value) =>
     '${value.year}-${two(value.month)}-${two(value.day)}';
 String monthString(DateTime value) => '${value.year}-${two(value.month)}';
+
+String dateTimeMinuteText(DateTime? value) {
+  if (value == null) {
+    return '暂无';
+  }
+  final local = value.toLocal();
+  return '${dateString(local)} ${two(local.hour)}:${two(local.minute)}';
+}
 
 DateTime mondayOf(DateTime value) {
   return DateTime(value.year, value.month, value.day)
@@ -1208,6 +1339,35 @@ class _LoginPageState extends State<LoginPage> {
                         const PartnerPresencePill(
                           text: 'TA 正在等你一起决定今晚吃什么',
                         ),
+                        if (context.app.sessionNotice != null &&
+                            context.app.sessionNotice!.isNotEmpty) ...[
+                          const SizedBox(height: 12),
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: kPeach.withValues(alpha: 0.16),
+                              borderRadius: BorderRadius.circular(18),
+                              border: Border.all(
+                                  color: kCoral.withValues(alpha: 0.28)),
+                            ),
+                            child: Row(
+                              children: [
+                                const Icon(Icons.info_outline,
+                                    color: kCoral, size: 20),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    context.app.sessionNotice!,
+                                    style: const TextStyle(
+                                      color: kCoffee,
+                                      fontWeight: FontWeight.w800,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
                         const SizedBox(height: 22),
                         TextField(
                           controller: usernameController,
@@ -5128,6 +5288,30 @@ class _SettingsPageState extends State<SettingsPage> {
                     label: const Text('退出登录'),
                   ),
                 ],
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 12),
+        SoftCard(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const SectionTitle(
+                  icon: Icons.verified_user_outlined, title: '登录管理'),
+              const SizedBox(height: 8),
+              Text(
+                context.app.isAuthed ? '已开启免登录，下次打开会直接进入小家。' : '当前未登录。',
+                style: const TextStyle(fontWeight: FontWeight.w800),
+              ),
+              const SizedBox(height: 6),
+              Text('上次登录：${dateTimeMinuteText(context.app.lastLoginAt)}'),
+              Text('登录有效期：${dateTimeMinuteText(context.app.tokenExpiresAt)}'),
+              const SizedBox(height: 10),
+              OutlinedButton.icon(
+                onPressed: () => context.appRead.logout(),
+                icon: const Icon(Icons.logout),
+                label: const Text('退出并重新登录'),
               ),
             ],
           ),
