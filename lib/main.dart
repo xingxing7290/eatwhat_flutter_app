@@ -3253,6 +3253,10 @@ List<String> mealIdsFromPlanValue(dynamic value) {
   return result;
 }
 
+List<String> scheduleMealIdsFor(Map<String, dynamic> schedule, String type) {
+  return mealIdsFromPlanValue(planMealValue(schedule, type));
+}
+
 Future<void> appendMealToTodayDinner(
   BuildContext context, {
   required String mealId,
@@ -3486,6 +3490,7 @@ class _ScheduleSheetState extends State<ScheduleSheet> {
   @override
   void initState() {
     super.initState();
+    loadSelectedForMealType(mealType);
     mealsFuture = loadMeals();
   }
 
@@ -3544,10 +3549,16 @@ class _ScheduleSheetState extends State<ScheduleSheet> {
     }).toList();
   }
 
+  void loadSelectedForMealType(String type) {
+    selected
+      ..clear()
+      ..addAll(scheduleMealIdsFor(widget.schedule, type));
+  }
+
   Future<dynamic> loadMeals() {
     final query = searchController.text.trim();
     return context.appRead.get('/meals', query: {
-      'limit': '1',
+      'limit': '200',
       if (query.isNotEmpty) 'search': query,
     });
   }
@@ -3636,7 +3647,7 @@ class _ScheduleSheetState extends State<ScheduleSheet> {
                     selected: {mealType},
                     onSelectionChanged: (value) => setState(() {
                       mealType = value.first;
-                      selected.clear();
+                      loadSelectedForMealType(mealType);
                     }),
                   ),
                   const SizedBox(height: 12),

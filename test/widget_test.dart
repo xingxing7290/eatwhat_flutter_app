@@ -288,6 +288,27 @@ void main() {
     expect(ids, ['meal-a', 'meal-b', 'meal-c', 'meal-d']);
   });
 
+  test('scheduleMealIdsFor restores selected ids for each meal type', () {
+    final schedule = {
+      'meals': {
+        'breakfast': [
+          {
+            'meal': {'_id': 'meal-a', 'name': '小米粥'}
+          }
+        ],
+        'lunch': [
+          {'mealId': 'meal-b'}
+        ],
+        'dinner': ['meal-c'],
+      }
+    };
+
+    expect(scheduleMealIdsFor(schedule, 'breakfast'), ['meal-a']);
+    expect(scheduleMealIdsFor(schedule, 'lunch'), ['meal-b']);
+    expect(scheduleMealIdsFor(schedule, 'dinner'), ['meal-c']);
+    expect(scheduleMealIdsFor(schedule, 'snack'), isEmpty);
+  });
+
   test('meal favorite helpers build safe lightweight update fields', () {
     final meal = {'_id': 'meal-a', 'name': '番茄牛腩', 'favorite': true};
     final stringFavorite = {
