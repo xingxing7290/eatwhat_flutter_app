@@ -394,6 +394,30 @@ void main() {
     );
   });
 
+  test('memory helpers keep selected meal ids and existing photo urls', () {
+    final memory = {
+      'mealIds': [
+        {'_id': 'meal-a', 'name': 'first'},
+        'meal-b',
+        {
+          'id': 'meal-c',
+        },
+        {'_id': 'meal-a'},
+      ],
+      'photos': ['/api/uploads/one.jpg', 'http://cdn.example.com/two.jpg', ''],
+    };
+
+    expect(memoryMealIds(memory), ['meal-a', 'meal-b', 'meal-c']);
+    expect(memoryExistingPhotoRefs(memory), [
+      '/api/uploads/one.jpg',
+      'http://cdn.example.com/two.jpg',
+    ]);
+    expect(memoryPhotoUrls(memory), [
+      '$kAssetBase/api/uploads/one.jpg',
+      'http://cdn.example.com/two.jpg',
+    ]);
+  });
+
   test('photoMealNames extracts populated meal names', () {
     final names = photoMealNames({
       'meals': [

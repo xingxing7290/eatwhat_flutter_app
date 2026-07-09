@@ -4167,7 +4167,9 @@ class MealRelatedMemoriesSection extends StatelessWidget {
               if (memories.isEmpty)
                 const Text('这道菜还没有饭后回忆，做过一次后会自动出现在这里。')
               else
-                ...memories.map((memory) => MemoryCard(memory: memory)),
+                ...memories.map(
+                  (memory) => MemoryCard(memory: memory, onChanged: onRetry),
+                ),
             ],
           );
         },
@@ -4631,7 +4633,8 @@ class _MemoriesPageState extends State<MemoriesPage> {
                   )
                 else
                   ...items
-                      .map((item) => MemoryCard(memory: asMap(item)))
+                      .map((item) =>
+                          MemoryCard(memory: asMap(item), onChanged: reload))
                       .toList(),
               ],
             ),
@@ -4660,17 +4663,45 @@ List<dynamic> memoryListFrom(dynamic response) {
   return asList(data);
 }
 
+List<String> memoryMealIds(Map<String, dynamic> memory) {
+  final result = <String>[];
+  for (final item in asList(memory['mealIds'] ?? memory['meals'])) {
+    final id = item is String ? item : idOf(item);
+    if (id.isNotEmpty && !result.contains(id)) {
+      result.add(id);
+    }
+  }
+  return result;
+}
+
+List<String> memoryPhotoUrls(Map<String, dynamic> memory) => asList(
+      memory['photos'],
+    ).map(imageUrl).where((item) => item.isNotEmpty).toList();
+
+List<String> memoryExistingPhotoRefs(Map<String, dynamic> memory) =>
+    asList(memory['photos'])
+        .map(textOf)
+        .map((item) => item.trim())
+        .where((item) => item.isNotEmpty)
+        .toList();
+
 class MemoryCard extends StatelessWidget {
-  const MemoryCard({super.key, required this.memory});
+  const MemoryCard({super.key, required this.memory, this.onChanged});
 
   final Map<String, dynamic> memory;
+  final VoidCallback? onChanged;
 
   @override
   Widget build(BuildContext context) {
-    final photos = asList(memory['photos'])
-        .map(imageUrl)
-        .where((item) => item.isNotEmpty)
-        .toList();
+    final id = idOf(memory);
+    final photos = memoryPhotoUrls(memory);
+    final meals = mealNames(memory['mealIds'] ?? memory['meals']);
+    final rating = textOf(memory['rating']);
+    final actualCookTime = textOf(memory['actualCookTime']);
+    final nextImprovement = textOf(memory['nextImprovement']);
+    final hasChips = rating.isNotEmpty ||
+        (actualCookTime.isNotEmpty && actualCookTime != '0') ||
+        meals.isNotEmpty;
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: SoftCard(
@@ -4697,7 +4728,71 @@ class MemoryCard extends StatelessWidget {
             Text(
                 '${textOf(memory['date']).split('T').first} · ${mealTypeLabel(textOf(memory['mealType']))} · ${textOf(memory['mood'])}'),
             const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                if (rating.isNotEmpty) InfoChip('$rating 分'),
+                if (actualCookTime.isNotEmpty && actualCookTime != '0')
+                  InfoChip('$actualCookTime 分钟'),
+                ...meals.take(3).map(
+                      (item) => InfoChip(item, icon: Icons.restaurant_menu),
+                    ),
+              ],
+            ),
+            if (hasChips) const SizedBox(height: 8),
             if (textOf(memory['note']).isNotEmpty) Text(textOf(memory['note'])),
+            if (nextImprovement.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Text('下次改进：$nextImprovement'),
+            ],
+            if (onChanged != null && id.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  OutlinedButton.icon(
+                    onPressed: () async {
+                      final changed = await pushPage(
+                        context,
+                        MemoryEditPage(memory: memory),
+                      );
+                      if (changed == true) {
+                        onChanged?.call();
+                      }
+                    },
+                    icon: const Icon(Icons.edit_outlined),
+                    label: const Text('编辑'),
+                  ),
+                  const SizedBox(width: 10),
+                  TextButton.icon(
+                    onPressed: () async {
+                      final confirmed = await confirmDialog(
+                        context,
+                        title: '删除回忆',
+                        message: '删除后这条饭后回忆不会再出现在时间线和相册里。',
+                        confirmText: '删除',
+                      );
+                      if (!confirmed || !context.mounted) {
+                        return;
+                      }
+                      try {
+                        await context.appRead.delete('/memories/$id');
+                        if (context.mounted) {
+                          showMessage(context, '已删除回忆');
+                          onChanged?.call();
+                        }
+                      } catch (error) {
+                        if (context.mounted) {
+                          showMessage(context, errorText(error));
+                        }
+                      }
+                    },
+                    icon: const Icon(Icons.delete_outline),
+                    label: const Text('删除'),
+                  ),
+                ],
+              ),
+            ],
           ],
         ),
       ),
@@ -4723,10 +4818,12 @@ class MemoryEditPage extends StatefulWidget {
     super.key,
     this.initialMealIds = const [],
     this.initialTitle = '',
+    this.memory,
   });
 
   final List<String> initialMealIds;
   final String initialTitle;
+  final Map<String, dynamic>? memory;
 
   @override
   State<MemoryEditPage> createState() => _MemoryEditPageState();
@@ -4742,6 +4839,7 @@ class _MemoryEditPageState extends State<MemoryEditPage> {
   String mealType = 'dinner';
   double rating = 5;
   final selectedMealIds = <String>{};
+  final existingPhotos = <String>[];
   final imagePicker = ImagePicker();
   final photos = <XFile>[];
   late Future<dynamic> mealsFuture;
@@ -4751,9 +4849,29 @@ class _MemoryEditPageState extends State<MemoryEditPage> {
   @override
   void initState() {
     super.initState();
-    dateController = TextEditingController(text: dateString(DateTime.now()));
-    titleController = TextEditingController(text: widget.initialTitle);
-    selectedMealIds.addAll(widget.initialMealIds);
+    final memory = widget.memory;
+    dateController = TextEditingController(
+      text: textOf(memory?['date']).split('T').first.isEmpty
+          ? dateString(DateTime.now())
+          : textOf(memory?['date']).split('T').first,
+    );
+    titleController = TextEditingController(
+      text: memory == null ? widget.initialTitle : textOf(memory['title']),
+    );
+    if (memory != null) {
+      moodController.text = textOf(memory['mood']);
+      noteController.text = textOf(memory['note']);
+      actualCookTimeController.text = textOf(memory['actualCookTime']);
+      nextImprovementController.text = textOf(memory['nextImprovement']);
+      mealType = textOf(memory['mealType']).isEmpty
+          ? mealType
+          : textOf(memory['mealType']);
+      rating = double.tryParse(textOf(memory['rating'])) ?? rating;
+      selectedMealIds.addAll(memoryMealIds(memory));
+      existingPhotos.addAll(memoryExistingPhotoRefs(memory));
+    } else {
+      selectedMealIds.addAll(widget.initialMealIds);
+    }
     mealsFuture = context.appRead.get('/meals', query: {'limit': '1'});
     recoverLostPhotos();
   }
@@ -4920,8 +5038,13 @@ class _MemoryEditPageState extends State<MemoryEditPage> {
     setState(() => photos.removeAt(index));
   }
 
+  void removeExistingPhoto(int index) {
+    setState(() => existingPhotos.removeAt(index));
+  }
+
   Widget buildPhotoPickerSection(BuildContext context) {
-    final title = photos.isEmpty ? '饭后照片' : '饭后照片 ${photos.length} 张';
+    final photoCount = existingPhotos.length + photos.length;
+    final title = photoCount == 0 ? '饭后照片' : '饭后照片 $photoCount 张';
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
@@ -4976,7 +5099,7 @@ class _MemoryEditPageState extends State<MemoryEditPage> {
             ],
           ),
           const SizedBox(height: 12),
-          if (photos.isEmpty)
+          if (photoCount == 0)
             InkWell(
               borderRadius: BorderRadius.circular(20),
               onTap: pickingPhotos ? null : choosePhotoSource,
@@ -5012,25 +5135,35 @@ class _MemoryEditPageState extends State<MemoryEditPage> {
             GridView.builder(
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
-              itemCount: photos.length,
+              itemCount: photoCount,
               gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                 crossAxisCount: 3,
                 crossAxisSpacing: 8,
                 mainAxisSpacing: 8,
               ),
               itemBuilder: (context, index) {
-                final photo = photos[index];
+                final isExisting = index < existingPhotos.length;
+                final photoIndex =
+                    isExisting ? index : index - existingPhotos.length;
                 return ClipRRect(
                   borderRadius: BorderRadius.circular(18),
                   child: Stack(
                     fit: StackFit.expand,
                     children: [
-                      Image.file(io.File(photo.path), fit: BoxFit.cover),
+                      if (isExisting)
+                        RemoteImage(url: imageUrl(existingPhotos[index]))
+                      else
+                        Image.file(
+                          io.File(photos[photoIndex].path),
+                          fit: BoxFit.cover,
+                        ),
                       Positioned(
                         top: 6,
                         right: 6,
                         child: InkWell(
-                          onTap: () => removePhoto(index),
+                          onTap: () => isExisting
+                              ? removeExistingPhoto(index)
+                              : removePhoto(photoIndex),
                           child: Container(
                             width: 28,
                             height: 28,
@@ -5076,9 +5209,10 @@ class _MemoryEditPageState extends State<MemoryEditPage> {
   Future<void> save() async {
     setState(() => saving = true);
     try {
+      final memoryId = idOf(widget.memory);
       await context.appRead.multipart(
-        'POST',
-        '/memories',
+        memoryId.isEmpty ? 'POST' : 'PUT',
+        memoryId.isEmpty ? '/memories' : '/memories/$memoryId',
         fields: {
           'date': dateController.text.trim(),
           'mealType': mealType,
@@ -5089,6 +5223,7 @@ class _MemoryEditPageState extends State<MemoryEditPage> {
           'actualCookTime': actualCookTimeController.text.trim(),
           'nextImprovement': nextImprovementController.text.trim(),
           'mealIds': jsonEncode(selectedMealIds.toList()),
+          'existingPhotos': jsonEncode(existingPhotos),
           'participants': jsonEncode(context.appRead.userId.isEmpty
               ? const []
               : [context.appRead.userId]),
