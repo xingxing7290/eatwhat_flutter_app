@@ -131,6 +131,16 @@ void main() {
     expect(restored.themePalette.label, '日式原木');
   });
 
+  test('theme palettes are rich, unique, and safely fallback', () {
+    final keys = kThemePalettes.map((palette) => palette.key).toSet();
+
+    expect(kThemePalettes.length, greaterThanOrEqualTo(8));
+    expect(keys.length, kThemePalettes.length);
+    expect(kThemePalettes.map((palette) => palette.label),
+        containsAll(['晚餐烛光', '春日野餐', '烟火早市']));
+    expect(paletteForKey('missing').key, kThemeCreamPeach);
+  });
+
   test('mealIdsFromPlanValue extracts ids from schedule meal structures', () {
     final ids = mealIdsFromPlanValue([
       {

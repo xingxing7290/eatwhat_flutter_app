@@ -152,6 +152,54 @@ const kThemePalettes = <AppThemePalette>[
     success: Color(0xFF8A9A68),
     gradient: [Color(0xFFF7EFE7), Color(0xFFEBD8C4), Color(0xFFFFF6EA)],
   ),
+  AppThemePalette(
+    key: 'candle_dinner',
+    label: '晚餐烛光',
+    description: '奶油底配酒红和暖金，适合纪念日晚餐',
+    background: Color(0xFFFCF3EA),
+    backgroundAlt: Color(0xFFF2D8C8),
+    surface: Color(0xFFFFFBF6),
+    primary: Color(0xFF9E5E45),
+    secondary: Color(0xFFE8B86D),
+    accent: Color(0xFFB85C5A),
+    text: Color(0xFF493331),
+    muted: Color(0xFF7C5C54),
+    line: Color(0xFFE7C7AE),
+    success: Color(0xFF879364),
+    gradient: [Color(0xFFFCF3EA), Color(0xFFF4DCCB), Color(0xFFFFF5DD)],
+  ),
+  AppThemePalette(
+    key: 'spring_picnic',
+    label: '春日野餐',
+    description: '浅草绿、米杏和桃粉，更轻快有周末感',
+    background: Color(0xFFF7F4E8),
+    backgroundAlt: Color(0xFFE5E8D0),
+    surface: Color(0xFFFFFCF2),
+    primary: Color(0xFF8B9A61),
+    secondary: Color(0xFFFFC4A8),
+    accent: Color(0xFFE48A72),
+    text: Color(0xFF424234),
+    muted: Color(0xFF717058),
+    line: Color(0xFFDCE0BD),
+    success: Color(0xFF78935B),
+    gradient: [Color(0xFFF7F4E8), Color(0xFFE9EDD4), Color(0xFFFFF4E4)],
+  ),
+  AppThemePalette(
+    key: 'morning_market',
+    label: '烟火早市',
+    description: '豆浆白、番茄红和葱绿色，适合早餐和家常菜',
+    background: Color(0xFFFFF8EC),
+    backgroundAlt: Color(0xFFF6E5C7),
+    surface: Color(0xFFFFFDF7),
+    primary: Color(0xFFD88445),
+    secondary: Color(0xFFFFC978),
+    accent: Color(0xFFE2604F),
+    text: Color(0xFF443A2D),
+    muted: Color(0xFF75624C),
+    line: Color(0xFFEBD3A7),
+    success: Color(0xFF71925F),
+    gradient: [Color(0xFFFFF8EC), Color(0xFFF7E2BB), Color(0xFFFFF1DE)],
+  ),
 ];
 
 AppThemePalette paletteForKey(String key) {
@@ -7546,8 +7594,8 @@ class ThemeChoiceCard extends StatelessWidget {
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 260),
         curve: Curves.easeOutCubic,
-        width: 158,
-        padding: const EdgeInsets.all(12),
+        width: 178,
+        padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
           color: selected
               ? palette.secondary.withValues(alpha: 0.24)
@@ -7593,14 +7641,7 @@ class ThemeChoiceCard extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 8),
-            Row(
-              children: [
-                _ThemeSwatch(color: palette.background),
-                _ThemeSwatch(color: palette.secondary),
-                _ThemeSwatch(color: palette.primary),
-                _ThemeSwatch(color: palette.accent),
-              ],
-            ),
+            _ThemeTablePreview(palette: palette),
             const SizedBox(height: 8),
             Text(
               palette.description,
@@ -7613,6 +7654,109 @@ class ThemeChoiceCard extends StatelessWidget {
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ThemeTablePreview extends StatelessWidget {
+  const _ThemeTablePreview({required this.palette});
+
+  final AppThemePalette palette;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 78,
+      padding: const EdgeInsets.all(9),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: palette.gradient,
+        ),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.72)),
+      ),
+      child: Stack(
+        children: [
+          Positioned(
+            right: 0,
+            top: 0,
+            child: Container(
+              width: 46,
+              height: 46,
+              decoration: BoxDecoration(
+                color: palette.surface.withValues(alpha: 0.9),
+                borderRadius: BorderRadius.circular(20),
+                boxShadow: [
+                  BoxShadow(
+                    color: palette.primary.withValues(alpha: 0.14),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: Center(
+                child:
+                    Icon(Icons.ramen_dining, color: palette.accent, size: 24),
+              ),
+            ),
+          ),
+          Positioned(
+            left: 0,
+            top: 0,
+            child: _ThemeMiniPill(
+              color: palette.secondary,
+              textColor: palette.text,
+              text: '晚餐',
+            ),
+          ),
+          Positioned(
+            left: 0,
+            bottom: 0,
+            child: Row(
+              children: [
+                _ThemeSwatch(color: palette.background),
+                _ThemeSwatch(color: palette.secondary),
+                _ThemeSwatch(color: palette.primary),
+                _ThemeSwatch(color: palette.accent),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ThemeMiniPill extends StatelessWidget {
+  const _ThemeMiniPill({
+    required this.color,
+    required this.textColor,
+    required this.text,
+  });
+
+  final Color color;
+  final Color textColor;
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.38),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.72)),
+      ),
+      child: Text(
+        text,
+        style: TextStyle(
+          color: textColor,
+          fontSize: 11,
+          fontWeight: FontWeight.w900,
         ),
       ),
     );
