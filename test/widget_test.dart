@@ -131,6 +131,24 @@ void main() {
     expect(restored.themePalette.label, '日式原木');
   });
 
+  test('mealIdsFromPlanValue extracts ids from schedule meal structures', () {
+    final ids = mealIdsFromPlanValue([
+      {
+        'meal': {'_id': 'meal-a', 'name': '番茄牛腩'}
+      },
+      {
+        'meal': {'id': 'meal-b', 'name': '酸菜饺子'}
+      },
+      {'mealId': 'meal-c'},
+      'meal-d',
+      {
+        'meal': {'_id': 'meal-a'}
+      },
+    ]);
+
+    expect(ids, ['meal-a', 'meal-b', 'meal-c', 'meal-d']);
+  });
+
   test('food focus renderer highlights center subject', () {
     final source = img.Image(width: 48, height: 48);
     for (var y = 0; y < source.height; y += 1) {

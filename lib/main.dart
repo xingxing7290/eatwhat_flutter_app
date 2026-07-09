@@ -2632,6 +2632,31 @@ List<String> mealNames(dynamic value) {
   return result.where((item) => item.isNotEmpty).toList();
 }
 
+List<String> mealIdsFromPlanValue(dynamic value) {
+  final result = <String>[];
+  final list = value is Map
+      ? asList(value['meals'] ?? value['mealIds'] ?? value['items'])
+      : asList(value);
+  for (final item in list) {
+    var id = '';
+    if (item is String) {
+      id = item;
+    } else {
+      final map = asMap(item);
+      final nestedMeal = asMap(map['meal']);
+      id = textOf(map['mealId'] ??
+          map['_id'] ??
+          map['id'] ??
+          nestedMeal['_id'] ??
+          nestedMeal['id']);
+    }
+    if (id.isNotEmpty && !result.contains(id)) {
+      result.add(id);
+    }
+  }
+  return result;
+}
+
 class ScheduleSheet extends StatefulWidget {
   const ScheduleSheet({
     super.key,
@@ -3313,6 +3338,29 @@ class _MealDetailPageState extends State<MealDetailPage> {
         future = context.appRead.get('/meals/${widget.mealId}');
       });
 
+  Future<void> scheduleTodayDinner(Map<String, dynamic> meal) async {
+    final today = dateString(DateTime.now());
+    try {
+      final response = await context.appRead.get('/schedules/day/$today');
+      final schedule = asMap(payload(response));
+      final dinnerIds = mealIdsFromPlanValue(planMealValue(schedule, 'dinner'));
+      if (!dinnerIds.contains(widget.mealId)) {
+        dinnerIds.add(widget.mealId);
+      }
+      await context.appRead.put('/schedules/$today/dinner', body: {
+        'mealIds': dinnerIds,
+      });
+      if (mounted) {
+        final name = textOf(meal['name']).trim();
+        showMessage(context, name.isEmpty ? '已安排到今天晚餐' : '今晚就吃「$name」');
+      }
+    } catch (error) {
+      if (mounted) {
+        showMessage(context, errorText(error));
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -3428,6 +3476,11 @@ class _MealDetailPageState extends State<MealDetailPage> {
                         runSpacing: 10,
                         children: [
                           FilledButton.icon(
+                            onPressed: () => scheduleTodayDinner(meal),
+                            icon: const Icon(Icons.event_available_outlined),
+                            label: const Text('今晚就吃它'),
+                          ),
+                          OutlinedButton.icon(
                             onPressed: () async {
                               final changed = await pushPage(
                                 context,
