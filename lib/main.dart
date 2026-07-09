@@ -1428,6 +1428,32 @@ MediaType uploadContentType(XFile file) {
   return MediaType('image', 'jpeg');
 }
 
+String readableFileSize(int bytes) {
+  if (bytes < 1024) {
+    return '$bytes B';
+  }
+  final kb = bytes / 1024;
+  if (kb < 1024) {
+    return '${kb.toStringAsFixed(kb >= 100 ? 0 : 1)} KB';
+  }
+  final mb = kb / 1024;
+  return '${mb.toStringAsFixed(mb >= 100 ? 0 : 1)} MB';
+}
+
+String memoryPhotoPickerHint({
+  required int existingCount,
+  required int newCount,
+}) {
+  final limit = readableFileSize(kUploadImageMaxBytes);
+  if (newCount > 0) {
+    return '新增 $newCount 张已压缩为 JPG，保存时上传，单张目标不超过 $limit';
+  }
+  if (existingCount > 0) {
+    return '已有 $existingCount 张线上照片，可继续补拍或从图库添加';
+  }
+  return '支持图库多选和现场拍照，会自动压缩为 JPG，适配服务器上传格式';
+}
+
 Future<XFile> createFoodFocusPhoto(XFile source) async {
   final bytes = await source.readAsBytes();
   final processed = await compute(renderFoodFocusBytes, bytes);
@@ -6208,6 +6234,10 @@ class _MemoryEditPageState extends State<MemoryEditPage> {
   Widget buildPhotoPickerSection(BuildContext context) {
     final photoCount = existingPhotos.length + photos.length;
     final title = photoCount == 0 ? '饭后照片' : '饭后照片 $photoCount 张';
+    final hint = memoryPhotoPickerHint(
+      existingCount: existingPhotos.length,
+      newCount: photos.length,
+    );
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
@@ -6241,9 +6271,9 @@ class _MemoryEditPageState extends State<MemoryEditPage> {
                             fontWeight: FontWeight.w900,
                           ),
                     ),
-                    const Text(
-                      '支持图库多选，也可以现场拍照加入回忆',
-                      style: TextStyle(color: kCocoa),
+                    Text(
+                      hint,
+                      style: const TextStyle(color: kCocoa),
                     ),
                   ],
                 ),
@@ -6259,6 +6289,16 @@ class _MemoryEditPageState extends State<MemoryEditPage> {
                     : const Icon(Icons.add_a_photo_outlined),
                 tooltip: '添加照片',
               ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: const [
+              InfoChip('图库多选', icon: Icons.photo_library_outlined),
+              InfoChip('相机拍照', icon: Icons.photo_camera_outlined),
+              InfoChip('自动转 JPG', icon: Icons.compress_outlined),
             ],
           ),
           const SizedBox(height: 12),

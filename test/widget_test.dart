@@ -1052,6 +1052,24 @@ void main() {
     expect(output!.getPixel(24, 25).r, greaterThan(output.getPixel(2, 2).r));
   });
 
+  test('memory photo upload hints explain format and state', () {
+    expect(readableFileSize(900), '900 B');
+    expect(readableFileSize(1536), '1.5 KB');
+    expect(readableFileSize(kUploadImageMaxBytes), '2.0 MB');
+    expect(
+      memoryPhotoPickerHint(existingCount: 0, newCount: 0),
+      contains('自动压缩为 JPG'),
+    );
+    expect(
+      memoryPhotoPickerHint(existingCount: 2, newCount: 0),
+      contains('已有 2 张线上照片'),
+    );
+    expect(
+      memoryPhotoPickerHint(existingCount: 1, newCount: 3),
+      contains('新增 3 张已压缩为 JPG'),
+    );
+  });
+
   test('upload jpeg encoder keeps memory photos under size limit', () {
     final source = img.Image(width: 1600, height: 1200);
     for (var y = 0; y < source.height; y += 1) {
