@@ -5784,6 +5784,59 @@ String wishlistMealName(Map<String, dynamic> item) {
   return name.isNotEmpty ? name : textOf(item['title']);
 }
 
+Map<String, String> wishlistMealDraftFields(Map<String, dynamic> item) {
+  final title = friendlyText(item['title']).isNotEmpty
+      ? friendlyText(item['title'])
+      : '\u5c0f\u5bb6\u60f3\u5403';
+  final note = friendlyText(item['note']);
+  final category = friendlyText(item['category']).isNotEmpty
+      ? friendlyText(item['category'])
+      : '\u5c0f\u5bb6\u60f3\u5403';
+  final tags = <String>{
+    '\u60f3\u5403\u6e05\u5355',
+    category,
+    if (textOf(item['priority']) == 'high') '\u4f18\u5148\u60f3\u5403',
+  }.where((item) => item.trim().isNotEmpty).toList();
+  return {
+    'name': title,
+    'description': note.isEmpty
+        ? '\u6765\u81ea\u60f3\u5403\u6e05\u5355\uff1a$title'
+        : note,
+    'category': category,
+    'tags': jsonEncode(tags),
+    'ingredients': jsonEncode(<Map<String, String>>[]),
+    'steps': jsonEncode(<Map<String, String>>[]),
+    'tips': '',
+    'servingSize': '2',
+    'prepTime': '10',
+    'cookTime': '30',
+    'difficulty': 'easy',
+    'taste': jsonEncode(['\u5bb6\u5e38']),
+    'healthTags': jsonEncode(['\u5bb6\u5e38', '\u5feb\u624b']),
+    'spiceLevel': '0',
+    'source': 'wishlist',
+    'favorite': 'false',
+    'rating': '4.0',
+  };
+}
+
+Future<String> createMealFromWishlist(
+  BuildContext context,
+  Map<String, dynamic> item,
+) async {
+  final response = await context.appRead.multipart(
+    'POST',
+    '/meals',
+    fields: wishlistMealDraftFields(item),
+  );
+  final mealId = idOf(payload(response));
+  if (mealId.isEmpty) {
+    throw const ApiException(
+        '\u83dc\u8c31\u521b\u5efa\u6210\u529f\u4f46\u6ca1\u6709\u8fd4\u56de\u83dc\u54c1 ID');
+  }
+  return mealId;
+}
+
 class WishlistCard extends StatelessWidget {
   const WishlistCard({super.key, required this.item, required this.onChanged});
 
@@ -5848,6 +5901,32 @@ class WishlistCard extends StatelessWidget {
                     },
                     icon: const Icon(Icons.dinner_dining_outlined),
                     label: const Text('今晚安排'),
+                  ),
+                if (mealId.isEmpty)
+                  FilledButton.icon(
+                    onPressed: () async {
+                      try {
+                        final newMealId =
+                            await createMealFromWishlist(context, item);
+                        if (id.isNotEmpty) {
+                          await context.appRead.patch(
+                            '/wishlist/$id/meal',
+                            body: {'mealId': newMealId},
+                          );
+                        }
+                        onChanged();
+                        if (context.mounted) {
+                          showMessage(context,
+                              '\u5df2\u5efa\u6210\u83dc\u8c31\uff0c\u53ef\u4ee5\u76f4\u63a5\u5b89\u6392\u665a\u9910');
+                        }
+                      } catch (error) {
+                        if (context.mounted) {
+                          showMessage(context, errorText(error));
+                        }
+                      }
+                    },
+                    icon: const Icon(Icons.restaurant_menu_outlined),
+                    label: const Text('\u5efa\u6210\u83dc\u8c31'),
                   ),
                 OutlinedButton.icon(
                   onPressed: () async {

@@ -281,6 +281,25 @@ void main() {
     expect(wishlistMealName({'title': '手写愿望', 'mealId': 'meal-b'}), '手写愿望');
   });
 
+  test('wishlist meal draft fields create a valid meal payload', () {
+    final fields = wishlistMealDraftFields({
+      'title': '\u5468\u672b\u725b\u8089\u9762',
+      'note': '\u5c11\u8fa3\uff0c\u591a\u653e\u9999\u83dc',
+      'category': '\u9762\u98df\u4e3b\u98df',
+      'priority': 'high',
+    });
+
+    expect(fields['name'], '\u5468\u672b\u725b\u8089\u9762');
+    expect(fields['description'], '\u5c11\u8fa3\uff0c\u591a\u653e\u9999\u83dc');
+    expect(fields['category'], '\u9762\u98df\u4e3b\u98df');
+    expect(fields['difficulty'], 'easy');
+    expect(jsonDecode(fields['tags']!), contains('\u60f3\u5403\u6e05\u5355'));
+    expect(jsonDecode(fields['tags']!), contains('\u4f18\u5148\u60f3\u5403'));
+    expect(jsonDecode(fields['ingredients']!), isEmpty);
+    expect(jsonDecode(fields['steps']!), isEmpty);
+    expect(jsonDecode(fields['healthTags']!), contains('\u5feb\u624b'));
+  });
+
   test('dashboard summary helpers extract partner wishes and photos', () {
     final data = {
       'partnerWishlist': [
