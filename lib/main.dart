@@ -2098,6 +2098,7 @@ class _DashboardPageState extends State<DashboardPage> {
   }
 
   Future<dynamic> load() async {
+    final weekStart = dateString(mondayOf(DateTime.now()));
     final summary = asMap(
       payload(
         await loadPart(() => context.appRead.get('/dashboard/summary')),
@@ -2110,12 +2111,26 @@ class _DashboardPageState extends State<DashboardPage> {
         ),
       }),
     );
+    final shopping = dashboardShoppingItems(
+      asMap({
+        'shoppingList': payload(
+          await loadPart(
+            () => context.appRead.get(
+              '/shopping-list',
+              query: {'weekStart': weekStart},
+            ),
+          ),
+        ),
+      }),
+    );
     if (summary.isNotEmpty) {
       return {
         ...summary,
         if (dashboardAnniversaryMenus(summary).isEmpty &&
             anniversaries.isNotEmpty)
           'anniversaries': anniversaries,
+        if (dashboardShoppingItems(summary).isEmpty && shopping.isNotEmpty)
+          'shoppingList': shopping,
       };
     }
     final today = DateTime.now();
@@ -2134,6 +2149,7 @@ class _DashboardPageState extends State<DashboardPage> {
       'defaultMeals': asMap(payload(results[2])),
       'imageIssues': {'open': 0},
       'anniversaries': anniversaries,
+      'shoppingList': shopping,
     };
   }
 
@@ -2169,6 +2185,7 @@ class _DashboardPageState extends State<DashboardPage> {
           final partnerWishlist = dashboardPartnerWishlist(data);
           final recentPhotos = dashboardRecentPhotos(data);
           final anniversaryMenus = dashboardAnniversaryMenus(data);
+          final shopping = dashboardShoppingItems(data);
           return ListView(
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 120),
             children: [
@@ -2292,9 +2309,19 @@ class _DashboardPageState extends State<DashboardPage> {
                         data['recentPhotos']),
                     color: const Color(0xFF9E8B73),
                   ),
+                  DashboardTile(
+                    icon: Icons.shopping_bag_outlined,
+                    label: '买菜进度',
+                    value: shoppingDashboardRatioText(shopping),
+                    color: const Color(0xFF8DAE8B),
+                  ),
                 ],
               ),
               const SizedBox(height: 14),
+              if (shopping.isNotEmpty) ...[
+                DashboardShoppingCard(items: shopping),
+                const SizedBox(height: 14),
+              ],
               if (partnerWishlist.isNotEmpty) ...[
                 DashboardWishlistCard(
                     items: partnerWishlist, onChanged: reload),
@@ -2437,6 +2464,30 @@ List<Map<String, dynamic>> dashboardRecentPhotos(Map<String, dynamic> data) {
   }).toList();
 }
 
+List<Map<String, dynamic>> dashboardShoppingItems(Map<String, dynamic> data) {
+  final raw = data['shoppingList'] ??
+      data['shoppingItems'] ??
+      data['shopping'] ??
+      data['shoppingListItems'];
+  return shoppingItems(raw);
+}
+
+String shoppingDashboardRatioText(List<Map<String, dynamic>> items) {
+  if (items.isEmpty) {
+    return '待生成';
+  }
+  return '${shoppingPurchasedCount(items)}/${items.length}';
+}
+
+String shoppingItemPreviewText(Map<String, dynamic> item) {
+  final name = friendlyText(item['name'] ?? item['title']);
+  final amount = friendlyText(item['amount'] ?? item['quantity']);
+  if (name.isEmpty) {
+    return amount;
+  }
+  return amount.isEmpty ? name : '$name $amount';
+}
+
 List<Map<String, dynamic>> dashboardAnniversaryMenus(
   Map<String, dynamic> data, {
   DateTime? today,
@@ -2520,6 +2571,73 @@ class DashboardAnniversaryCard extends StatelessWidget {
             onPressed: () => pushPage(context, const AnniversaryPage()),
             icon: const Icon(Icons.arrow_forward),
             label: const Text('准备这顿饭'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class DashboardShoppingCard extends StatelessWidget {
+  const DashboardShoppingCard({super.key, required this.items});
+
+  final List<Map<String, dynamic>> items;
+
+  @override
+  Widget build(BuildContext context) {
+    final remaining = shoppingRemainingItems(items);
+    return SoftCard(
+      gradient: const LinearGradient(
+        colors: [Color(0xFFFFFBF1), Color(0xFFE6F1DC)],
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const SectionTitle(
+            icon: Icons.shopping_bag_outlined,
+            title: '本周买菜',
+          ),
+          const SizedBox(height: 10),
+          Text(
+            shoppingProgressText(items),
+            style: const TextStyle(
+              color: kCoffee,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+          const SizedBox(height: 8),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(99),
+            child: LinearProgressIndicator(
+              value: shoppingProgressValue(items),
+              minHeight: 10,
+              backgroundColor: Colors.white.withValues(alpha: 0.72),
+              color: context.app.themePalette.success,
+            ),
+          ),
+          if (remaining.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: remaining
+                  .take(5)
+                  .map(
+                    (item) => InfoChip(
+                      shoppingItemPreviewText(item),
+                      icon: Icons.local_grocery_store_outlined,
+                    ),
+                  )
+                  .toList(),
+            ),
+          ],
+          const SizedBox(height: 12),
+          OutlinedButton.icon(
+            onPressed: () => pushPage(context, const ShoppingListPage()),
+            icon: const Icon(Icons.arrow_forward),
+            label: const Text('去勾选采购项'),
           ),
         ],
       ),

@@ -853,6 +853,22 @@ void main() {
         anniversaries.map((item) => item['title']), ['今天菜单', '恋爱纪念日', '已经过了']);
   });
 
+  test('dashboard shopping helpers summarize current week groceries', () {
+    final items = dashboardShoppingItems({
+      'shoppingList': {
+        'items': [
+          {'name': '鸡蛋', 'amount': '10个', 'checked': true},
+          {'name': '番茄', 'amount': '3个', 'checked': false},
+        ],
+      }
+    });
+
+    expect(items, hasLength(2));
+    expect(shoppingDashboardRatioText(items), '1/2');
+    expect(shoppingDashboardRatioText(const []), '待生成');
+    expect(shoppingItemPreviewText(items.last), '番茄 3个');
+  });
+
   test('image issue helpers extract meal identity and note', () {
     final populated = {
       '_id': 'issue-a',
