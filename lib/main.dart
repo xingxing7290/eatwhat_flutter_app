@@ -6841,6 +6841,20 @@ class _WeeklyPlanPageState extends State<WeeklyPlanPage> {
       showMessage(context, '请先生成草稿');
       return;
     }
+    final summary = weeklyDraftApplySummary(draft!);
+    if (summary.mealCount == 0) {
+      showMessage(context, '草稿里还没有菜品，先添加一顿饭再应用到日历。');
+      return;
+    }
+    final confirmed = await confirmDialog(
+      context,
+      title: '应用本周菜单',
+      message: weeklyDraftApplyConfirmMessage(summary),
+      confirmText: '应用',
+    );
+    if (!confirmed || !mounted) {
+      return;
+    }
     setState(() => busy = true);
     try {
       await context.appRead.post('/weekly-plans/apply', body: {
@@ -6914,6 +6928,18 @@ class _WeeklyPlanPageState extends State<WeeklyPlanPage> {
                           ),
                         ],
                       ),
+                      if (draft != null) ...[
+                        const SizedBox(height: 10),
+                        Text(
+                          weeklyDraftApplySummaryText(
+                            weeklyDraftApplySummary(draft!),
+                          ),
+                          style: TextStyle(
+                            color: context.app.themePalette.muted,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ],
                     ],
                   ),
                 ),
@@ -7045,6 +7071,57 @@ List<String> planHints(Map<String, dynamic> day) {
       .where((item) => item.isNotEmpty)
       .toSet()
       .toList();
+}
+
+class WeeklyDraftSummary {
+  const WeeklyDraftSummary({
+    required this.dayCount,
+    required this.mealSlotCount,
+    required this.mealCount,
+  });
+
+  final int dayCount;
+  final int mealSlotCount;
+  final int mealCount;
+}
+
+WeeklyDraftSummary weeklyDraftApplySummary(Map<String, dynamic> draft) {
+  final rawDays = asList(draft['days'] ?? draft['plan'] ?? draft['preview']);
+  var dayCount = 0;
+  var mealSlotCount = 0;
+  var mealCount = 0;
+  for (final rawDay in rawDays) {
+    final day = asMap(rawDay);
+    var hasAnyMeal = false;
+    for (final type in mealTypes) {
+      final meals = planMealEntries(planMealValue(day, type));
+      if (meals.isEmpty) {
+        continue;
+      }
+      hasAnyMeal = true;
+      mealSlotCount += 1;
+      mealCount += meals.length;
+    }
+    if (hasAnyMeal) {
+      dayCount += 1;
+    }
+  }
+  return WeeklyDraftSummary(
+    dayCount: dayCount,
+    mealSlotCount: mealSlotCount,
+    mealCount: mealCount,
+  );
+}
+
+String weeklyDraftApplySummaryText(WeeklyDraftSummary summary) {
+  if (summary.mealCount == 0) {
+    return '草稿里还没有安排菜品';
+  }
+  return '草稿包含 ${summary.dayCount} 天、${summary.mealSlotCount} 餐、${summary.mealCount} 道菜';
+}
+
+String weeklyDraftApplyConfirmMessage(WeeklyDraftSummary summary) {
+  return '${weeklyDraftApplySummaryText(summary)}，确认写入日历吗？已有同日期餐次可能会按服务端规则更新。';
 }
 
 class PlanMealEditorRow extends StatelessWidget {

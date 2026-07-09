@@ -509,6 +509,62 @@ void main() {
     expect(planHints({'hints': []}), isEmpty);
   });
 
+  test('weekly draft apply summary counts days slots and meals', () {
+    final summary = weeklyDraftApplySummary({
+      'days': [
+        {
+          'date': '2026-07-06',
+          'meals': {
+            'breakfast': ['meal-a'],
+            'lunch': [
+              {'_id': 'meal-b', 'name': '牛肉面'},
+              {
+                'meal': {'_id': 'meal-c', 'name': '拌黄瓜'}
+              }
+            ],
+            'dinner': [],
+          }
+        },
+        {
+          'date': '2026-07-07',
+          'meals': {
+            'breakfast': [],
+            'lunch': [],
+            'dinner': [
+              {'name': '手写菜名'}
+            ],
+          }
+        },
+        {
+          'date': '2026-07-08',
+          'meals': {'breakfast': [], 'lunch': [], 'dinner': []}
+        },
+      ],
+    });
+
+    expect(summary.dayCount, 2);
+    expect(summary.mealSlotCount, 3);
+    expect(summary.mealCount, 4);
+    expect(weeklyDraftApplySummaryText(summary), '草稿包含 2 天、3 餐、4 道菜');
+    expect(
+      weeklyDraftApplyConfirmMessage(summary),
+      contains('确认写入日历吗'),
+    );
+    expect(
+      weeklyDraftApplySummaryText(
+        weeklyDraftApplySummary({
+          'preview': [
+            {
+              'date': '2026-07-09',
+              'meals': {'breakfast': [], 'lunch': [], 'dinner': []}
+            }
+          ],
+        }),
+      ),
+      '草稿里还没有安排菜品',
+    );
+  });
+
   test('week helpers format ranges and relative labels', () {
     final sample = DateTime(2026, 7, 9);
     final currentWeek = mondayOf(DateTime.now());
