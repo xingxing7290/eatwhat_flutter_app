@@ -431,6 +431,34 @@ void main() {
     expect(names, ['酸菜猪肉饺子', '番茄牛腩']);
   });
 
+  test('album photo helpers keep memory identity and fallback payload', () {
+    final photo = {
+      'memoryId': 'memory-a',
+      'date': '2026-07-09T12:00:00.000Z',
+      'mealType': 'dinner',
+      'title': '周四晚餐',
+      'mood': '开心',
+      'note': '牛肉很软',
+      'rating': 5,
+      'photo': '/api/uploads/dinner.jpg',
+      'meals': [
+        {'_id': 'meal-a', 'name': '番茄牛腩'}
+      ],
+    };
+    final nested = {
+      'memory': {'_id': 'memory-b'},
+      'url': '/api/uploads/second.jpg',
+    };
+    final fallback = albumPhotoMemoryFallback(photo);
+
+    expect(albumPhotoMemoryId(photo), 'memory-a');
+    expect(albumPhotoMemoryId(nested), 'memory-b');
+    expect(albumPhotoDate(photo), '2026-07-09');
+    expect(fallback['_id'], 'memory-a');
+    expect(fallback['photos'], ['/api/uploads/dinner.jpg']);
+    expect(memoryMealIds(fallback), ['meal-a']);
+  });
+
   test('anniversary helpers parse templates and build descriptions', () {
     final templates = anniversaryTemplates({
       'value': [

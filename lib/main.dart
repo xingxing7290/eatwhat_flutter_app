@@ -6933,6 +6933,71 @@ class _PhotoAlbumPageState extends State<PhotoAlbumPage> {
         future = load();
       });
 
+  Future<Map<String, dynamic>> loadAlbumMemory(
+      Map<String, dynamic> photo) async {
+    final memoryId = albumPhotoMemoryId(photo);
+    if (memoryId.isEmpty) {
+      throw const ApiException('这张照片还没有关联饭后回忆');
+    }
+    final date = albumPhotoDate(photo);
+    final response = await context.appRead.get(
+      '/memories',
+      query: date.isEmpty ? {'month': monthString(month)} : {'date': date},
+    );
+    for (final item in memoryListFrom(response)) {
+      final memory = asMap(item);
+      if (idOf(memory) == memoryId) {
+        return memory;
+      }
+    }
+    return albumPhotoMemoryFallback(photo);
+  }
+
+  Future<void> editAlbumMemory(Map<String, dynamic> photo) async {
+    try {
+      final memory = await loadAlbumMemory(photo);
+      if (!mounted) {
+        return;
+      }
+      final changed = await pushPage(context, MemoryEditPage(memory: memory));
+      if (changed == true && mounted) {
+        reload();
+      }
+    } catch (error) {
+      if (mounted) {
+        showMessage(context, errorText(error));
+      }
+    }
+  }
+
+  Future<void> deleteAlbumMemory(Map<String, dynamic> photo) async {
+    final memoryId = albumPhotoMemoryId(photo);
+    if (memoryId.isEmpty) {
+      showMessage(context, '这张照片还没有关联饭后回忆');
+      return;
+    }
+    final confirmed = await confirmDialog(
+      context,
+      title: '删除回忆',
+      message: '删除后这条饭后回忆和其中的照片都会从相册里移除。',
+      confirmText: '删除',
+    );
+    if (!confirmed || !mounted) {
+      return;
+    }
+    try {
+      await context.appRead.delete('/memories/$memoryId');
+      if (mounted) {
+        showMessage(context, '已删除回忆');
+        reload();
+      }
+    } catch (error) {
+      if (mounted) {
+        showMessage(context, errorText(error));
+      }
+    }
+  }
+
   void showPhotoDetail(Map<String, dynamic> photo) {
     final url = imageUrl(photo['url'] ?? photo['photo'] ?? photo['src']);
     final title =
@@ -6941,11 +7006,12 @@ class _PhotoAlbumPageState extends State<PhotoAlbumPage> {
     final mood = textOf(photo['mood']);
     final note = textOf(photo['note'] ?? photo['remark']);
     final meals = photoMealNames(photo);
+    final memoryId = albumPhotoMemoryId(photo);
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (context) => SafeArea(
+      builder: (sheetContext) => SafeArea(
         child: SingleChildScrollView(
           child: Padding(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
@@ -6993,10 +7059,37 @@ class _PhotoAlbumPageState extends State<PhotoAlbumPage> {
                             Text(note),
                           ],
                           const SizedBox(height: 12),
+                          Wrap(
+                            spacing: 10,
+                            runSpacing: 8,
+                            children: [
+                              OutlinedButton.icon(
+                                onPressed: memoryId.isEmpty
+                                    ? null
+                                    : () {
+                                        Navigator.pop(sheetContext);
+                                        editAlbumMemory(photo);
+                                      },
+                                icon: const Icon(Icons.edit_outlined),
+                                label: const Text('编辑回忆'),
+                              ),
+                              TextButton.icon(
+                                onPressed: memoryId.isEmpty
+                                    ? null
+                                    : () {
+                                        Navigator.pop(sheetContext);
+                                        deleteAlbumMemory(photo);
+                                      },
+                                icon: const Icon(Icons.delete_outline),
+                                label: const Text('删除'),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
                           Align(
                             alignment: Alignment.centerRight,
                             child: TextButton.icon(
-                              onPressed: () => Navigator.pop(context),
+                              onPressed: () => Navigator.pop(sheetContext),
                               icon: const Icon(Icons.close),
                               label: const Text('收起'),
                             ),
@@ -7112,6 +7205,35 @@ List<Map<String, dynamic>> photoItems(dynamic response) {
     }
     return asMap(item);
   }).toList();
+}
+
+String albumPhotoMemoryId(Map<String, dynamic> photo) {
+  final nestedMemory = asMap(photo['memory']);
+  return textOf(photo['memoryId'] ??
+      photo['memory_id'] ??
+      photo['memoryID'] ??
+      nestedMemory['_id'] ??
+      nestedMemory['id']);
+}
+
+String albumPhotoDate(Map<String, dynamic> photo) =>
+    textOf(photo['date']).split('T').first;
+
+Map<String, dynamic> albumPhotoMemoryFallback(Map<String, dynamic> photo) {
+  final photoRef = textOf(photo['photo'] ?? photo['url'] ?? photo['src']);
+  return {
+    '_id': albumPhotoMemoryId(photo),
+    'date': albumPhotoDate(photo),
+    'mealType': photo['mealType'],
+    'title': photo['title'],
+    'mood': photo['mood'],
+    'note': photo['note'] ?? photo['remark'],
+    'rating': photo['rating'],
+    'actualCookTime': photo['actualCookTime'],
+    'nextImprovement': photo['nextImprovement'],
+    'photos': photoRef.isEmpty ? const <String>[] : [photoRef],
+    'mealIds': photo['meals'] ?? photo['mealIds'] ?? const <dynamic>[],
+  };
 }
 
 List<String> photoMealNames(Map<String, dynamic> photo) {
