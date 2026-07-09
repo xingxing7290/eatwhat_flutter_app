@@ -676,6 +676,20 @@ void main() {
       ['TA \u521b\u5efa', 'TA \u4e5f\u6295\u4e86', '\u6211\u5df2\u6295'],
     );
     expect(wishlistSignalLabels({'partnerSignal': true}), ['TA \u60f3\u5403']);
+    expect(wishlistDashboardNote({'priority': 'high'}),
+        '\u4f18\u5148\u60f3\u5403');
+    expect(
+      wishlistDashboardNote({'note': '\u60f3\u52a0\u4e00\u70b9\u9999\u83dc'}),
+      '\u60f3\u52a0\u4e00\u70b9\u9999\u83dc',
+    );
+    expect(wishlistDashboardActionLabel({'title': '\u624b\u5199\u613f\u671b'}),
+        '\u5efa\u8c31\u5e76\u5b89\u6392');
+    expect(
+      wishlistDashboardActionLabel({
+        'mealId': {'_id': 'meal-a', 'name': '\u9178\u83dc\u9c7c'}
+      }),
+      '\u4eca\u665a\u5403',
+    );
   });
 
   test('wishlist meal draft fields create a valid meal payload', () {

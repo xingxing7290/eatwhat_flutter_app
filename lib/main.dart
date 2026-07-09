@@ -2419,6 +2419,52 @@ List<Map<String, dynamic>> dashboardRecentPhotos(Map<String, dynamic> data) {
   }).toList();
 }
 
+String wishlistDashboardNote(Map<String, dynamic> item) {
+  final note = textOf(item['note']);
+  if (note.isNotEmpty) {
+    return note;
+  }
+  return wishlistPriorityLabel(textOf(item['priority']));
+}
+
+String wishlistDashboardActionLabel(Map<String, dynamic> item) {
+  return wishlistMealId(item).isEmpty ? '建谱并安排' : '今晚吃';
+}
+
+Future<void> scheduleWishlistForTodayDinner(
+  BuildContext context,
+  Map<String, dynamic> item,
+) async {
+  final wishlistId = idOf(item);
+  var mealId = wishlistMealId(item);
+  var mealName = wishlistMealName(item);
+  if (mealName.isEmpty) {
+    mealName = textOf(item['title']);
+  }
+
+  if (mealId.isEmpty) {
+    mealId = await createMealFromWishlist(context, item);
+    if (wishlistId.isNotEmpty) {
+      await context.appRead.patch(
+        '/wishlist/$wishlistId/meal',
+        body: {'mealId': mealId},
+      );
+    }
+  }
+
+  await appendMealToTodayDinner(
+    context,
+    mealId: mealId,
+    mealName: mealName,
+  );
+  if (wishlistId.isNotEmpty) {
+    await context.appRead.patch(
+      '/wishlist/$wishlistId/status',
+      body: {'status': 'planned'},
+    );
+  }
+}
+
 class DashboardWishlistCard extends StatelessWidget {
   const DashboardWishlistCard({
     super.key,
@@ -2439,13 +2485,10 @@ class DashboardWishlistCard extends StatelessWidget {
           const SectionTitle(icon: Icons.favorite_border, title: 'TA 想吃提醒'),
           const SizedBox(height: 10),
           ...visibleItems.map((item) {
-            final mealId = wishlistMealId(item);
             final title = wishlistMealName(item).isEmpty
                 ? textOf(item['title'])
                 : wishlistMealName(item);
-            final note = textOf(item['note']).isEmpty
-                ? textOf(item['priority'])
-                : textOf(item['note']);
+            final note = wishlistDashboardNote(item);
             return Padding(
               padding: const EdgeInsets.only(bottom: 10),
               child: Row(
@@ -2480,22 +2523,11 @@ class DashboardWishlistCard extends StatelessWidget {
                       ],
                     ),
                   ),
-                  if (mealId.isNotEmpty)
+                  if (!wishlistIsDone(item))
                     TextButton(
                       onPressed: () async {
                         try {
-                          await appendMealToTodayDinner(
-                            context,
-                            mealId: mealId,
-                            mealName: title,
-                          );
-                          final id = idOf(item);
-                          if (id.isNotEmpty) {
-                            await context.appRead.patch(
-                              '/wishlist/$id/status',
-                              body: {'status': 'planned'},
-                            );
-                          }
+                          await scheduleWishlistForTodayDinner(context, item);
                           onChanged();
                         } catch (error) {
                           if (context.mounted) {
@@ -2503,7 +2535,7 @@ class DashboardWishlistCard extends StatelessWidget {
                           }
                         }
                       },
-                      child: const Text('今晚吃'),
+                      child: Text(wishlistDashboardActionLabel(item)),
                     ),
                 ],
               ),
@@ -7172,7 +7204,6 @@ class WishlistCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final id = idOf(item);
-    final mealId = wishlistMealId(item);
     final status =
         textOf(item['status']).isEmpty ? 'open' : textOf(item['status']);
     final isDone = wishlistIsDone(item);
@@ -7273,16 +7304,12 @@ class WishlistCard extends StatelessWidget {
                     icon: const Icon(Icons.favorite_border),
                     label: const Text('\u91cd\u65b0\u60f3\u5403'),
                   ),
-                if (mealId.isNotEmpty && !isDone)
+                if (!isDone)
                   FilledButton.icon(
                     onPressed: () async {
                       try {
-                        await appendMealToTodayDinner(
-                          context,
-                          mealId: mealId,
-                          mealName: wishlistMealName(item),
-                        );
-                        await updateStatus('planned');
+                        await scheduleWishlistForTodayDinner(context, item);
+                        onChanged();
                       } catch (error) {
                         if (context.mounted) {
                           showMessage(context, errorText(error));
@@ -7290,33 +7317,7 @@ class WishlistCard extends StatelessWidget {
                       }
                     },
                     icon: const Icon(Icons.dinner_dining_outlined),
-                    label: const Text('今晚安排'),
-                  ),
-                if (mealId.isEmpty && !isDone)
-                  FilledButton.icon(
-                    onPressed: () async {
-                      try {
-                        final newMealId =
-                            await createMealFromWishlist(context, item);
-                        if (id.isNotEmpty) {
-                          await context.appRead.patch(
-                            '/wishlist/$id/meal',
-                            body: {'mealId': newMealId},
-                          );
-                        }
-                        onChanged();
-                        if (context.mounted) {
-                          showMessage(context,
-                              '\u5df2\u5efa\u6210\u83dc\u8c31\uff0c\u53ef\u4ee5\u76f4\u63a5\u5b89\u6392\u665a\u9910');
-                        }
-                      } catch (error) {
-                        if (context.mounted) {
-                          showMessage(context, errorText(error));
-                        }
-                      }
-                    },
-                    icon: const Icon(Icons.restaurant_menu_outlined),
-                    label: const Text('\u5efa\u6210\u83dc\u8c31'),
+                    label: Text(wishlistDashboardActionLabel(item)),
                   ),
                 OutlinedButton.icon(
                   onPressed: () async {
