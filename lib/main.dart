@@ -2683,6 +2683,187 @@ Future<void> appendMealToTodayDinner(
   }
 }
 
+List<Map<String, String>> shoppingItemsFromIngredients(dynamic ingredients) {
+  final merged = <String, Map<String, String>>{};
+  for (final item in asList(ingredients)) {
+    final map = asMap(item);
+    final parsed = _parseIngredient(item, map);
+    final name = parsed.$1;
+    if (name.isEmpty) {
+      continue;
+    }
+    final amount = parsed.$2;
+    final category = shoppingCategoryFor(name);
+    final key = _shoppingItemKey(name, category);
+    final current = merged[key];
+    if (current == null) {
+      merged[key] = {
+        'name': name,
+        'amount': amount,
+        'category': category,
+      };
+      continue;
+    }
+    if (amount.isNotEmpty) {
+      final previous = current['amount'] ?? '';
+      current['amount'] = previous.isEmpty ? amount : '$previous、$amount';
+    }
+  }
+  return merged.values.toList();
+}
+
+(String, String) _parseIngredient(dynamic item, Map<String, dynamic> map) {
+  var name = textOf(
+    map['name'] ??
+        map['title'] ??
+        map['ingredient'] ??
+        map['ingredientName'] ??
+        item,
+  ).trim();
+  var amount = textOf(map['amount']).trim();
+  if (amount.isEmpty) {
+    final quantity = textOf(map['quantity']).trim();
+    final unit = textOf(map['unit']).trim();
+    amount = quantity.isEmpty ? unit : '$quantity$unit';
+  }
+  if (map.isEmpty && item is String) {
+    final parts = item.trim().split(RegExp(r'\s+'));
+    if (parts.length > 1) {
+      name = parts.first.trim();
+      amount = parts.sublist(1).join(' ').trim();
+    }
+  }
+  return (name, amount);
+}
+
+String shoppingCategoryFor(String value) {
+  final name = value.trim();
+  if (name.isEmpty) {
+    return 'other';
+  }
+  bool containsAny(List<String> words) => words.any(name.contains);
+  if (containsAny(
+      ['米', '面粉', '面条', '饼', '馒头', '包子', '粥', '年糕', '粉丝', '粉条', '玉米', '红薯'])) {
+    return 'staple';
+  }
+  if (containsAny([
+    '盐',
+    '糖',
+    '醋',
+    '酱',
+    '料酒',
+    '葱',
+    '姜',
+    '蒜',
+    '辣椒',
+    '花椒',
+    '孜然',
+    '八角',
+    '香油',
+    '蚝油',
+    '生抽',
+    '老抽',
+    '鸡精',
+    '味精',
+    '胡椒',
+    '淀粉'
+  ])) {
+    return 'seasoning';
+  }
+  if (containsAny([
+    '鸡',
+    '鸭',
+    '鱼',
+    '虾',
+    '牛',
+    '羊',
+    '猪',
+    '肉',
+    '蛋',
+    '排骨',
+    '里脊',
+    '火腿',
+    '培根',
+    '丸',
+    '肠'
+  ])) {
+    return 'meat_egg';
+  }
+  if (containsAny([
+    '菜',
+    '豆角',
+    '黄瓜',
+    '番茄',
+    '西红柿',
+    '青椒',
+    '白菜',
+    '菠菜',
+    '生菜',
+    '油麦',
+    '西兰花',
+    '萝卜',
+    '茄子',
+    '芹菜',
+    '韭菜',
+    '蘑菇',
+    '木耳',
+    '藕',
+    '土豆',
+    '洋葱',
+    '豆腐'
+  ])) {
+    return 'vegetable';
+  }
+  return 'other';
+}
+
+Future<void> addMealIngredientsToShoppingList(
+  BuildContext context,
+  Map<String, dynamic> meal,
+) async {
+  final items = shoppingItemsFromIngredients(meal['ingredients']);
+  if (items.isEmpty) {
+    showMessage(context, '这道菜还没有食材，先在菜谱里补充食材。');
+    return;
+  }
+  final app = context.appRead;
+  final weekStart = dateString(mondayOf(DateTime.now()));
+  final existingResponse =
+      await app.get('/shopping-list', query: {'weekStart': weekStart});
+  final existingKeys = shoppingItems(existingResponse)
+      .map((item) =>
+          _shoppingItemKey(textOf(item['name']), textOf(item['category'])))
+      .toSet();
+
+  var added = 0;
+  for (final item in items) {
+    final name = item['name'] ?? '';
+    final category = item['category'] ?? 'other';
+    final key = _shoppingItemKey(name, category);
+    if (existingKeys.contains(key)) {
+      continue;
+    }
+    await app.post('/shopping-list/items', body: {
+      'weekStart': weekStart,
+      'name': name,
+      'amount': item['amount'] ?? '',
+      'category': category,
+    });
+    existingKeys.add(key);
+    added += 1;
+  }
+
+  if (context.mounted) {
+    showMessage(
+      context,
+      added == 0 ? '这些食材已经在本周购物清单里' : '已加入本周购物清单（$added 项）',
+    );
+  }
+}
+
+String _shoppingItemKey(String name, String category) =>
+    '${category.trim()}|${name.trim().toLowerCase()}';
+
 class ScheduleSheet extends StatefulWidget {
   const ScheduleSheet({
     super.key,
@@ -3378,6 +3559,16 @@ class _MealDetailPageState extends State<MealDetailPage> {
     }
   }
 
+  Future<void> addIngredientsToShoppingList(Map<String, dynamic> meal) async {
+    try {
+      await addMealIngredientsToShoppingList(context, meal);
+    } catch (error) {
+      if (mounted) {
+        showMessage(context, errorText(error));
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -3512,6 +3703,11 @@ class _MealDetailPageState extends State<MealDetailPage> {
                             },
                             icon: const Icon(Icons.check_circle_outline),
                             label: const Text('做过一次'),
+                          ),
+                          OutlinedButton.icon(
+                            onPressed: () => addIngredientsToShoppingList(meal),
+                            icon: const Icon(Icons.shopping_bag_outlined),
+                            label: const Text('加入购物清单'),
                           ),
                           OutlinedButton.icon(
                             onPressed: () async {

@@ -168,6 +168,30 @@ void main() {
     expect(wishlistMealName({'title': '手写愿望', 'mealId': 'meal-b'}), '手写愿望');
   });
 
+  test('shoppingItemsFromIngredients normalizes and merges ingredients', () {
+    final items = shoppingItemsFromIngredients([
+      {'name': '鸡蛋', 'amount': '2个'},
+      {'name': '鸡蛋', 'amount': '1个'},
+      {'name': '面粉', 'quantity': '300', 'unit': '克'},
+      '葱花 少许',
+      {'name': ''},
+    ]);
+
+    expect(items, [
+      {'name': '鸡蛋', 'amount': '2个、1个', 'category': 'meat_egg'},
+      {'name': '面粉', 'amount': '300克', 'category': 'staple'},
+      {'name': '葱花', 'amount': '少许', 'category': 'seasoning'},
+    ]);
+  });
+
+  test('shoppingCategoryFor classifies common cooking ingredients', () {
+    expect(shoppingCategoryFor('白菜'), 'vegetable');
+    expect(shoppingCategoryFor('牛肉'), 'meat_egg');
+    expect(shoppingCategoryFor('面条'), 'staple');
+    expect(shoppingCategoryFor('生抽'), 'seasoning');
+    expect(shoppingCategoryFor('椰奶'), 'other');
+  });
+
   test('food focus renderer highlights center subject', () {
     final source = img.Image(width: 48, height: 48);
     for (var y = 0; y < source.height; y += 1) {
