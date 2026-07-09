@@ -5484,6 +5484,7 @@ class PlanBlock extends StatelessWidget {
           else
             ...days.map((item) {
               final day = asMap(item);
+              final hints = planHints(day);
               return Padding(
                 padding: const EdgeInsets.only(bottom: 10),
                 child: Column(
@@ -5524,6 +5525,17 @@ class PlanBlock extends StatelessWidget {
                       MealBadges(
                           title: '晚', value: planMealValue(day, 'dinner')),
                     ],
+                    if (hints.isNotEmpty) ...[
+                      const SizedBox(height: 4),
+                      Wrap(
+                        spacing: 6,
+                        runSpacing: 6,
+                        children: hints
+                            .map((item) =>
+                                InfoChip(item, icon: Icons.eco_outlined))
+                            .toList(),
+                      ),
+                    ],
                   ],
                 ),
               );
@@ -5537,6 +5549,17 @@ class PlanBlock extends StatelessWidget {
 dynamic planMealValue(Map<String, dynamic> day, String type) {
   final meals = asMap(day['meals']);
   return day[type] ?? meals[type] ?? const [];
+}
+
+List<String> planHints(Map<String, dynamic> day) {
+  final values = asList(
+    day['hints'] ?? day['balanceHints'] ?? day['healthHints'] ?? day['tips'],
+  );
+  return values
+      .map(friendlyText)
+      .where((item) => item.isNotEmpty)
+      .toSet()
+      .toList();
 }
 
 class PlanMealEditorRow extends StatelessWidget {

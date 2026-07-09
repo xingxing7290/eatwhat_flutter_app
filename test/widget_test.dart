@@ -316,6 +316,22 @@ void main() {
     expect(previewEntry['name'], '牛肉面');
   });
 
+  test('planHints reads and deduplicates balance hints', () {
+    expect(
+      planHints({
+        'hints': ['今天蔬菜偏少', '包含快手菜', '今天蔬菜偏少', ''],
+      }),
+      ['今天蔬菜偏少', '包含快手菜'],
+    );
+    expect(
+      planHints({
+        'balanceHints': ['今天口味偏重'],
+      }),
+      ['今天口味偏重'],
+    );
+    expect(planHints({'hints': []}), isEmpty);
+  });
+
   test('week helpers format ranges and relative labels', () {
     final sample = DateTime(2026, 7, 9);
     final currentWeek = mondayOf(DateTime.now());
