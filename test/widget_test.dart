@@ -141,6 +141,16 @@ void main() {
     expect(paletteForKey('missing').key, kThemeCreamPeach);
   });
 
+  test('android branding uses themed app name resource', () {
+    final manifest =
+        io.File('android/app/src/main/AndroidManifest.xml').readAsStringSync();
+    final strings = io.File('android/app/src/main/res/values/strings.xml')
+        .readAsStringSync();
+
+    expect(manifest, contains('android:label="@string/app_name"'));
+    expect(strings, contains('<string name="app_name">小家饭桌</string>'));
+  });
+
   test('mealIdsFromPlanValue extracts ids from schedule meal structures', () {
     final ids = mealIdsFromPlanValue([
       {
