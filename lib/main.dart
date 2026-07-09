@@ -1859,6 +1859,14 @@ class _DashboardPageState extends State<DashboardPage> {
   }
 
   Future<dynamic> load() async {
+    final summary = asMap(
+      payload(
+        await loadPart(() => context.appRead.get('/dashboard/summary')),
+      ),
+    );
+    if (summary.isNotEmpty) {
+      return summary;
+    }
     final today = DateTime.now();
     final results = await Future.wait<dynamic>([
       loadPart(
@@ -1906,6 +1914,8 @@ class _DashboardPageState extends State<DashboardPage> {
           final data = asMap(payload(snapshot.data));
           final today = DateTime.now();
           final todaySchedule = dashboardTodaySchedule(data);
+          final partnerWishlist = dashboardPartnerWishlist(data);
+          final recentPhotos = dashboardRecentPhotos(data);
           return ListView(
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 120),
             children: [
@@ -2016,18 +2026,31 @@ class _DashboardPageState extends State<DashboardPage> {
                   DashboardTile(
                     icon: Icons.favorite,
                     label: '想吃提醒',
-                    value: countText(data['wishlist'] ?? data['wishCount']),
+                    value: countText(data['wishlist'] ??
+                        data['wishCount'] ??
+                        data['partnerWishlist']),
                     color: const Color(0xFFFF8D7E),
                   ),
                   DashboardTile(
                     icon: Icons.photo_library_outlined,
                     label: '最近回忆',
-                    value: countText(data['memories'] ?? data['memoryCount']),
+                    value: countText(data['memories'] ??
+                        data['memoryCount'] ??
+                        data['recentPhotos']),
                     color: const Color(0xFF9E8B73),
                   ),
                 ],
               ),
               const SizedBox(height: 14),
+              if (partnerWishlist.isNotEmpty) ...[
+                DashboardWishlistCard(
+                    items: partnerWishlist, onChanged: reload),
+                const SizedBox(height: 14),
+              ],
+              if (recentPhotos.isNotEmpty) ...[
+                DashboardPhotoStrip(photos: recentPhotos),
+                const SizedBox(height: 14),
+              ],
               SoftCard(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -2132,6 +2155,211 @@ Map<String, dynamic> dashboardTodaySchedule(Map<String, dynamic> data) {
     return schedule;
   }
   return asMap(data['today']);
+}
+
+List<Map<String, dynamic>> dashboardPartnerWishlist(Map<String, dynamic> data) {
+  final raw = data['partnerWishlist'] ??
+      data['taWishlist'] ??
+      data['wishlistItems'] ??
+      data['wishlist'];
+  return asList(raw).map(asMap).where((item) => item.isNotEmpty).toList();
+}
+
+List<Map<String, dynamic>> dashboardRecentPhotos(Map<String, dynamic> data) {
+  final raw = data['recentPhotos'] ??
+      data['photos'] ??
+      data['recentMemories'] ??
+      data['memories'];
+  return asList(raw).map((item) {
+    if (item is String) {
+      return {'photo': item};
+    }
+    return asMap(item);
+  }).where((item) {
+    return imageUrl(item['photo'] ?? item['url'] ?? item['src']).isNotEmpty;
+  }).toList();
+}
+
+class DashboardWishlistCard extends StatelessWidget {
+  const DashboardWishlistCard({
+    super.key,
+    required this.items,
+    required this.onChanged,
+  });
+
+  final List<Map<String, dynamic>> items;
+  final VoidCallback onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final visibleItems = items.take(3).toList();
+    return SoftCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const SectionTitle(icon: Icons.favorite_border, title: 'TA 想吃提醒'),
+          const SizedBox(height: 10),
+          ...visibleItems.map((item) {
+            final mealId = wishlistMealId(item);
+            final title = wishlistMealName(item).isEmpty
+                ? textOf(item['title'])
+                : wishlistMealName(item);
+            final note = textOf(item['note']).isEmpty
+                ? textOf(item['priority'])
+                : textOf(item['note']);
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: Row(
+                children: [
+                  Container(
+                    width: 42,
+                    height: 42,
+                    decoration: BoxDecoration(
+                      color: kPeach.withValues(alpha: 0.22),
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: const Icon(Icons.restaurant, color: kCoral),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          title.isEmpty ? '想吃一顿小家饭' : title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(fontWeight: FontWeight.w900),
+                        ),
+                        if (note.isNotEmpty)
+                          Text(
+                            note,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(color: kCocoa),
+                          ),
+                      ],
+                    ),
+                  ),
+                  if (mealId.isNotEmpty)
+                    TextButton(
+                      onPressed: () async {
+                        try {
+                          await appendMealToTodayDinner(
+                            context,
+                            mealId: mealId,
+                            mealName: title,
+                          );
+                          final id = idOf(item);
+                          if (id.isNotEmpty) {
+                            await context.appRead.patch(
+                              '/wishlist/$id/status',
+                              body: {'status': 'planned'},
+                            );
+                          }
+                          onChanged();
+                        } catch (error) {
+                          if (context.mounted) {
+                            showMessage(context, errorText(error));
+                          }
+                        }
+                      },
+                      child: const Text('今晚吃'),
+                    ),
+                ],
+              ),
+            );
+          }),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: OutlinedButton.icon(
+              onPressed: () => pushPage(context, const WishlistPage()),
+              icon: const Icon(Icons.arrow_forward),
+              label:
+                  Text(items.length > 3 ? '查看全部 ${items.length} 项' : '查看想吃清单'),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class DashboardPhotoStrip extends StatelessWidget {
+  const DashboardPhotoStrip({super.key, required this.photos});
+
+  final List<Map<String, dynamic>> photos;
+
+  @override
+  Widget build(BuildContext context) {
+    final visiblePhotos = photos.take(5).toList();
+    return SoftCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const SectionTitle(
+              icon: Icons.photo_library_outlined, title: '最近饭桌照片'),
+          const SizedBox(height: 12),
+          SizedBox(
+            height: 148,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              itemCount: visiblePhotos.length,
+              separatorBuilder: (_, __) => const SizedBox(width: 10),
+              itemBuilder: (context, index) {
+                final photo = visiblePhotos[index];
+                final url =
+                    imageUrl(photo['photo'] ?? photo['url'] ?? photo['src']);
+                return InkWell(
+                  borderRadius: BorderRadius.circular(22),
+                  onTap: () => pushPage(context, const PhotoAlbumPage()),
+                  child: SizedBox(
+                    width: 136,
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(22),
+                      child: Stack(
+                        fit: StackFit.expand,
+                        children: [
+                          RemoteImage(url: url),
+                          Positioned(
+                            left: 0,
+                            right: 0,
+                            bottom: 0,
+                            child: Container(
+                              padding: const EdgeInsets.all(9),
+                              color: kCoffee.withValues(alpha: 0.58),
+                              child: Text(
+                                textOf(photo['title']).isEmpty
+                                    ? textOf(photo['date'])
+                                    : textOf(photo['title']),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w900,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+          const SizedBox(height: 10),
+          OutlinedButton.icon(
+            onPressed: () => pushPage(context, const PhotoAlbumPage()),
+            icon: const Icon(Icons.collections_outlined),
+            label: const Text('打开饭桌相册'),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class TodayScheduleCard extends StatelessWidget {

@@ -168,6 +168,34 @@ void main() {
     expect(wishlistMealName({'title': '手写愿望', 'mealId': 'meal-b'}), '手写愿望');
   });
 
+  test('dashboard summary helpers extract partner wishes and photos', () {
+    final data = {
+      'partnerWishlist': [
+        {
+          '_id': 'wish-a',
+          'title': '想吃酸菜鱼',
+          'mealId': {'_id': 'meal-a', 'name': '酸菜鱼'}
+        }
+      ],
+      'recentPhotos': [
+        {
+          'photo': 'http://113.44.50.108:3002/uploads/dinner.jpg',
+          'title': '晚餐'
+        },
+        '',
+      ],
+    };
+
+    final wishes = dashboardPartnerWishlist(data);
+    final photos = dashboardRecentPhotos(data);
+
+    expect(wishes, hasLength(1));
+    expect(wishlistMealId(wishes.first), 'meal-a');
+    expect(wishlistMealName(wishes.first), '酸菜鱼');
+    expect(photos, hasLength(1));
+    expect(photos.first['title'], '晚餐');
+  });
+
   test('shoppingItemsFromIngredients normalizes and merges ingredients', () {
     final items = shoppingItemsFromIngredients([
       {'name': '鸡蛋', 'amount': '2个'},
