@@ -4854,6 +4854,60 @@ String imageIssueTypeLabel(String type) {
   return normalized.isEmpty ? '图片与菜品不匹配' : friendlyText(normalized);
 }
 
+String imageIssueType(Map<String, dynamic> issue) {
+  final raw = textOf(issue['issueType'] ?? issue['type'] ?? issue['category']);
+  return raw.trim().isEmpty ? 'mismatch' : raw.trim();
+}
+
+List<MapEntry<String, int>> imageIssueTypeCounts(
+  List<Map<String, dynamic>> issues,
+) {
+  final counts = <String, int>{};
+  for (final issue in issues) {
+    final type = imageIssueType(issue);
+    counts[type] = (counts[type] ?? 0) + 1;
+  }
+  final order = imageIssueReasons
+      .map((reason) => reason['type'] ?? '')
+      .where((type) => type.isNotEmpty)
+      .toList();
+  final entries = counts.entries.toList();
+  entries.sort((a, b) {
+    final rankA = order.indexOf(a.key);
+    final rankB = order.indexOf(b.key);
+    final normalizedRankA = rankA == -1 ? order.length : rankA;
+    final normalizedRankB = rankB == -1 ? order.length : rankB;
+    final rankCompare = normalizedRankA.compareTo(normalizedRankB);
+    if (rankCompare != 0) {
+      return rankCompare;
+    }
+    final countCompare = b.value.compareTo(a.value);
+    if (countCompare != 0) {
+      return countCompare;
+    }
+    return imageIssueTypeLabel(a.key).compareTo(imageIssueTypeLabel(b.key));
+  });
+  return entries;
+}
+
+String imageIssueFixPriorityText(List<Map<String, dynamic>> issues) {
+  if (issues.isEmpty) {
+    return '当前没有待修正图片。';
+  }
+  final counts = Map.fromEntries(imageIssueTypeCounts(issues));
+  if ((counts['non_food'] ?? 0) > 0) {
+    return '优先替换不是菜品照片的项目，避免默认菜库出现明显错图。';
+  }
+  if ((counts['mismatch'] ?? 0) > 0) {
+    return '优先处理菜名不匹配的图片，保证排餐时一眼能认出菜。';
+  }
+  if ((counts['missing'] ?? 0) > 0) {
+    return '优先补成品图，让菜谱卡片更适合默认选择。';
+  }
+  final top = imageIssueTypeCounts(issues).first;
+  return '按数量最多的问题类型优先处理：${imageIssueTypeLabel(top.key)}。';
+}
+
 String imageIssueDraftNote({
   required String issueType,
   String note = '',
@@ -10367,13 +10421,32 @@ class _SettingsPageState extends State<SettingsPage> {
                   const SizedBox(height: 8),
                   if (issues.isEmpty)
                     const Text('当前没有待修正图片。')
-                  else
+                  else ...[
+                    Text(
+                      imageIssueFixPriorityText(issues),
+                      style: TextStyle(color: context.app.themePalette.muted),
+                    ),
+                    const SizedBox(height: 10),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: imageIssueTypeCounts(issues)
+                          .map(
+                            (entry) => InfoChip(
+                              '${imageIssueTypeLabel(entry.key)} ${entry.value}',
+                              icon: Icons.label_important_outline,
+                            ),
+                          )
+                          .toList(),
+                    ),
+                    const SizedBox(height: 12),
                     ...issues.map(
                       (issue) => ImageIssueTile(
                         issue: issue,
                         onChanged: reload,
                       ),
                     ),
+                  ],
                 ],
               ),
             );

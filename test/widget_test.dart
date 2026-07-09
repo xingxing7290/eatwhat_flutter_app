@@ -974,6 +974,42 @@ void main() {
     );
   });
 
+  test('image issue summaries group type counts and priority hints', () {
+    final issues = [
+      {'issueType': 'low_quality'},
+      {'issueType': 'non_food'},
+      {'type': 'non_food'},
+      {'category': 'duplicate'},
+      {'note': '没有类型时默认按不匹配处理'},
+    ];
+
+    final counts = imageIssueTypeCounts(issues);
+
+    expect(imageIssueType(issues.last), 'mismatch');
+    expect(counts.map((entry) => '${entry.key}:${entry.value}'), [
+      'mismatch:1',
+      'non_food:2',
+      'low_quality:1',
+      'duplicate:1',
+    ]);
+    expect(
+      imageIssueFixPriorityText(issues),
+      '优先替换不是菜品照片的项目，避免默认菜库出现明显错图。',
+    );
+    expect(
+      imageIssueFixPriorityText([
+        {'issueType': 'mismatch'},
+      ]),
+      '优先处理菜名不匹配的图片，保证排餐时一眼能认出菜。',
+    );
+    expect(
+      imageIssueFixPriorityText([
+        {'issueType': 'low_quality'},
+      ]),
+      '按数量最多的问题类型优先处理：图片模糊或太暗。',
+    );
+  });
+
   test('shoppingItemsFromIngredients normalizes and merges ingredients', () {
     final items = shoppingItemsFromIngredients([
       {'name': '鸡蛋', 'amount': '2个'},
