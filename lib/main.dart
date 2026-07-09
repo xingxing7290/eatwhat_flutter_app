@@ -23,6 +23,8 @@ const Duration kRequestTimeout = Duration(seconds: 30);
 const Duration kUploadTimeout = Duration(seconds: 90);
 const double kUploadImageMaxSide = 1600;
 const int kUploadImageQuality = 68;
+const int kUploadImageMaxBytes = 2 * 1024 * 1024;
+const int kFoodFocusMaxSide = 1400;
 
 const kCream = Color(0xFFFDF7EF);
 const kOat = Color(0xFFF5EBE6);
@@ -1362,12 +1364,12 @@ List<int> renderFoodFocusBytes(Uint8List inputBytes) {
 
   var source = img.bakeOrientation(decoded);
   final maxSide = math.max(source.width, source.height);
-  if (maxSide > 1400) {
+  if (maxSide > kFoodFocusMaxSide) {
     source = source.width >= source.height
         ? img.copyResize(source,
-            width: 1400, interpolation: img.Interpolation.cubic)
+            width: kFoodFocusMaxSide, interpolation: img.Interpolation.cubic)
         : img.copyResize(source,
-            height: 1400, interpolation: img.Interpolation.cubic);
+            height: kFoodFocusMaxSide, interpolation: img.Interpolation.cubic);
   }
 
   final blurRadius =
@@ -1419,7 +1421,58 @@ List<int> renderFoodFocusBytes(Uint8List inputBytes) {
     }
   }
 
-  return img.encodeJpg(output, quality: 86);
+  return encodeJpgWithinUploadLimit(output);
+}
+
+List<int> encodeJpgWithinUploadLimit(
+  img.Image source, {
+  int maxBytes = kUploadImageMaxBytes,
+  int maxSide = kFoodFocusMaxSide,
+}) {
+  var output = source;
+  final sourceMaxSide = math.max(source.width, source.height);
+  if (sourceMaxSide > maxSide) {
+    output = source.width >= source.height
+        ? img.copyResize(
+            source,
+            width: maxSide,
+            interpolation: img.Interpolation.cubic,
+          )
+        : img.copyResize(
+            source,
+            height: maxSide,
+            interpolation: img.Interpolation.cubic,
+          );
+  }
+  var quality = 86;
+
+  while (true) {
+    final encoded = img.encodeJpg(output, quality: quality);
+    final currentMaxSide = math.max(output.width, output.height);
+    if (encoded.length <= maxBytes ||
+        (quality <= 52 && currentMaxSide <= 900)) {
+      return encoded;
+    }
+
+    if (quality > 52) {
+      quality -= 8;
+      continue;
+    }
+
+    final nextMaxSide = math.max(900, (currentMaxSide * 0.84).round());
+    output = output.width >= output.height
+        ? img.copyResize(
+            output,
+            width: nextMaxSide,
+            interpolation: img.Interpolation.cubic,
+          )
+        : img.copyResize(
+            output,
+            height: nextMaxSide,
+            interpolation: img.Interpolation.cubic,
+          );
+    quality = 76;
+  }
 }
 
 List<int> mutedFoodBackground(num red, num green, num blue) {
@@ -5129,24 +5182,28 @@ class _MemoryEditPageState extends State<MemoryEditPage> {
       return;
     }
     final focusedPhotos = <XFile>[];
-    var focusedCount = 0;
+    final failedNames = <String>[];
     for (final photo in selected) {
       try {
         focusedPhotos.add(await createFoodFocusPhoto(photo));
-        focusedCount += 1;
-      } catch (_) {
-        focusedPhotos.add(photo);
+      } catch (error) {
+        final fileName = uploadFileName(photo);
+        failedNames.add(fileName);
       }
     }
     if (!mounted) {
       return;
     }
-    addPhotos(
-      focusedPhotos,
-      message: focusedCount > 0
-          ? '已自动突出菜品主体，柔化背景 $focusedCount 张'
-          : '已添加 ${selected.length} 张照片',
-    );
+    if (focusedPhotos.isNotEmpty) {
+      addPhotos(
+        focusedPhotos,
+        message: failedNames.isEmpty
+            ? '已压缩并转换为可上传照片 ${focusedPhotos.length} 张'
+            : '已添加 ${focusedPhotos.length} 张，跳过 ${failedNames.length} 张不支持的图片',
+      );
+    } else {
+      showMessage(context, '图片格式暂不支持，请选择 JPG、PNG 或重新拍照后再试');
+    }
   }
 
   Future<void> recoverLostPhotos() async {

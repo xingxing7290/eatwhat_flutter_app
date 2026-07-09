@@ -730,6 +730,29 @@ void main() {
     expect(output, isNotNull);
     expect(output!.getPixel(24, 25).r, greaterThan(output.getPixel(2, 2).r));
   });
+
+  test('upload jpeg encoder keeps memory photos under size limit', () {
+    final source = img.Image(width: 1600, height: 1200);
+    for (var y = 0; y < source.height; y += 1) {
+      for (var x = 0; x < source.width; x += 1) {
+        source.setPixelRgb(
+          x,
+          y,
+          (x * 19 + y * 7) % 256,
+          (x * 5 + y * 23) % 256,
+          (x * 11 + y * 13) % 256,
+        );
+      }
+    }
+
+    final outputBytes = encodeJpgWithinUploadLimit(source);
+    final output = img.decodeImage(Uint8List.fromList(outputBytes));
+
+    expect(outputBytes.length, lessThanOrEqualTo(kUploadImageMaxBytes));
+    expect(output, isNotNull);
+    expect(output!.width, lessThanOrEqualTo(kFoodFocusMaxSide));
+    expect(output.height, lessThanOrEqualTo(kFoodFocusMaxSide));
+  });
 }
 
 String fakeJwt(DateTime expiresAt) {
