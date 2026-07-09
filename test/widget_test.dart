@@ -765,16 +765,25 @@ void main() {
         },
         '',
       ],
+      'anniversaries': [
+        {'title': '已经过了', 'date': '2026-07-01'},
+        {'title': '恋爱纪念日', 'date': '2026-07-13'},
+        {'title': '今天菜单', 'date': '2026-07-10'},
+      ],
     };
 
     final wishes = dashboardPartnerWishlist(data);
     final photos = dashboardRecentPhotos(data);
+    final anniversaries =
+        dashboardAnniversaryMenus(data, today: DateTime(2026, 7, 10));
 
     expect(wishes, hasLength(1));
     expect(wishlistMealId(wishes.first), 'meal-a');
     expect(wishlistMealName(wishes.first), '酸菜鱼');
     expect(photos, hasLength(1));
     expect(photos.first['title'], '晚餐');
+    expect(
+        anniversaries.map((item) => item['title']), ['今天菜单', '恋爱纪念日', '已经过了']);
   });
 
   test('image issue helpers extract meal identity and note', () {

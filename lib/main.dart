@@ -2103,8 +2103,20 @@ class _DashboardPageState extends State<DashboardPage> {
         await loadPart(() => context.appRead.get('/dashboard/summary')),
       ),
     );
+    final anniversaries = dashboardAnniversaryMenus(
+      asMap({
+        'anniversaries': payload(
+          await loadPart(() => context.appRead.get('/anniversaries')),
+        ),
+      }),
+    );
     if (summary.isNotEmpty) {
-      return summary;
+      return {
+        ...summary,
+        if (dashboardAnniversaryMenus(summary).isEmpty &&
+            anniversaries.isNotEmpty)
+          'anniversaries': anniversaries,
+      };
     }
     final today = DateTime.now();
     final results = await Future.wait<dynamic>([
@@ -2121,6 +2133,7 @@ class _DashboardPageState extends State<DashboardPage> {
       'memories': 0,
       'defaultMeals': asMap(payload(results[2])),
       'imageIssues': {'open': 0},
+      'anniversaries': anniversaries,
     };
   }
 
@@ -2155,6 +2168,7 @@ class _DashboardPageState extends State<DashboardPage> {
           final todaySchedule = dashboardTodaySchedule(data);
           final partnerWishlist = dashboardPartnerWishlist(data);
           final recentPhotos = dashboardRecentPhotos(data);
+          final anniversaryMenus = dashboardAnniversaryMenus(data);
           return ListView(
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 120),
             children: [
@@ -2290,6 +2304,10 @@ class _DashboardPageState extends State<DashboardPage> {
                 DashboardPhotoStrip(photos: recentPhotos),
                 const SizedBox(height: 14),
               ],
+              if (anniversaryMenus.isNotEmpty) ...[
+                DashboardAnniversaryCard(menu: anniversaryMenus.first),
+                const SizedBox(height: 14),
+              ],
               SoftCard(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -2417,6 +2435,96 @@ List<Map<String, dynamic>> dashboardRecentPhotos(Map<String, dynamic> data) {
   }).where((item) {
     return imageUrl(item['photo'] ?? item['url'] ?? item['src']).isNotEmpty;
   }).toList();
+}
+
+List<Map<String, dynamic>> dashboardAnniversaryMenus(
+  Map<String, dynamic> data, {
+  DateTime? today,
+}) {
+  final raw = data['upcomingAnniversaries'] ??
+      data['anniversaryMenus'] ??
+      data['anniversaries'] ??
+      data['menus'];
+  final items = asList(raw).map(asMap).where((item) {
+    return item.isNotEmpty &&
+        (idOf(item).isNotEmpty || textOf(item['date']).isNotEmpty);
+  }).toList();
+  return anniversarySortedMenus(items, today: today);
+}
+
+class DashboardAnniversaryCard extends StatelessWidget {
+  const DashboardAnniversaryCard({super.key, required this.menu});
+
+  final Map<String, dynamic> menu;
+
+  @override
+  Widget build(BuildContext context) {
+    final meals = anniversaryMenuMealNames(menu);
+    final title =
+        textOf(menu['title']).isEmpty ? '最近纪念日菜单' : textOf(menu['title']);
+    return SoftCard(
+      gradient: const LinearGradient(
+        colors: [Color(0xFFFFF7E8), Color(0xFFFFD8D0)],
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const SectionTitle(
+            icon: Icons.celebration_outlined,
+            title: '最近纪念日',
+          ),
+          const SizedBox(height: 10),
+          Text(
+            title,
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w900,
+                  color: kCoffee,
+                ),
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              InfoChip(
+                anniversaryCountdownLabel(menu),
+                icon: Icons.event_available_outlined,
+              ),
+              if (textOf(menu['date']).isNotEmpty)
+                InfoChip(
+                  textOf(menu['date']).split('T').first,
+                  icon: Icons.calendar_today_outlined,
+                ),
+              if (textOf(menu['theme']).isNotEmpty)
+                InfoChip(
+                  textOf(menu['theme']),
+                  icon: Icons.local_florist_outlined,
+                ),
+            ],
+          ),
+          if (meals.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: meals
+                  .take(5)
+                  .map((item) => InfoChip(item, icon: Icons.restaurant_menu))
+                  .toList(),
+            ),
+          ],
+          const SizedBox(height: 12),
+          OutlinedButton.icon(
+            onPressed: () => pushPage(context, const AnniversaryPage()),
+            icon: const Icon(Icons.arrow_forward),
+            label: const Text('准备这顿饭'),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 String wishlistDashboardNote(Map<String, dynamic> item) {
