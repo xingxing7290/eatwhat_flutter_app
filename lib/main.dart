@@ -5315,6 +5315,25 @@ class _WeeklyPlanPageState extends State<WeeklyPlanPage> {
     });
   }
 
+  Future<void> addDraftMeal(String date, String type) async {
+    final current = draft;
+    if (current == null) {
+      return;
+    }
+    final meal = await pickMealForWeeklyDraft(context);
+    if (meal == null) {
+      return;
+    }
+    setState(() {
+      draft = addMealToWeeklyDraft(
+        current,
+        date: date,
+        type: type,
+        meal: meal,
+      );
+    });
+  }
+
   Future<void> generate() async {
     setState(() => busy = true);
     try {
@@ -5422,6 +5441,7 @@ class _WeeklyPlanPageState extends State<WeeklyPlanPage> {
                     data: {'days': draft!['preview'] ?? draft!['days'] ?? []},
                     editable: true,
                     onRemoveMeal: removeDraftMeal,
+                    onAddMeal: addDraftMeal,
                   ),
                 ],
               ],
@@ -5440,12 +5460,14 @@ class PlanBlock extends StatelessWidget {
     required this.data,
     this.editable = false,
     this.onRemoveMeal,
+    this.onAddMeal,
   });
 
   final String title;
   final Map<String, dynamic> data;
   final bool editable;
   final void Function(String date, String type, String mealId)? onRemoveMeal;
+  final void Function(String date, String type)? onAddMeal;
 
   @override
   Widget build(BuildContext context) {
@@ -5476,6 +5498,7 @@ class PlanBlock extends StatelessWidget {
                         date: textOf(day['date']),
                         value: planMealValue(day, 'breakfast'),
                         onRemoveMeal: onRemoveMeal,
+                        onAddMeal: onAddMeal,
                       ),
                       PlanMealEditorRow(
                         title: '午',
@@ -5483,6 +5506,7 @@ class PlanBlock extends StatelessWidget {
                         date: textOf(day['date']),
                         value: planMealValue(day, 'lunch'),
                         onRemoveMeal: onRemoveMeal,
+                        onAddMeal: onAddMeal,
                       ),
                       PlanMealEditorRow(
                         title: '晚',
@@ -5490,6 +5514,7 @@ class PlanBlock extends StatelessWidget {
                         date: textOf(day['date']),
                         value: planMealValue(day, 'dinner'),
                         onRemoveMeal: onRemoveMeal,
+                        onAddMeal: onAddMeal,
                       ),
                     ] else ...[
                       MealBadges(
@@ -5522,6 +5547,7 @@ class PlanMealEditorRow extends StatelessWidget {
     required this.date,
     required this.value,
     this.onRemoveMeal,
+    this.onAddMeal,
   });
 
   final String title;
@@ -5529,6 +5555,7 @@ class PlanMealEditorRow extends StatelessWidget {
   final String date;
   final dynamic value;
   final void Function(String date, String type, String mealId)? onRemoveMeal;
+  final void Function(String date, String type)? onAddMeal;
 
   @override
   Widget build(BuildContext context) {
@@ -5581,9 +5608,152 @@ class PlanMealEditorRow extends StatelessWidget {
                     }).toList(),
                   ),
           ),
+          IconButton.filledTonal(
+            tooltip: '添加菜品',
+            onPressed: onAddMeal == null ? null : () => onAddMeal!(date, type),
+            icon: const Icon(Icons.add),
+          ),
         ],
       ),
     );
+  }
+}
+
+Future<Map<String, dynamic>?> pickMealForWeeklyDraft(
+  BuildContext context,
+) async {
+  final app = context.appRead;
+  final searchController = TextEditingController();
+  Future<dynamic> loadMeals() {
+    final search = searchController.text.trim();
+    return app.get('/meals', query: {
+      'limit': '200',
+      if (search.isNotEmpty) 'search': search,
+    });
+  }
+
+  try {
+    return await showModalBottomSheet<Map<String, dynamic>>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) {
+        var future = loadMeals();
+        return StatefulBuilder(
+          builder: (context, setState) => SafeArea(
+            child: Padding(
+              padding: EdgeInsets.only(
+                left: 16,
+                right: 16,
+                top: 12,
+                bottom: MediaQuery.of(context).viewInsets.bottom + 16,
+              ),
+              child: SoftCard(
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(
+                    maxHeight: MediaQuery.of(context).size.height * 0.78,
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      const SectionTitle(
+                        icon: Icons.restaurant_menu,
+                        title: '选择一道加入草稿',
+                      ),
+                      const SizedBox(height: 12),
+                      TextField(
+                        controller: searchController,
+                        textInputAction: TextInputAction.search,
+                        decoration: InputDecoration(
+                          hintText: '搜索菜名、食材或做法',
+                          prefixIcon: const Icon(Icons.search),
+                          suffixIcon: IconButton(
+                            tooltip: '搜索',
+                            icon: const Icon(Icons.arrow_forward),
+                            onPressed: () => setState(() {
+                              future = loadMeals();
+                            }),
+                          ),
+                        ),
+                        onSubmitted: (_) => setState(() {
+                          future = loadMeals();
+                        }),
+                      ),
+                      const SizedBox(height: 12),
+                      Flexible(
+                        child: FutureBuilder<dynamic>(
+                          future: future,
+                          builder: (context, snapshot) {
+                            if (snapshot.connectionState ==
+                                ConnectionState.waiting) {
+                              return const LoadingList();
+                            }
+                            if (snapshot.hasError) {
+                              return ErrorState(
+                                message: errorText(snapshot.error!),
+                                onRetry: () => setState(() {
+                                  future = loadMeals();
+                                }),
+                              );
+                            }
+                            final meals = mealListFrom(snapshot.data)
+                                .map(asMap)
+                                .where((meal) => idOf(meal).isNotEmpty)
+                                .toList();
+                            if (meals.isEmpty) {
+                              return const EmptyState(title: '没有找到菜品');
+                            }
+                            return ListView.separated(
+                              shrinkWrap: true,
+                              itemCount: meals.length,
+                              separatorBuilder: (_, __) =>
+                                  const Divider(height: 1),
+                              itemBuilder: (context, index) {
+                                final meal = meals[index];
+                                final cookTime =
+                                    textOf(meal['cookTime']).isEmpty
+                                        ? '30'
+                                        : textOf(meal['cookTime']);
+                                return ListTile(
+                                  contentPadding: EdgeInsets.zero,
+                                  title: Text(
+                                    textOf(meal['name']),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w900,
+                                    ),
+                                  ),
+                                  subtitle: Text(
+                                    [
+                                      textOf(meal['category']),
+                                      '$cookTime 分钟',
+                                    ]
+                                        .where((item) => item.isNotEmpty)
+                                        .join(' · '),
+                                  ),
+                                  trailing:
+                                      const Icon(Icons.add_circle_outline),
+                                  onTap: () =>
+                                      Navigator.pop(sheetContext, meal),
+                                );
+                              },
+                            );
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  } finally {
+    searchController.dispose();
   }
 }
 
@@ -5633,6 +5803,44 @@ String planItemMealName(dynamic item) {
       nestedMeal['name'] ??
       nestedMeal['title'] ??
       item);
+}
+
+Map<String, dynamic> addMealToWeeklyDraft(
+  Map<String, dynamic> draft, {
+  required String date,
+  required String type,
+  required Map<String, dynamic> meal,
+}) {
+  final mealId = idOf(meal);
+  if (mealId.isEmpty) {
+    return draft;
+  }
+  final result = Map<String, dynamic>.from(draft);
+  for (final key in ['days', 'preview', 'plan']) {
+    if (!result.containsKey(key)) {
+      continue;
+    }
+    result[key] = asList(result[key]).map((rawDay) {
+      final day = Map<String, dynamic>.from(asMap(rawDay));
+      if (textOf(day['date']).split('T').first != date) {
+        return day;
+      }
+      final meals = Map<String, dynamic>.from(asMap(day['meals']));
+      final current = asList(day[type] ?? meals[type]).toList();
+      if (current.any((item) => planItemMealId(item) == mealId)) {
+        return day;
+      }
+      final value = key == 'preview' ? Map<String, dynamic>.from(meal) : mealId;
+      final updated = [...current, value];
+      if (day.containsKey(type)) {
+        day[type] = updated;
+      }
+      meals[type] = updated;
+      day['meals'] = meals;
+      return day;
+    }).toList();
+  }
+  return result;
 }
 
 Map<String, dynamic> removeMealFromWeeklyDraft(

@@ -273,6 +273,49 @@ void main() {
     );
   });
 
+  test('weekly draft helpers add meal to ids and preview without duplicates',
+      () {
+    final draft = {
+      'days': [
+        {
+          'date': '2026-07-06',
+          'meals': {'breakfast': [], 'lunch': [], 'dinner': []}
+        }
+      ],
+      'preview': [
+        {
+          'date': '2026-07-06',
+          'meals': {'breakfast': [], 'lunch': [], 'dinner': []}
+        }
+      ],
+    };
+    final meal = {'_id': 'meal-x', 'name': '牛肉面'};
+
+    final updated = addMealToWeeklyDraft(
+      draft,
+      date: '2026-07-06',
+      type: 'dinner',
+      meal: meal,
+    );
+    final duplicated = addMealToWeeklyDraft(
+      updated,
+      date: '2026-07-06',
+      type: 'dinner',
+      meal: meal,
+    );
+    final updatedDays = asList(duplicated['days']).map(asMap).toList();
+    final updatedPreview = asList(duplicated['preview']).map(asMap).toList();
+
+    expect(
+      mealIdsFromPlanValue(asMap(updatedDays.first['meals'])['dinner']),
+      ['meal-x'],
+    );
+    final previewEntry =
+        planMealEntries(asMap(updatedPreview.first['meals'])['dinner']).first;
+    expect(previewEntry['id'], 'meal-x');
+    expect(previewEntry['name'], '牛肉面');
+  });
+
   test('week helpers format ranges and relative labels', () {
     final sample = DateTime(2026, 7, 9);
     final currentWeek = mondayOf(DateTime.now());
