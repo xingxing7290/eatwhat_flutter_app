@@ -168,6 +168,42 @@ void main() {
     expect(requestedUris.last, startsWith(kFallbackApiBase));
   });
 
+  test('api health helpers build readable diagnostics', () {
+    expect(
+      healthUriForApiBase(kPrimaryApiBase).toString(),
+      'http://113.44.50.108:8088/health',
+    );
+    expect(apiBaseLabel(kPrimaryApiBase), '113.44.50.108:8088');
+    expect(apiBaseLabel('http://example.com/nested/api'), 'example.com/nested');
+  });
+
+  test('api endpoint checker reports both healthy and failed ports', () async {
+    final requestedUris = <String>[];
+    final appState = _FakeAppState((method, uri, headers, body) async {
+      requestedUris.add(uri.toString());
+      if (uri.toString() == healthUriForApiBase(kPrimaryApiBase).toString()) {
+        return http.Response.bytes(utf8.encode('healthy\n'), 200);
+      }
+      throw const io.SocketException('fallback port offline');
+    });
+    addTearDown(appState.dispose);
+
+    final statuses = await appState.checkApiEndpoints();
+
+    expect(statuses, hasLength(2));
+    expect(statuses.first.apiBase, kPrimaryApiBase);
+    expect(statuses.first.ok, isTrue);
+    expect(statuses.first.statusCode, 200);
+    expect(statuses.first.message, 'healthy');
+    expect(statuses.last.apiBase, kFallbackApiBase);
+    expect(statuses.last.ok, isFalse);
+    expect(statuses.last.message, contains('fallback port offline'));
+    expect(requestedUris, [
+      healthUriForApiBase(kPrimaryApiBase).toString(),
+      healthUriForApiBase(kFallbackApiBase).toString(),
+    ]);
+  });
+
   test('saveLogin always keeps username and only stores remembered password',
       () async {
     SharedPreferences.setMockInitialValues({});

@@ -630,6 +630,45 @@ class AppState extends ChangeNotifier {
     await clearSession();
   }
 
+  Future<List<ApiEndpointStatus>> checkApiEndpoints() async {
+    final statuses = <ApiEndpointStatus>[];
+    for (final apiBase in kApiBases) {
+      final healthUri = healthUriForApiBase(apiBase);
+      final startedAt = DateTime.now();
+      try {
+        final response = await rawHttpRequest(
+          'GET',
+          healthUri,
+          const {
+            'Accept': 'text/plain, application/json',
+            'Accept-Encoding': 'identity',
+            'X-Mobile-Client': 'eatwhat-flutter',
+          },
+          null,
+        );
+        final elapsed = DateTime.now().difference(startedAt);
+        final message = utf8.decode(response.bodyBytes).trim();
+        statuses.add(ApiEndpointStatus(
+          apiBase: apiBase,
+          healthUri: healthUri,
+          ok: response.statusCode >= 200 && response.statusCode < 300,
+          statusCode: response.statusCode,
+          message: message.isEmpty ? response.reasonPhrase ?? '' : message,
+          elapsed: elapsed,
+        ));
+      } catch (error) {
+        statuses.add(ApiEndpointStatus(
+          apiBase: apiBase,
+          healthUri: healthUri,
+          ok: false,
+          message: errorText(error),
+          elapsed: DateTime.now().difference(startedAt),
+        ));
+      }
+    }
+    return statuses;
+  }
+
   Future<void> clearSession({String? notice, bool notify = true}) async {
     token = null;
     user = null;
@@ -914,6 +953,50 @@ class ApiException implements Exception {
 
   @override
   String toString() => message;
+}
+
+class ApiEndpointStatus {
+  const ApiEndpointStatus({
+    required this.apiBase,
+    required this.healthUri,
+    required this.ok,
+    required this.message,
+    required this.elapsed,
+    this.statusCode,
+  });
+
+  final String apiBase;
+  final Uri healthUri;
+  final bool ok;
+  final String message;
+  final Duration elapsed;
+  final int? statusCode;
+}
+
+Uri healthUriForApiBase(String apiBase) {
+  final uri = Uri.parse(apiBase);
+  final segments = uri.pathSegments.toList();
+  if (segments.isNotEmpty && segments.last == 'api') {
+    segments.removeLast();
+  }
+  return Uri(
+    scheme: uri.scheme,
+    userInfo: uri.userInfo,
+    host: uri.host,
+    port: uri.hasPort ? uri.port : 0,
+    pathSegments: [...segments, 'health'],
+  );
+}
+
+String apiBaseLabel(String apiBase) {
+  final uri = Uri.parse(apiBase);
+  final port = uri.hasPort ? ':${uri.port}' : '';
+  final segments = uri.pathSegments.toList();
+  if (segments.isNotEmpty && segments.last == 'api') {
+    segments.removeLast();
+  }
+  final path = segments.isEmpty ? '' : '/${segments.join('/')}';
+  return '${uri.host}$port$path';
 }
 
 bool isRetriableNetworkError(Object error) {
@@ -8687,6 +8770,7 @@ class SettingsPage extends StatefulWidget {
 class _SettingsPageState extends State<SettingsPage> {
   late Future<dynamic> defaultStatusFuture;
   late Future<dynamic> issuesFuture;
+  late Future<List<ApiEndpointStatus>> apiStatusFuture;
 
   @override
   void initState() {
@@ -8694,6 +8778,7 @@ class _SettingsPageState extends State<SettingsPage> {
     defaultStatusFuture = context.appRead.get('/default-meals/status');
     issuesFuture =
         context.appRead.get('/meal-image-issues', query: {'status': 'open'});
+    apiStatusFuture = context.appRead.checkApiEndpoints();
   }
 
   void reload() {
@@ -8701,6 +8786,12 @@ class _SettingsPageState extends State<SettingsPage> {
       defaultStatusFuture = context.appRead.get('/default-meals/status');
       issuesFuture =
           context.appRead.get('/meal-image-issues', query: {'status': 'open'});
+    });
+  }
+
+  void reloadApiStatus() {
+    setState(() {
+      apiStatusFuture = context.appRead.checkApiEndpoints();
     });
   }
 
@@ -8957,6 +9048,61 @@ class _SettingsPageState extends State<SettingsPage> {
           ),
         ),
         const SizedBox(height: 12),
+        FutureBuilder<List<ApiEndpointStatus>>(
+          future: apiStatusFuture,
+          builder: (context, snapshot) {
+            final statuses = snapshot.data ?? const <ApiEndpointStatus>[];
+            final checking =
+                snapshot.connectionState == ConnectionState.waiting;
+            final allOk =
+                statuses.isNotEmpty && statuses.every((item) => item.ok);
+            return SoftCard(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  SectionTitle(
+                    icon: allOk
+                        ? Icons.cloud_done_outlined
+                        : Icons.cloud_sync_outlined,
+                    title: '服务器连接检测',
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    checking
+                        ? '正在检测主入口和备用入口...'
+                        : allOk
+                            ? '主入口和备用入口都可用，APP 会在网络异常时自动兜底。'
+                            : '如果主入口不可用，APP 会优先尝试备用入口；失败信息如下。',
+                    style: const TextStyle(
+                      color: kCocoa,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  if (checking && statuses.isEmpty)
+                    const LinearProgressIndicator(minHeight: 4)
+                  else
+                    ...statuses.map((status) => ApiEndpointStatusTile(
+                          status: status,
+                        )),
+                  const SizedBox(height: 10),
+                  OutlinedButton.icon(
+                    onPressed: checking ? null : reloadApiStatus,
+                    icon: checking
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.refresh),
+                    label: const Text('重新检测'),
+                  ),
+                ],
+              ),
+            );
+          },
+        ),
+        const SizedBox(height: 12),
         SoftCard(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -9177,6 +9323,87 @@ class HouseholdMemberChip extends StatelessWidget {
                 ),
             ],
           ),
+        ],
+      ),
+    );
+  }
+}
+
+class ApiEndpointStatusTile extends StatelessWidget {
+  const ApiEndpointStatusTile({super.key, required this.status});
+
+  final ApiEndpointStatus status;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.app.themePalette;
+    final color = status.ok ? palette.success : palette.accent;
+    final statusText = status.ok ? '可用' : '不可用';
+    final httpCode = status.statusCode == null ? '' : ' ${status.statusCode}';
+    final elapsed = '${status.elapsed.inMilliseconds}ms';
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.68),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: palette.line),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 34,
+            height: 34,
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.16),
+              borderRadius: BorderRadius.circular(13),
+            ),
+            child: Icon(
+              status.ok ? Icons.check_circle_outline : Icons.error_outline,
+              color: color,
+              size: 20,
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  apiBaseLabel(status.apiBase),
+                  style: TextStyle(
+                    color: palette.text,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  '${status.healthUri}  $elapsed',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: palette.muted,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                if (status.message.trim().isNotEmpty) ...[
+                  const SizedBox(height: 3),
+                  Text(
+                    status.message,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: palette.muted,
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          InfoChip('$statusText$httpCode', icon: Icons.lan_outlined),
         ],
       ),
     );
