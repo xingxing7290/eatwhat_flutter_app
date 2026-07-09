@@ -307,6 +307,11 @@ void main() {
     expect(scheduleMealIdsFor(schedule, 'lunch'), ['meal-b']);
     expect(scheduleMealIdsFor(schedule, 'dinner'), ['meal-c']);
     expect(scheduleMealIdsFor(schedule, 'snack'), isEmpty);
+    expect(scheduleMealIds(schedule), ['meal-a', 'meal-b', 'meal-c']);
+    expect(
+      scheduleMealObjects(schedule).map((meal) => meal['_id']).toList(),
+      ['meal-a', 'meal-b', 'meal-c'],
+    );
     expect(
       scheduleMealTypesWithMeals(schedule),
       ['breakfast', 'lunch', 'dinner'],

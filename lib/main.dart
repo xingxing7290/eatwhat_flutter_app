@@ -2792,6 +2792,16 @@ class TodayScheduleCard extends StatelessWidget {
     }
   }
 
+  Future<void> addToShoppingList(BuildContext context) async {
+    try {
+      await addScheduleIngredientsToShoppingList(context, schedule);
+    } catch (error) {
+      if (context.mounted) {
+        showMessage(context, errorText(error));
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final recordTypes = recordableMealTypes;
@@ -2871,15 +2881,20 @@ class TodayScheduleCard extends StatelessWidget {
             Wrap(
               spacing: 8,
               runSpacing: 8,
-              children: recordTypes
-                  .map(
-                    (type) => OutlinedButton.icon(
-                      onPressed: () => recordMemory(context, type),
-                      icon: const Icon(Icons.auto_stories_outlined),
-                      label: Text('记录${mealTypeLabel(type)}'),
-                    ),
-                  )
-                  .toList(),
+              children: [
+                OutlinedButton.icon(
+                  onPressed: () => addToShoppingList(context),
+                  icon: const Icon(Icons.shopping_bag_outlined),
+                  label: const Text('加入购物清单'),
+                ),
+                ...recordTypes.map(
+                  (type) => OutlinedButton.icon(
+                    onPressed: () => recordMemory(context, type),
+                    icon: const Icon(Icons.auto_stories_outlined),
+                    label: Text('记录${mealTypeLabel(type)}'),
+                  ),
+                ),
+              ],
             ),
           ],
         ],
@@ -3577,6 +3592,110 @@ Future<void> addMealIngredientsToShoppingList(
       added == 0 ? '这些食材已经在本周购物清单里' : '已加入本周购物清单（$added 项）',
     );
   }
+}
+
+List<Map<String, dynamic>> scheduleMealObjects(Map<String, dynamic> schedule) {
+  final mealsById = <String, Map<String, dynamic>>{};
+  for (final type in mealTypes) {
+    final items = planMealValue(schedule, type);
+    final list = items is Map
+        ? asList(items['meals'] ?? items['mealIds'] ?? items['items'])
+        : asList(items);
+    for (final item in list) {
+      final map = asMap(item);
+      final nestedMeal = asMap(map['meal']);
+      final meal = nestedMeal.isNotEmpty ? nestedMeal : map;
+      final id = planItemMealId(item);
+      if (id.isEmpty) {
+        continue;
+      }
+      mealsById[id] = {
+        ...meal,
+        if (idOf(meal).isEmpty) '_id': id,
+      };
+    }
+  }
+  return mealsById.values.toList();
+}
+
+Future<void> addScheduleIngredientsToShoppingList(
+  BuildContext context,
+  Map<String, dynamic> schedule,
+) async {
+  final scheduledMeals = scheduleMealObjects(schedule);
+  final mealIds = scheduleMealIds(schedule);
+  if (mealIds.isEmpty) {
+    showMessage(context, '今天还没有安排菜品，先安排一餐再生成采购项。');
+    return;
+  }
+
+  final app = context.appRead;
+  final weekStart = dateString(mondayOf(DateTime.now()));
+  final existingResponse =
+      await app.get('/shopping-list', query: {'weekStart': weekStart});
+  final existingKeys = shoppingItems(existingResponse)
+      .map((item) =>
+          _shoppingItemKey(textOf(item['name']), textOf(item['category'])))
+      .toSet();
+  final mealsById = {
+    for (final meal in scheduledMeals)
+      if (idOf(meal).isNotEmpty) idOf(meal): meal,
+  };
+
+  var added = 0;
+  var mealsWithIngredients = 0;
+  for (final mealId in mealIds) {
+    var meal = mealsById[mealId] ?? <String, dynamic>{};
+    var items = shoppingItemsFromIngredients(meal['ingredients']);
+    if (items.isEmpty) {
+      final response = await app.get('/meals/$mealId');
+      meal = asMap(payload(response));
+      items = shoppingItemsFromIngredients(meal['ingredients']);
+    }
+    if (items.isEmpty) {
+      continue;
+    }
+    mealsWithIngredients += 1;
+    for (final item in items) {
+      final name = item['name'] ?? '';
+      final category = item['category'] ?? 'other';
+      final key = _shoppingItemKey(name, category);
+      if (existingKeys.contains(key)) {
+        continue;
+      }
+      await app.post('/shopping-list/items', body: {
+        'weekStart': weekStart,
+        'name': name,
+        'amount': item['amount'] ?? '',
+        'category': category,
+      });
+      existingKeys.add(key);
+      added += 1;
+    }
+  }
+
+  if (context.mounted) {
+    if (mealsWithIngredients == 0) {
+      showMessage(context, '今日菜品还没有食材，先在菜谱里补充食材。');
+    } else {
+      showMessage(
+        context,
+        added == 0 ? '今日食材已经在本周购物清单里' : '已加入本周购物清单（$added 项）',
+      );
+    }
+  }
+}
+
+List<String> scheduleMealIds(Map<String, dynamic> schedule) {
+  final ids = <String>[];
+  for (final type in mealTypes) {
+    for (final id in scheduleMealIdsFor(schedule, type)) {
+      if (!ids.contains(id)) {
+        ids.add(id);
+      }
+    }
+  }
+  return ids;
 }
 
 String _shoppingItemKey(String name, String category) =>
