@@ -1208,6 +1208,31 @@ DateTime mondayOf(DateTime value) {
       .subtract(Duration(days: value.weekday - 1));
 }
 
+DateTime addWeeks(DateTime value, int weeks) =>
+    mondayOf(value).add(Duration(days: weeks * 7));
+
+String weekRangeLabel(DateTime value) {
+  final start = mondayOf(value);
+  final end = start.add(const Duration(days: 6));
+  return '${dateString(start)} - ${dateString(end)}';
+}
+
+String weekRelativeLabel(DateTime value) {
+  final current = mondayOf(DateTime.now());
+  final target = mondayOf(value);
+  final diff = target.difference(current).inDays ~/ 7;
+  if (diff == 0) {
+    return '本周';
+  }
+  if (diff == -1) {
+    return '上周';
+  }
+  if (diff == 1) {
+    return '下周';
+  }
+  return diff > 0 ? '$diff 周后' : '${diff.abs()} 周前';
+}
+
 String errorText(Object error) {
   if (error is ApiException) {
     return error.message;
@@ -5041,6 +5066,75 @@ class _MemoryEditPageState extends State<MemoryEditPage> {
   }
 }
 
+class WeekSwitcher extends StatelessWidget {
+  const WeekSwitcher({
+    super.key,
+    required this.weekStart,
+    required this.onChanged,
+  });
+
+  final DateTime weekStart;
+  final ValueChanged<DateTime> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final isCurrentWeek =
+        dateString(mondayOf(weekStart)) == dateString(mondayOf(DateTime.now()));
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: kOat.withValues(alpha: 0.44),
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: kLine),
+      ),
+      child: Row(
+        children: [
+          IconButton.filledTonal(
+            tooltip: '上一周',
+            onPressed: () => onChanged(addWeeks(weekStart, -1)),
+            icon: const Icon(Icons.chevron_left),
+          ),
+          Expanded(
+            child: Column(
+              children: [
+                Text(
+                  weekRangeLabel(weekStart),
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w900,
+                    color: kCoffee,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  weekRelativeLabel(weekStart),
+                  style: const TextStyle(
+                    color: kCocoa,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          IconButton.filledTonal(
+            tooltip: '下一周',
+            onPressed: () => onChanged(addWeeks(weekStart, 1)),
+            icon: const Icon(Icons.chevron_right),
+          ),
+          if (!isCurrentWeek) ...[
+            const SizedBox(width: 6),
+            TextButton(
+              onPressed: () => onChanged(mondayOf(DateTime.now())),
+              child: const Text('本周'),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
 class WeeklyPlanPage extends StatefulWidget {
   const WeeklyPlanPage({super.key});
 
@@ -5063,6 +5157,12 @@ class _WeeklyPlanPageState extends State<WeeklyPlanPage> {
   Future<dynamic> load() => context.appRead
       .get('/weekly-plans', query: {'weekStart': dateString(weekStart)});
   void reload() => setState(() {
+        future = load();
+      });
+
+  void setWeekStart(DateTime value) => setState(() {
+        weekStart = mondayOf(value);
+        draft = null;
         future = load();
       });
 
@@ -5133,11 +5233,16 @@ class _WeeklyPlanPageState extends State<WeeklyPlanPage> {
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       Text(
-                        '${dateString(weekStart)} 这一周',
+                        '${weekRelativeLabel(weekStart)}饭桌计划',
                         style: Theme.of(context)
                             .textTheme
                             .titleLarge
                             ?.copyWith(fontWeight: FontWeight.w900),
+                      ),
+                      const SizedBox(height: 10),
+                      WeekSwitcher(
+                        weekStart: weekStart,
+                        onChanged: setWeekStart,
                       ),
                       const SizedBox(height: 12),
                       Wrap(
@@ -5246,6 +5351,11 @@ class _ShoppingListPageState extends State<ShoppingListPage> {
         future = load();
       });
 
+  void setWeekStart(DateTime value) => setState(() {
+        weekStart = mondayOf(value);
+        future = load();
+      });
+
   Future<void> generate() async {
     try {
       await context.appRead.post('/shopping-list/generate',
@@ -5319,24 +5429,42 @@ class _ShoppingListPageState extends State<ShoppingListPage> {
               padding: const EdgeInsets.all(16),
               children: [
                 SoftCard(
-                  child: Wrap(
-                    spacing: 10,
-                    runSpacing: 10,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      FilledButton.icon(
-                        onPressed: generate,
-                        icon: const Icon(Icons.playlist_add_check),
-                        label: const Text('从周计划生成'),
+                      Text(
+                        '${weekRelativeLabel(weekStart)}购物清单',
+                        style: Theme.of(context)
+                            .textTheme
+                            .titleLarge
+                            ?.copyWith(fontWeight: FontWeight.w900),
                       ),
-                      OutlinedButton.icon(
-                        onPressed: addItem,
-                        icon: const Icon(Icons.add),
-                        label: const Text('手动补充'),
+                      const SizedBox(height: 10),
+                      WeekSwitcher(
+                        weekStart: weekStart,
+                        onChanged: setWeekStart,
                       ),
-                      OutlinedButton.icon(
-                        onPressed: clearPurchased,
-                        icon: const Icon(Icons.cleaning_services_outlined),
-                        label: const Text('清空已购'),
+                      const SizedBox(height: 12),
+                      Wrap(
+                        spacing: 10,
+                        runSpacing: 10,
+                        children: [
+                          FilledButton.icon(
+                            onPressed: generate,
+                            icon: const Icon(Icons.playlist_add_check),
+                            label: const Text('从周计划生成'),
+                          ),
+                          OutlinedButton.icon(
+                            onPressed: addItem,
+                            icon: const Icon(Icons.add),
+                            label: const Text('手动补充'),
+                          ),
+                          OutlinedButton.icon(
+                            onPressed: clearPurchased,
+                            icon: const Icon(Icons.cleaning_services_outlined),
+                            label: const Text('清空已购'),
+                          ),
+                        ],
                       ),
                     ],
                   ),
@@ -5346,7 +5474,11 @@ class _ShoppingListPageState extends State<ShoppingListPage> {
                   const EmptyState(title: '暂无采购项')
                 else
                   ...grouped.entries.map((entry) => ShoppingGroup(
-                      title: entry.key, items: entry.value, onChanged: reload)),
+                        title: entry.key,
+                        items: entry.value,
+                        weekStart: weekStart,
+                        onChanged: reload,
+                      )),
               ],
             );
           },
@@ -5387,11 +5519,13 @@ class ShoppingGroup extends StatelessWidget {
     super.key,
     required this.title,
     required this.items,
+    required this.weekStart,
     required this.onChanged,
   });
 
   final String title;
   final List<Map<String, dynamic>> items;
+  final DateTime weekStart;
   final VoidCallback onChanged;
 
   @override
@@ -5417,7 +5551,7 @@ class ShoppingGroup extends StatelessWidget {
                     try {
                       await context.appRead
                           .delete('/shopping-list/items/$id', query: {
-                        'weekStart': dateString(mondayOf(DateTime.now())),
+                        'weekStart': dateString(weekStart),
                       });
                       onChanged();
                     } catch (error) {
@@ -5431,7 +5565,7 @@ class ShoppingGroup extends StatelessWidget {
                   try {
                     await context.appRead
                         .patch('/shopping-list/items/$id', body: {
-                      'weekStart': dateString(mondayOf(DateTime.now())),
+                      'weekStart': dateString(weekStart),
                       'checked': value ?? false,
                     });
                     onChanged();

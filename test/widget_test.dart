@@ -149,6 +149,18 @@ void main() {
     expect(ids, ['meal-a', 'meal-b', 'meal-c', 'meal-d']);
   });
 
+  test('week helpers format ranges and relative labels', () {
+    final sample = DateTime(2026, 7, 9);
+    final currentWeek = mondayOf(DateTime.now());
+
+    expect(dateString(mondayOf(sample)), '2026-07-06');
+    expect(weekRangeLabel(sample), '2026-07-06 - 2026-07-12');
+    expect(dateString(addWeeks(sample, 1)), '2026-07-13');
+    expect(weekRelativeLabel(currentWeek), '本周');
+    expect(weekRelativeLabel(addWeeks(currentWeek, -1)), '上周');
+    expect(weekRelativeLabel(addWeeks(currentWeek, 1)), '下周');
+  });
+
   test('wishlist meal helpers accept populated object and string id', () {
     expect(
       wishlistMealId({
