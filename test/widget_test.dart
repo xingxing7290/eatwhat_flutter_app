@@ -135,6 +135,39 @@ void main() {
     expect(prefs.getString('eatwhat.accessToken'), isNull);
   });
 
+  test('write requests fall back to secondary API base on network failure',
+      () async {
+    final requestedUris = <String>[];
+    final appState = _FakeAppState((method, uri, headers, body) async {
+      requestedUris.add(uri.toString());
+      if (uri.toString().startsWith(kPrimaryApiBase)) {
+        throw const io.SocketException('primary port is offline');
+      }
+      return http.Response.bytes(
+        utf8.encode(jsonEncode({
+          'ok': true,
+          'method': method,
+          'body': jsonDecode(body ?? '{}'),
+        })),
+        200,
+      );
+    });
+    addTearDown(appState.dispose);
+
+    final response = asMap(await appState.post(
+      '/auth/login',
+      body: {'username': 'lsy', 'password': 'secret'},
+      auth: false,
+    ));
+
+    expect(response['ok'], isTrue);
+    expect(response['method'], 'POST');
+    expect(asMap(response['body'])['username'], 'lsy');
+    expect(requestedUris, hasLength(2));
+    expect(requestedUris.first, startsWith(kPrimaryApiBase));
+    expect(requestedUris.last, startsWith(kFallbackApiBase));
+  });
+
   test('saveLogin always keeps username and only stores remembered password',
       () async {
     SharedPreferences.setMockInitialValues({});

@@ -16,8 +16,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 const String kPrimaryApiBase = 'http://113.44.50.108:8088/api';
 const String kFallbackApiBase = 'http://113.44.50.108:3002/api';
-const String kApiBase = kPrimaryApiBase;
-const List<String> kReadApiBases = [kPrimaryApiBase, kFallbackApiBase];
+const List<String> kApiBases = [kPrimaryApiBase, kFallbackApiBase];
 const String kAssetBase = 'http://113.44.50.108:8088';
 const Duration kRequestTimeout = Duration(seconds: 30);
 const Duration kUploadTimeout = Duration(seconds: 90);
@@ -721,7 +720,7 @@ class AppState extends ChangeNotifier {
     if (!['GET', 'POST', 'PUT', 'PATCH', 'DELETE'].contains(method)) {
       throw ApiException('Unsupported request method: $method');
     }
-    final bases = method == 'GET' ? kReadApiBases : const [kApiBase];
+    final bases = kApiBases;
     Object? lastError;
     for (var index = 0; index < bases.length; index += 1) {
       final uri = Uri.parse('${bases[index]}$path')
@@ -811,56 +810,63 @@ class AppState extends ChangeNotifier {
     Map<String, XFile>? files,
     Map<String, List<XFile>>? multiFiles,
   }) async {
-    final request = http.MultipartRequest(method, Uri.parse('$kApiBase$path'));
-    request.headers['Accept'] = 'application/json';
-    if (isAuthed) {
-      if (isJwtExpired(token)) {
-        await clearSession(notice: '登录已过期，请重新登录');
-        throw const ApiException('登录已过期，请重新登录', statusCode: 401);
+    Object? lastError;
+    for (var index = 0; index < kApiBases.length; index += 1) {
+      try {
+        final request = http.MultipartRequest(
+            method, Uri.parse('${kApiBases[index]}$path'));
+        request.headers['Accept'] = 'application/json';
+        request.headers['Accept-Encoding'] = 'identity';
+        if (isAuthed) {
+          if (isJwtExpired(token)) {
+            await clearSession(notice: '登录已过期，请重新登录');
+            throw const ApiException('登录已过期，请重新登录', statusCode: 401);
+          }
+          request.headers['Authorization'] = 'Bearer $token';
+        }
+        request.fields.addAll(fields ?? {});
+        for (final entry in (files ?? {}).entries) {
+          request.files.add(http.MultipartFile.fromBytes(
+            entry.key,
+            await entry.value.readAsBytes(),
+            filename: uploadFileName(entry.value),
+            contentType: uploadContentType(entry.value),
+          ));
+        }
+        for (final entry in (multiFiles ?? {}).entries) {
+          for (final file in entry.value) {
+            request.files.add(http.MultipartFile.fromBytes(
+              entry.key,
+              await file.readAsBytes(),
+              filename: uploadFileName(file),
+              contentType: uploadContentType(file),
+            ));
+          }
+        }
+        final streamed = await request.send().timeout(kUploadTimeout);
+        final response = await http.Response.fromStream(streamed)
+            .timeout(kUploadTimeout, onTimeout: () {
+          throw TimeoutException('upload response timeout');
+        });
+        return decodeResponse(response);
+      } on ApiException catch (error) {
+        if (error.isAuthExpired) {
+          await clearSession(notice: '登录已过期，请重新登录');
+        }
+        rethrow;
+      } catch (error) {
+        lastError = error;
+        if (index < kApiBases.length - 1 && isRetriableNetworkError(error)) {
+          await Future<void>.delayed(const Duration(milliseconds: 300));
+          continue;
+        }
+        break;
       }
-      request.headers['Authorization'] = 'Bearer $token';
     }
-    request.fields.addAll(fields ?? {});
-    for (final entry in (files ?? {}).entries) {
-      request.files.add(http.MultipartFile.fromBytes(
-        entry.key,
-        await entry.value.readAsBytes(),
-        filename: uploadFileName(entry.value),
-        contentType: uploadContentType(entry.value),
-      ));
-    }
-    for (final entry in (multiFiles ?? {}).entries) {
-      for (final file in entry.value) {
-        request.files.add(http.MultipartFile.fromBytes(
-          entry.key,
-          await file.readAsBytes(),
-          filename: uploadFileName(file),
-          contentType: uploadContentType(file),
-        ));
-      }
-    }
-    late final http.StreamedResponse streamed;
-    try {
-      request.headers['Accept-Encoding'] = 'identity';
-      streamed = await request.send().timeout(kUploadTimeout);
-    } catch (error) {
-      if (error is TimeoutException) {
-        throw const ApiException('服务器响应超时，请检查网络或稍后重试');
-      }
-      throw ApiException('上传请求失败：$error');
-    }
-    final response = await http.Response.fromStream(streamed)
-        .timeout(kUploadTimeout, onTimeout: () {
-      throw const ApiException('服务器响应超时，请检查网络或稍后重试');
-    });
-    try {
-      return decodeResponse(response);
-    } on ApiException catch (error) {
-      if (error.isAuthExpired) {
-        await clearSession(notice: '登录已过期，请重新登录');
-      }
-      rethrow;
-    }
+    throw networkApiException(
+      lastError,
+      prefix: '上传请求失败',
+    );
   }
 
   dynamic decodeResponse(http.Response response) {
