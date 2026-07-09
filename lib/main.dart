@@ -3899,12 +3899,16 @@ List<Map<String, dynamic>> scheduleMealObjects(Map<String, dynamic> schedule) {
 
 Future<void> addScheduleIngredientsToShoppingList(
   BuildContext context,
-  Map<String, dynamic> schedule,
-) async {
+  Map<String, dynamic> schedule, {
+  String emptyMessage = '今天还没有安排菜品，先安排一餐再生成采购项。',
+  String noIngredientsMessage = '今日菜品还没有食材，先在菜谱里补充食材。',
+  String allExistingMessage = '今日食材已经在本周购物清单里',
+  String Function(int count)? addedMessageBuilder,
+}) async {
   final scheduledMeals = scheduleMealObjects(schedule);
   final mealIds = scheduleMealIds(schedule);
   if (mealIds.isEmpty) {
-    showMessage(context, '今天还没有安排菜品，先安排一餐再生成采购项。');
+    showMessage(context, emptyMessage);
     return;
   }
 
@@ -3955,11 +3959,13 @@ Future<void> addScheduleIngredientsToShoppingList(
 
   if (context.mounted) {
     if (mealsWithIngredients == 0) {
-      showMessage(context, '今日菜品还没有食材，先在菜谱里补充食材。');
+      showMessage(context, noIngredientsMessage);
     } else {
       showMessage(
         context,
-        added == 0 ? '今日食材已经在本周购物清单里' : '已加入本周购物清单（$added 项）',
+        added == 0
+            ? allExistingMessage
+            : addedMessageBuilder?.call(added) ?? '已加入本周购物清单（$added 项）',
       );
     }
   }
@@ -9456,6 +9462,23 @@ class AnniversaryMenuCard extends StatelessWidget {
   final Map<String, dynamic> item;
   final VoidCallback onChanged;
 
+  Future<void> addToShoppingList(BuildContext context) async {
+    try {
+      await addScheduleIngredientsToShoppingList(
+        context,
+        item,
+        emptyMessage: '这个纪念日菜单还没有选择菜品，先编辑菜单再生成采购项。',
+        noIngredientsMessage: '纪念日菜单里的菜还没有食材，先在菜谱里补充食材。',
+        allExistingMessage: '纪念日菜单食材已经在本周购物清单里',
+        addedMessageBuilder: (count) => '已加入纪念日菜单食材（$count 项）',
+      );
+    } catch (error) {
+      if (context.mounted) {
+        showMessage(context, errorText(error));
+      }
+    }
+  }
+
   Future<void> remove(BuildContext context) async {
     final confirmed = await showDialog<bool>(
       context: context,
@@ -9558,6 +9581,11 @@ class AnniversaryMenuCard extends StatelessWidget {
                   },
                   icon: const Icon(Icons.edit_outlined),
                   label: const Text('编辑菜单'),
+                ),
+                OutlinedButton.icon(
+                  onPressed: () => addToShoppingList(context),
+                  icon: const Icon(Icons.shopping_bag_outlined),
+                  label: const Text('加入购物清单'),
                 ),
                 OutlinedButton.icon(
                   onPressed: () => remove(context),

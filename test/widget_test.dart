@@ -759,7 +759,7 @@ void main() {
   });
 
   test('anniversaryMenuMealIds extracts selected meal ids by meal type', () {
-    final ids = anniversaryMenuMealIds({
+    final menu = {
       'meals': {
         'breakfast': [
           {'_id': 'meal-a', 'name': '小米粥'}
@@ -774,11 +774,17 @@ void main() {
           },
         ],
       }
-    });
+    };
+    final ids = anniversaryMenuMealIds(menu);
 
     expect(ids['breakfast'], ['meal-a']);
     expect(ids['lunch'], ['meal-b']);
     expect(ids['dinner'], ['meal-c']);
+    expect(scheduleMealIds(menu), ['meal-a', 'meal-b', 'meal-c']);
+    expect(
+      scheduleMealObjects(menu).map((meal) => meal['_id']).toList(),
+      ['meal-a', 'meal-b', 'meal-c'],
+    );
   });
 
   test('wishlist meal helpers accept populated object and string id', () {
