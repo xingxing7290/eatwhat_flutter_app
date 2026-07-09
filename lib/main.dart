@@ -2758,6 +2758,8 @@ class TodayScheduleCard extends StatelessWidget {
       mealNames(planMealValue(schedule, 'lunch')).isNotEmpty ||
       mealNames(planMealValue(schedule, 'dinner')).isNotEmpty;
 
+  List<String> get recordableMealTypes => scheduleMealTypesWithMeals(schedule);
+
   Future<void> openSchedule(BuildContext context) async {
     final changed = await showModalBottomSheet<bool>(
       context: context,
@@ -2769,8 +2771,30 @@ class TodayScheduleCard extends StatelessWidget {
     }
   }
 
+  Future<void> recordMemory(BuildContext context, String type) async {
+    final mealIds = scheduleMealIdsFor(schedule, type);
+    if (mealIds.isEmpty) {
+      showMessage(context, '这餐还没有安排菜品');
+      return;
+    }
+    final changed = await pushPage(
+      context,
+      MemoryEditPage(
+        initialDate: dateString(date),
+        initialMealType: type,
+        initialMealIds: mealIds,
+        initialTitle: scheduleMemoryTitle(type),
+      ),
+    );
+    if (changed == true && context.mounted) {
+      showMessage(context, '已记录${mealTypeLabel(type)}回忆');
+      onChanged();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    final recordTypes = recordableMealTypes;
     return SoftCard(
       gradient: const LinearGradient(
         colors: [Color(0xFFFFFCF7), Color(0xFFFFEFE7)],
@@ -2829,6 +2853,21 @@ class TodayScheduleCard extends StatelessWidget {
             const Text(
               '今天还没有安排，先给两个人定一餐喜欢的。',
               style: TextStyle(color: kCocoa, fontWeight: FontWeight.w700),
+            ),
+          ] else ...[
+            const SizedBox(height: 6),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: recordTypes
+                  .map(
+                    (type) => OutlinedButton.icon(
+                      onPressed: () => recordMemory(context, type),
+                      icon: const Icon(Icons.auto_stories_outlined),
+                      label: Text('记录${mealTypeLabel(type)}'),
+                    ),
+                  )
+                  .toList(),
             ),
           ],
         ],
@@ -3255,6 +3294,12 @@ List<String> mealIdsFromPlanValue(dynamic value) {
 
 List<String> scheduleMealIdsFor(Map<String, dynamic> schedule, String type) {
   return mealIdsFromPlanValue(planMealValue(schedule, type));
+}
+
+List<String> scheduleMealTypesWithMeals(Map<String, dynamic> schedule) {
+  return mealTypes
+      .where((type) => scheduleMealIdsFor(schedule, type).isNotEmpty)
+      .toList();
 }
 
 Future<void> appendMealToTodayDinner(
@@ -5434,16 +5479,28 @@ String mealTypeLabel(String value) {
   }
 }
 
+String normalizedMealType(String value) {
+  return mealTypes.contains(value) ? value : 'dinner';
+}
+
+String scheduleMemoryTitle(String type) {
+  return '${mealTypeLabel(normalizedMealType(type))}饭后回忆';
+}
+
 class MemoryEditPage extends StatefulWidget {
   const MemoryEditPage({
     super.key,
     this.initialMealIds = const [],
     this.initialTitle = '',
+    this.initialDate = '',
+    this.initialMealType = 'dinner',
     this.memory,
   });
 
   final List<String> initialMealIds;
   final String initialTitle;
+  final String initialDate;
+  final String initialMealType;
   final Map<String, dynamic>? memory;
 
   @override
@@ -5471,14 +5528,18 @@ class _MemoryEditPageState extends State<MemoryEditPage> {
   void initState() {
     super.initState();
     final memory = widget.memory;
+    final defaultDate = widget.initialDate.trim().isEmpty
+        ? dateString(DateTime.now())
+        : widget.initialDate.trim().split('T').first;
     dateController = TextEditingController(
       text: textOf(memory?['date']).split('T').first.isEmpty
-          ? dateString(DateTime.now())
+          ? defaultDate
           : textOf(memory?['date']).split('T').first,
     );
     titleController = TextEditingController(
       text: memory == null ? widget.initialTitle : textOf(memory['title']),
     );
+    mealType = normalizedMealType(widget.initialMealType);
     if (memory != null) {
       moodController.text = textOf(memory['mood']);
       noteController.text = textOf(memory['note']);

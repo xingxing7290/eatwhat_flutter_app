@@ -307,6 +307,12 @@ void main() {
     expect(scheduleMealIdsFor(schedule, 'lunch'), ['meal-b']);
     expect(scheduleMealIdsFor(schedule, 'dinner'), ['meal-c']);
     expect(scheduleMealIdsFor(schedule, 'snack'), isEmpty);
+    expect(
+      scheduleMealTypesWithMeals(schedule),
+      ['breakfast', 'lunch', 'dinner'],
+    );
+    expect(normalizedMealType('snack'), 'dinner');
+    expect(scheduleMemoryTitle('lunch'), '午餐饭后回忆');
   });
 
   test('meal favorite helpers build safe lightweight update fields', () {
