@@ -2053,6 +2053,12 @@ class _DashboardPageState extends State<DashboardPage> {
                           icon: const Icon(Icons.celebration_outlined),
                           label: const Text('纪念日菜单'),
                         ),
+                        OutlinedButton.icon(
+                          onPressed: () =>
+                              pushPage(context, const TableReviewPage()),
+                          icon: const Icon(Icons.auto_graph_outlined),
+                          label: const Text('饭桌回顾'),
+                        ),
                       ],
                     ),
                   ],
@@ -5203,6 +5209,439 @@ List<Map<String, dynamic>> photoItems(dynamic response) {
   }).toList();
 }
 
+enum ReviewScope { month, year }
+
+class TableReviewPage extends StatefulWidget {
+  const TableReviewPage({super.key});
+
+  @override
+  State<TableReviewPage> createState() => _TableReviewPageState();
+}
+
+class _TableReviewPageState extends State<TableReviewPage> {
+  ReviewScope scope = ReviewScope.month;
+  DateTime anchor = DateTime(DateTime.now().year, DateTime.now().month);
+  late Future<dynamic> future;
+
+  @override
+  void initState() {
+    super.initState();
+    future = load();
+  }
+
+  Future<dynamic> load() {
+    if (scope == ReviewScope.year) {
+      return context.appRead
+          .get('/review/yearly', query: {'year': anchor.year.toString()});
+    }
+    return context.appRead
+        .get('/review/monthly', query: {'month': monthString(anchor)});
+  }
+
+  void reload() => setState(() {
+        future = load();
+      });
+
+  void changePeriod(int delta) {
+    setState(() {
+      anchor = scope == ReviewScope.year
+          ? DateTime(anchor.year + delta, 1)
+          : DateTime(anchor.year, anchor.month + delta);
+      future = load();
+    });
+  }
+
+  void changeScope(Set<ReviewScope> values) {
+    if (values.isEmpty) return;
+    setState(() {
+      scope = values.first;
+      anchor = DateTime(DateTime.now().year, DateTime.now().month);
+      future = load();
+    });
+  }
+
+  String get titleText => scope == ReviewScope.year
+      ? '${anchor.year} 年饭桌回顾'
+      : '${anchor.year} 年 ${anchor.month} 月饭桌回顾';
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('饭桌回顾')),
+      body: AppBackdrop(
+        alignment: Alignment.topCenter,
+        child: FutureBuilder<dynamic>(
+          future: future,
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const LoadingList();
+            }
+            if (snapshot.hasError) {
+              return ErrorState(
+                  message: errorText(snapshot.error!), onRetry: reload);
+            }
+            final data = asMap(payload(snapshot.data));
+            final summary = asMap(data['summary']);
+            final topMeals = asList(data['topMeals']).map(asMap).toList();
+            final photos = asList(data['photos']).map(asMap).toList();
+            final bestMemory = asMap(data['bestMemory']);
+            return RefreshIndicator(
+              onRefresh: () async => reload(),
+              child: ListView(
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 120),
+                children: [
+                  SoftCard(
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFFFFF1E8), Color(0xFFFFD9C7)],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            const BrandMark(size: 58, compact: true),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    titleText,
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .titleLarge
+                                        ?.copyWith(
+                                          fontWeight: FontWeight.w900,
+                                          color: kCoffee,
+                                        ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    textOf(summary['sentence']).isEmpty
+                                        ? '这一页会把你们的小家饭桌整理成一份温柔回顾。'
+                                        : textOf(summary['sentence']),
+                                    style: const TextStyle(
+                                      color: kCocoa,
+                                      fontWeight: FontWeight.w800,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+                        Row(
+                          children: [
+                            IconButton(
+                              onPressed: () => changePeriod(-1),
+                              icon: const Icon(Icons.chevron_left),
+                            ),
+                            Expanded(
+                              child: Center(
+                                child: SegmentedButton<ReviewScope>(
+                                  segments: const [
+                                    ButtonSegment(
+                                      value: ReviewScope.month,
+                                      label: Text('本月'),
+                                      icon: Icon(Icons.calendar_view_month),
+                                    ),
+                                    ButtonSegment(
+                                      value: ReviewScope.year,
+                                      label: Text('今年'),
+                                      icon: Icon(Icons.auto_graph),
+                                    ),
+                                  ],
+                                  selected: {scope},
+                                  onSelectionChanged: changeScope,
+                                ),
+                              ),
+                            ),
+                            IconButton(
+                              onPressed: () => changePeriod(1),
+                              icon: const Icon(Icons.chevron_right),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  Wrap(
+                    spacing: 12,
+                    runSpacing: 12,
+                    children: [
+                      DashboardTile(
+                        icon: Icons.rate_review_outlined,
+                        label: '饭后回忆',
+                        value: countText(summary['memoryCount']),
+                        color: const Color(0xFFFF8D7E),
+                      ),
+                      DashboardTile(
+                        icon: Icons.restaurant_menu,
+                        label: '安排餐次',
+                        value: countText(summary['plannedMealCount']),
+                        color: const Color(0xFFE09F67),
+                      ),
+                      DashboardTile(
+                        icon: Icons.photo_library_outlined,
+                        label: '饭桌照片',
+                        value: countText(summary['photoCount']),
+                        color: const Color(0xFF9E8B73),
+                      ),
+                      DashboardTile(
+                        icon: Icons.favorite_outline,
+                        label: '还想吃',
+                        value: countText(summary['wishlistOpen']),
+                        color: const Color(0xFF8AA36B),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 14),
+                  ReviewTopMealsCard(meals: topMeals),
+                  const SizedBox(height: 14),
+                  ReviewChipsCard(
+                    title: '饭桌关键词',
+                    icon: Icons.local_offer_outlined,
+                    groups: [
+                      ReviewChipGroup(
+                          label: '心情', items: asList(data['moodStats'])),
+                      ReviewChipGroup(
+                          label: '分类', items: asList(data['categoryStats'])),
+                      ReviewChipGroup(
+                          label: '均衡',
+                          items: asList(data['healthTagStats']),
+                          nameKey: 'tag'),
+                    ],
+                  ),
+                  if (bestMemory.isNotEmpty) ...[
+                    const SizedBox(height: 14),
+                    ReviewBestMemoryCard(memory: bestMemory),
+                  ],
+                  const SizedBox(height: 14),
+                  ReviewPhotoWall(photos: photos),
+                ],
+              ),
+            );
+          },
+        ),
+      ),
+    );
+  }
+}
+
+class ReviewTopMealsCard extends StatelessWidget {
+  const ReviewTopMealsCard({super.key, required this.meals});
+
+  final List<Map<String, dynamic>> meals;
+
+  @override
+  Widget build(BuildContext context) {
+    return SoftCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const SectionTitle(icon: Icons.emoji_events_outlined, title: '常上桌的菜'),
+          const SizedBox(height: 10),
+          if (meals.isEmpty)
+            const Text('还没有足够的菜品记录，安排几顿饭后这里会自动出现。')
+          else
+            ...meals.take(6).map((meal) {
+              final image = imageUrl(meal['imageUrl']);
+              return ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: ClipRRect(
+                  borderRadius: BorderRadius.circular(14),
+                  child: SizedBox(
+                    width: 52,
+                    height: 52,
+                    child: RemoteImage(url: image),
+                  ),
+                ),
+                title: Text(
+                  textOf(meal['name']),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontWeight: FontWeight.w900),
+                ),
+                subtitle: Text(
+                  '出现 ${countText(meal['count'])} 次 · 回忆 ${countText(meal['memoryCount'])} 次',
+                ),
+                trailing: textOf(meal['averageRating']) == '0'
+                    ? null
+                    : InfoChip('${textOf(meal['averageRating'])} 分'),
+              );
+            }),
+        ],
+      ),
+    );
+  }
+}
+
+class ReviewChipGroup {
+  const ReviewChipGroup({
+    required this.label,
+    required this.items,
+    this.nameKey = 'mood',
+  });
+
+  final String label;
+  final List<dynamic> items;
+  final String nameKey;
+}
+
+class ReviewChipsCard extends StatelessWidget {
+  const ReviewChipsCard({
+    super.key,
+    required this.title,
+    required this.icon,
+    required this.groups,
+  });
+
+  final String title;
+  final IconData icon;
+  final List<ReviewChipGroup> groups;
+
+  @override
+  Widget build(BuildContext context) {
+    final visibleGroups = groups
+        .map((group) => ReviewChipGroup(
+            label: group.label,
+            nameKey: group.nameKey,
+            items: group.items.map(asMap).where((item) {
+              final name = textOf(item[group.nameKey] ?? item['category']);
+              return name.isNotEmpty;
+            }).toList()))
+        .where((group) => group.items.isNotEmpty)
+        .toList();
+    return SoftCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SectionTitle(icon: icon, title: title),
+          const SizedBox(height: 10),
+          if (visibleGroups.isEmpty)
+            const Text('还没有形成明显关键词，多记录几顿饭后会更有意思。')
+          else
+            ...visibleGroups.map((group) => Padding(
+                  padding: const EdgeInsets.only(bottom: 10),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(group.label,
+                          style: const TextStyle(fontWeight: FontWeight.w900)),
+                      const SizedBox(height: 6),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: group.items.take(8).map((raw) {
+                          final item = asMap(raw);
+                          final name = textOf(item[group.nameKey] ??
+                              item['category'] ??
+                              item['tag']);
+                          return InfoChip('$name ${countText(item['count'])}');
+                        }).toList(),
+                      ),
+                    ],
+                  ),
+                )),
+        ],
+      ),
+    );
+  }
+}
+
+class ReviewBestMemoryCard extends StatelessWidget {
+  const ReviewBestMemoryCard({super.key, required this.memory});
+
+  final Map<String, dynamic> memory;
+
+  @override
+  Widget build(BuildContext context) {
+    final photos = asList(memory['photos']).map(imageUrl).toList();
+    return SoftCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const SectionTitle(icon: Icons.favorite_outline, title: '最值得记住的一顿'),
+          const SizedBox(height: 10),
+          Text(
+            textOf(memory['title']).isEmpty
+                ? '一顿值得记住的饭'
+                : textOf(memory['title']),
+            style: Theme.of(context)
+                .textTheme
+                .titleMedium
+                ?.copyWith(fontWeight: FontWeight.w900),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            '${textOf(memory['date'])} · ${mealTypeLabel(textOf(memory['mealType']))} · ${countText(memory['rating'])} 分',
+            style: const TextStyle(color: kCocoa, fontWeight: FontWeight.w800),
+          ),
+          if (textOf(memory['note']).isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Text(textOf(memory['note'])),
+          ],
+          if (photos.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(22),
+              child: AspectRatio(
+                aspectRatio: 16 / 9,
+                child: RemoteImage(url: photos.first),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class ReviewPhotoWall extends StatelessWidget {
+  const ReviewPhotoWall({super.key, required this.photos});
+
+  final List<Map<String, dynamic>> photos;
+
+  @override
+  Widget build(BuildContext context) {
+    return SoftCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const SectionTitle(
+              icon: Icons.photo_library_outlined, title: '饭桌照片墙'),
+          const SizedBox(height: 10),
+          if (photos.isEmpty)
+            const Text('这个周期还没有照片，下一顿饭可以拍一张留给以后。')
+          else
+            GridView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: photos.length.clamp(0, 6),
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 3,
+                crossAxisSpacing: 8,
+                mainAxisSpacing: 8,
+              ),
+              itemBuilder: (context, index) {
+                final photo = photos[index];
+                return ClipRRect(
+                  borderRadius: BorderRadius.circular(18),
+                  child: RemoteImage(
+                      url: imageUrl(photo['photo'] ?? photo['url'])),
+                );
+              },
+            ),
+        ],
+      ),
+    );
+  }
+}
+
 class AnniversaryPage extends StatefulWidget {
   const AnniversaryPage({super.key});
 
@@ -5515,6 +5954,10 @@ class _SettingsPageState extends State<SettingsPage> {
                       onPressed: () =>
                           pushPage(context, const PhotoAlbumPage()),
                       child: const Text('饭桌相册')),
+                  OutlinedButton(
+                      onPressed: () =>
+                          pushPage(context, const TableReviewPage()),
+                      child: const Text('饭桌回顾')),
                   OutlinedButton(
                       onPressed: () =>
                           pushPage(context, const AnniversaryPage()),
