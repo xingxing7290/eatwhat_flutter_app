@@ -7332,6 +7332,30 @@ class _SettingsPageState extends State<SettingsPage> {
     }
   }
 
+  Future<void> refreshInviteCode() async {
+    final confirmed = await confirmDialog(
+      context,
+      title: '刷新邀请码',
+      message: '刷新后旧邀请码会失效，已经加入小家的成员不受影响。确认生成新的邀请码吗？',
+      confirmText: '刷新',
+    );
+    if (!confirmed) {
+      return;
+    }
+    try {
+      await context.appRead.post('/household/invite/refresh');
+      await context.appRead.refreshMe();
+      final code = householdInviteCode(context.appRead.household ?? const {});
+      if (mounted) {
+        showMessage(context, code.isEmpty ? '已刷新邀请码' : '新邀请码：$code');
+      }
+    } catch (error) {
+      if (mounted) {
+        showMessage(context, errorText(error));
+      }
+    }
+  }
+
   Future<void> updateHousehold() async {
     final name = await textDialog(context,
         title: '修改小家名称', initial: context.appRead.householdName);
@@ -7450,10 +7474,22 @@ class _SettingsPageState extends State<SettingsPage> {
                         ],
                       ),
                     ),
-                    FilledButton.icon(
-                      onPressed: inviteCode.isEmpty ? null : copyInviteCode,
-                      icon: const Icon(Icons.copy, size: 18),
-                      label: const Text('复制'),
+                    Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        FilledButton.icon(
+                          onPressed: inviteCode.isEmpty ? null : copyInviteCode,
+                          icon: const Icon(Icons.copy, size: 18),
+                          label: const Text('复制'),
+                        ),
+                        const SizedBox(height: 8),
+                        OutlinedButton.icon(
+                          onPressed: refreshInviteCode,
+                          icon: const Icon(Icons.refresh, size: 18),
+                          label: const Text('刷新'),
+                        ),
+                      ],
                     ),
                   ],
                 ),
@@ -8574,6 +8610,33 @@ class EmptyState extends StatelessWidget {
       ),
     );
   }
+}
+
+Future<bool> confirmDialog(
+  BuildContext context, {
+  required String title,
+  required String message,
+  String confirmText = '确认',
+  String cancelText = '取消',
+}) async {
+  return await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: Text(title),
+          content: Text(message),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: Text(cancelText),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: Text(confirmText),
+            ),
+          ],
+        ),
+      ) ??
+      false;
 }
 
 Future<String?> textDialog(

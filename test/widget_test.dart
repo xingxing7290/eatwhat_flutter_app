@@ -3,8 +3,8 @@ import 'dart:io' as io;
 import 'dart:typed_data';
 
 import 'package:eatwhat_flutter_app/main.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:flutter/widgets.dart';
 import 'package:http/http.dart' as http;
 import 'package:image/image.dart' as img;
 import 'package:shared_preferences/shared_preferences.dart';
@@ -32,6 +32,41 @@ void main() {
     ));
 
     expect(find.text('not authed'), findsOneWidget);
+  });
+
+  testWidgets('confirmDialog returns explicit user choice', (tester) async {
+    BuildContext? probeContext;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Builder(builder: (context) {
+          probeContext = context;
+          return const SizedBox();
+        }),
+      ),
+    );
+
+    final future = confirmDialog(
+      probeContext!,
+      title: '刷新邀请码',
+      message: '旧邀请码会失效',
+      confirmText: '刷新',
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('取消'));
+    await tester.pumpAndSettle();
+    expect(await future, isFalse);
+
+    final confirmFuture = confirmDialog(
+      probeContext!,
+      title: '刷新邀请码',
+      message: '旧邀请码会失效',
+      confirmText: '刷新',
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('刷新'));
+    await tester.pumpAndSettle();
+    expect(await confirmFuture, isTrue);
   });
 
   test('init keeps valid cached session when profile refresh is offline',
