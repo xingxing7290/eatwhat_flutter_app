@@ -589,6 +589,44 @@ void main() {
     );
     expect(isDateText('2026-07-09'), isTrue);
     expect(isDateText('2026/07/09'), isFalse);
+    expect(
+      anniversaryLocalDate('2026-07-09T12:00:00.000Z'),
+      DateTime(2026, 7, 9),
+    );
+    expect(
+      anniversaryCountdownLabel(
+        {'date': '2026-07-10'},
+        today: DateTime(2026, 7, 10, 18),
+      ),
+      '\u4eca\u5929\u5c31\u662f\u7eaa\u5ff5\u65e5',
+    );
+    expect(
+      anniversaryCountdownLabel(
+        {'date': '2026-07-13'},
+        today: DateTime(2026, 7, 10),
+      ),
+      '\u8fd8\u6709 3 \u5929',
+    );
+    expect(
+      anniversaryCountdownLabel(
+        {'date': '2026-07-08'},
+        today: DateTime(2026, 7, 10),
+      ),
+      '\u5df2\u8fc7 2 \u5929',
+    );
+    expect(anniversaryCountdownLabel({'date': ''}), '\u65e5\u671f\u5f85\u5b9a');
+  });
+
+  test('anniversary menus sort by upcoming date first', () {
+    final sorted = anniversarySortedMenus([
+      {'title': 'past', 'date': '2026-07-01'},
+      {'title': 'unknown', 'date': ''},
+      {'title': 'future', 'date': '2026-07-13'},
+      {'title': 'today', 'date': '2026-07-10'},
+    ], today: DateTime(2026, 7, 10));
+
+    expect(sorted.map((item) => item['title']),
+        ['today', 'future', 'past', 'unknown']);
   });
 
   test('anniversaryMenuMealNames reads populated menu meals', () {

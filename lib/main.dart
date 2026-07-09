@@ -8327,7 +8327,9 @@ class _AnniversaryPageState extends State<AnniversaryPage> {
               return ErrorState(
                   message: errorText(snapshot.error!), onRetry: reload);
             }
-            final items = (snapshot.data ?? const []).map(asMap).toList();
+            final items = anniversarySortedMenus(
+              (snapshot.data ?? const []).map(asMap).toList(),
+            );
             return ListView(
               padding: const EdgeInsets.all(16),
               children: [
@@ -8401,6 +8403,78 @@ String anniversaryTemplateDescription(Map<String, dynamic> template) {
 
 bool isDateText(String value) =>
     RegExp(r'^\d{4}-\d{2}-\d{2}$').hasMatch(value.trim());
+
+DateTime? anniversaryLocalDate(dynamic value) {
+  final text = textOf(value).split('T').first.trim();
+  if (!isDateText(text)) {
+    return null;
+  }
+  final parts = text.split('-').map(int.tryParse).toList();
+  if (parts.length != 3 || parts.any((item) => item == null)) {
+    return null;
+  }
+  try {
+    return DateTime(parts[0]!, parts[1]!, parts[2]!);
+  } catch (_) {
+    return null;
+  }
+}
+
+int? anniversaryDaysUntil(
+  Map<String, dynamic> item, {
+  DateTime? today,
+}) {
+  final date = anniversaryLocalDate(item['date']);
+  if (date == null) {
+    return null;
+  }
+  final now = today ?? DateTime.now();
+  final localToday = DateTime(now.year, now.month, now.day);
+  return date.difference(localToday).inDays;
+}
+
+String anniversaryCountdownLabel(
+  Map<String, dynamic> item, {
+  DateTime? today,
+}) {
+  final days = anniversaryDaysUntil(item, today: today);
+  if (days == null) {
+    return '日期待定';
+  }
+  if (days == 0) {
+    return '今天就是纪念日';
+  }
+  if (days > 0) {
+    return '还有 $days 天';
+  }
+  return '已过 ${days.abs()} 天';
+}
+
+List<Map<String, dynamic>> anniversarySortedMenus(
+  List<Map<String, dynamic>> items, {
+  DateTime? today,
+}) {
+  final sorted = [...items];
+  int score(Map<String, dynamic> item) {
+    final days = anniversaryDaysUntil(item, today: today);
+    if (days == null) {
+      return 1 << 30;
+    }
+    if (days >= 0) {
+      return days;
+    }
+    return 100000 + days.abs();
+  }
+
+  sorted.sort((left, right) {
+    final byDate = score(left).compareTo(score(right));
+    if (byDate != 0) {
+      return byDate;
+    }
+    return textOf(left['title']).compareTo(textOf(right['title']));
+  });
+  return sorted;
+}
 
 class AnniversaryTemplatePicker extends StatelessWidget {
   const AnniversaryTemplatePicker({super.key, required this.templates});
@@ -8567,6 +8641,7 @@ class AnniversaryMenuCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final meals = anniversaryMenuMealNames(item);
+    final countdown = anniversaryCountdownLabel(item);
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: SoftCard(
@@ -8583,11 +8658,21 @@ class AnniversaryMenuCard extends StatelessWidget {
                 style: const TextStyle(fontWeight: FontWeight.w900),
               ),
               subtitle: Text(
-                '${textOf(item['date']).split('T').first} · ${textOf(item['theme'])}',
+                textOf(item['date']).split('T').first,
               ),
             ),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                InfoChip(countdown, icon: Icons.event_available_outlined),
+                if (textOf(item['theme']).isNotEmpty)
+                  InfoChip(textOf(item['theme']),
+                      icon: Icons.local_florist_outlined),
+              ],
+            ),
             if (textOf(item['description']).isNotEmpty) ...[
-              const SizedBox(height: 4),
+              const SizedBox(height: 10),
               Text(textOf(item['description'])),
             ],
             if (meals.isNotEmpty) ...[
