@@ -116,6 +116,21 @@ void main() {
     expect(prefs.getString('eatwhat.savedPassword'), 'secret');
   });
 
+  test('theme selection is saved and restored on next launch', () async {
+    SharedPreferences.setMockInitialValues({});
+    final appState = AppState();
+    addTearDown(appState.dispose);
+
+    await appState.setThemeKey('japanese_wood');
+    expect(appState.themePalette.label, '日式原木');
+
+    final restored = AppState();
+    addTearDown(restored.dispose);
+    await restored.init();
+    expect(restored.themeKey, 'japanese_wood');
+    expect(restored.themePalette.label, '日式原木');
+  });
+
   test('food focus renderer highlights center subject', () {
     final source = img.Image(width: 48, height: 48);
     for (var y = 0; y < source.height; y += 1) {

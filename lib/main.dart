@@ -35,6 +35,131 @@ const kSage = Color(0xFF8AA36B);
 const kHoney = Color(0xFFF3C96B);
 const kLine = Color(0xFFEAD6C8);
 const kImageExtensionPattern = r'\.(jpe?g|png|gif|webp|heic|heif)$';
+const kThemeCreamPeach = 'cream_peach';
+
+class AppThemePalette {
+  const AppThemePalette({
+    required this.key,
+    required this.label,
+    required this.description,
+    required this.background,
+    required this.backgroundAlt,
+    required this.surface,
+    required this.primary,
+    required this.secondary,
+    required this.accent,
+    required this.text,
+    required this.muted,
+    required this.line,
+    required this.success,
+    required this.gradient,
+  });
+
+  final String key;
+  final String label;
+  final String description;
+  final Color background;
+  final Color backgroundAlt;
+  final Color surface;
+  final Color primary;
+  final Color secondary;
+  final Color accent;
+  final Color text;
+  final Color muted;
+  final Color line;
+  final Color success;
+  final List<Color> gradient;
+}
+
+const kThemePalettes = <AppThemePalette>[
+  AppThemePalette(
+    key: kThemeCreamPeach,
+    label: '奶油蜜桃',
+    description: '温柔奶油底色，适合日常饭桌记录',
+    background: kCream,
+    backgroundAlt: kOat,
+    surface: kPaper,
+    primary: kCaramel,
+    secondary: kPeach,
+    accent: kCoral,
+    text: kCoffee,
+    muted: kCocoa,
+    line: kLine,
+    success: kSage,
+    gradient: [kCream, kOat, Color(0xFFFFF8F0)],
+  ),
+  AppThemePalette(
+    key: 'japanese_wood',
+    label: '日式原木',
+    description: '米白、木色和鼠尾草绿，像小厨房手账',
+    background: Color(0xFFFBF6EA),
+    backgroundAlt: Color(0xFFEFE2D0),
+    surface: Color(0xFFFFFCF4),
+    primary: Color(0xFFC18754),
+    secondary: Color(0xFFDDBB91),
+    accent: Color(0xFF8FA37A),
+    text: Color(0xFF493D32),
+    muted: Color(0xFF7F6A58),
+    line: Color(0xFFE2CBB2),
+    success: Color(0xFF7E9B73),
+    gradient: [Color(0xFFFBF6EA), Color(0xFFF1E3CF), Color(0xFFFFFAEF)],
+  ),
+  AppThemePalette(
+    key: 'caramel_vintage',
+    label: '焦糖复古',
+    description: '暖咖和焦糖色，适合纪念日和周末家宴',
+    background: Color(0xFFF8EFE4),
+    backgroundAlt: Color(0xFFEAD3BA),
+    surface: Color(0xFFFFFBF4),
+    primary: Color(0xFFC47C44),
+    secondary: Color(0xFFE7A96E),
+    accent: Color(0xFFB96556),
+    text: Color(0xFF4B3932),
+    muted: Color(0xFF806358),
+    line: Color(0xFFE3C4A7),
+    success: Color(0xFF87996C),
+    gradient: [Color(0xFFF8EFE4), Color(0xFFF1D7BD), Color(0xFFFFF7EC)],
+  ),
+  AppThemePalette(
+    key: 'strawberry_lovers',
+    label: '草莓恋人',
+    description: '草莓粉和奶白色，情绪更甜一点',
+    background: Color(0xFFFFF6F4),
+    backgroundAlt: Color(0xFFF9E1DD),
+    surface: Color(0xFFFFFCFA),
+    primary: Color(0xFFE87583),
+    secondary: Color(0xFFFFB7BE),
+    accent: Color(0xFFDE6F57),
+    text: Color(0xFF51383A),
+    muted: Color(0xFF846064),
+    line: Color(0xFFF0CBC7),
+    success: Color(0xFF89A96D),
+    gradient: [Color(0xFFFFF6F4), Color(0xFFFFE4E0), Color(0xFFFFFBF3)],
+  ),
+  AppThemePalette(
+    key: 'warm_cafe',
+    label: '暖咖厨房',
+    description: '咖啡、蜂蜜和奶泡色，更有小餐馆氛围',
+    background: Color(0xFFF7EFE7),
+    backgroundAlt: Color(0xFFEADCCD),
+    surface: Color(0xFFFFFBF5),
+    primary: Color(0xFFA96F4A),
+    secondary: Color(0xFFE3B47B),
+    accent: Color(0xFFD8895B),
+    text: Color(0xFF453832),
+    muted: Color(0xFF776158),
+    line: Color(0xFFE0C9B6),
+    success: Color(0xFF8A9A68),
+    gradient: [Color(0xFFF7EFE7), Color(0xFFEBD8C4), Color(0xFFFFF6EA)],
+  ),
+];
+
+AppThemePalette paletteForKey(String key) {
+  return kThemePalettes.firstWhere(
+    (palette) => palette.key == key,
+    orElse: () => kThemePalettes.first,
+  );
+}
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -81,7 +206,7 @@ class EatwhatApp extends StatelessWidget {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: '安排吃啥',
-      theme: cozyTheme(),
+      theme: cozyTheme(app.themePalette),
       home: AnimatedBuilder(
         animation: app,
         builder: (context, _) {
@@ -95,20 +220,20 @@ class EatwhatApp extends StatelessWidget {
   }
 }
 
-ThemeData cozyTheme() {
+ThemeData cozyTheme(AppThemePalette palette) {
   final base = ThemeData(
     useMaterial3: true,
     colorScheme: ColorScheme.fromSeed(
-      seedColor: kPeach,
+      seedColor: palette.secondary,
       brightness: Brightness.light,
-      primary: kCaramel,
-      secondary: kPeach,
-      tertiary: kSage,
-      surface: kPaper,
-      onSurface: kCoffee,
-      error: kCoral,
+      primary: palette.primary,
+      secondary: palette.secondary,
+      tertiary: palette.success,
+      surface: palette.surface,
+      onSurface: palette.text,
+      error: palette.accent,
     ),
-    scaffoldBackgroundColor: kCream,
+    scaffoldBackgroundColor: palette.background,
     fontFamilyFallback: const [
       'Microsoft YaHei',
       'PingFang SC',
@@ -118,71 +243,71 @@ ThemeData cozyTheme() {
   );
   return base.copyWith(
     textTheme: base.textTheme.apply(
-      bodyColor: kCoffee,
-      displayColor: kCoffee,
-      decorationColor: kCoffee,
+      bodyColor: palette.text,
+      displayColor: palette.text,
+      decorationColor: palette.text,
     ),
-    appBarTheme: const AppBarTheme(
-      backgroundColor: kCream,
-      foregroundColor: kCoffee,
+    appBarTheme: AppBarTheme(
+      backgroundColor: palette.background,
+      foregroundColor: palette.text,
       elevation: 0,
       centerTitle: false,
       titleTextStyle: TextStyle(
-        color: kCoffee,
+        color: palette.text,
         fontSize: 20,
         fontWeight: FontWeight.w800,
       ),
     ),
     cardTheme: CardTheme(
-      color: kPaper,
+      color: palette.surface,
       elevation: 0,
-      shadowColor: kCaramel.withValues(alpha: 0.18),
+      shadowColor: palette.primary.withValues(alpha: 0.18),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(26)),
     ),
     inputDecorationTheme: InputDecorationTheme(
       filled: true,
       fillColor: Colors.white.withValues(alpha: 0.92),
-      labelStyle: const TextStyle(color: kCocoa, fontWeight: FontWeight.w700),
+      labelStyle: TextStyle(color: palette.muted, fontWeight: FontWeight.w700),
       hintStyle: const TextStyle(color: Color(0xFFBFA99C)),
-      prefixIconColor: kCaramel,
-      suffixIconColor: kCocoa,
+      prefixIconColor: palette.primary,
+      suffixIconColor: palette.muted,
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(22),
-        borderSide: const BorderSide(color: kLine),
+        borderSide: BorderSide(color: palette.line),
       ),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(22),
-        borderSide: const BorderSide(color: kLine),
+        borderSide: BorderSide(color: palette.line),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(22),
-        borderSide: const BorderSide(color: kCaramel, width: 1.6),
+        borderSide: BorderSide(color: palette.primary, width: 1.6),
       ),
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
     ),
     filledButtonTheme: FilledButtonThemeData(
       style: FilledButton.styleFrom(
-        backgroundColor: kCoral,
+        backgroundColor: palette.accent,
         foregroundColor: Colors.white,
         minimumSize: const Size(48, 50),
         elevation: 0,
-        shadowColor: kCoral.withValues(alpha: 0.28),
+        shadowColor: palette.accent.withValues(alpha: 0.28),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
         textStyle: const TextStyle(fontWeight: FontWeight.w900),
       ),
     ),
     outlinedButtonTheme: OutlinedButtonThemeData(
       style: OutlinedButton.styleFrom(
-        foregroundColor: kCoffee,
+        foregroundColor: palette.text,
         backgroundColor: Colors.white.withValues(alpha: 0.62),
-        side: const BorderSide(color: kLine),
+        side: BorderSide(color: palette.line),
         minimumSize: const Size(48, 50),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
         textStyle: const TextStyle(fontWeight: FontWeight.w800),
       ),
     ),
-    floatingActionButtonTheme: const FloatingActionButtonThemeData(
-      backgroundColor: kCoral,
+    floatingActionButtonTheme: FloatingActionButtonThemeData(
+      backgroundColor: palette.accent,
       foregroundColor: Colors.white,
       elevation: 3,
       shape: RoundedRectangleBorder(
@@ -191,17 +316,19 @@ ThemeData cozyTheme() {
     ),
     navigationBarTheme: NavigationBarThemeData(
       backgroundColor: Colors.transparent,
-      indicatorColor: kPeach.withValues(alpha: 0.34),
+      indicatorColor: palette.secondary.withValues(alpha: 0.34),
       iconTheme: WidgetStateProperty.resolveWith(
         (states) => IconThemeData(
-          color: states.contains(WidgetState.selected) ? kCoral : kCocoa,
+          color: states.contains(WidgetState.selected)
+              ? palette.accent
+              : palette.muted,
         ),
       ),
       labelTextStyle: WidgetStateProperty.all(
-        const TextStyle(
+        TextStyle(
           fontSize: 12,
           fontWeight: FontWeight.w900,
-          color: kCoffee,
+          color: palette.text,
         ),
       ),
     ),
@@ -209,11 +336,11 @@ ThemeData cozyTheme() {
       style: ButtonStyle(
         backgroundColor: WidgetStateProperty.resolveWith(
           (states) => states.contains(WidgetState.selected)
-              ? kPeach.withValues(alpha: 0.34)
+              ? palette.secondary.withValues(alpha: 0.34)
               : Colors.white.withValues(alpha: 0.72),
         ),
-        foregroundColor: WidgetStateProperty.all(kCoffee),
-        side: WidgetStateProperty.all(const BorderSide(color: kLine)),
+        foregroundColor: WidgetStateProperty.all(palette.text),
+        side: WidgetStateProperty.all(BorderSide(color: palette.line)),
         shape: WidgetStateProperty.all(
           RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
         ),
@@ -221,25 +348,27 @@ ThemeData cozyTheme() {
     ),
     checkboxTheme: CheckboxThemeData(
       fillColor: WidgetStateProperty.resolveWith(
-        (states) => states.contains(WidgetState.selected) ? kCoral : kPaper,
+        (states) => states.contains(WidgetState.selected)
+            ? palette.accent
+            : palette.surface,
       ),
       checkColor: WidgetStateProperty.all(Colors.white),
-      side: const BorderSide(color: kLine, width: 1.2),
+      side: BorderSide(color: palette.line, width: 1.2),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
     ),
     sliderTheme: SliderThemeData(
-      activeTrackColor: kCoral,
-      inactiveTrackColor: kPeach.withValues(alpha: 0.25),
-      thumbColor: kCaramel,
-      overlayColor: kPeach.withValues(alpha: 0.18),
+      activeTrackColor: palette.accent,
+      inactiveTrackColor: palette.secondary.withValues(alpha: 0.25),
+      thumbColor: palette.primary,
+      overlayColor: palette.secondary.withValues(alpha: 0.18),
     ),
-    progressIndicatorTheme: const ProgressIndicatorThemeData(color: kCoral),
+    progressIndicatorTheme: ProgressIndicatorThemeData(color: palette.accent),
     dialogTheme: DialogTheme(
-      backgroundColor: kPaper,
+      backgroundColor: palette.surface,
       surfaceTintColor: Colors.transparent,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
-      titleTextStyle: const TextStyle(
-        color: kCoffee,
+      titleTextStyle: TextStyle(
+        color: palette.text,
         fontSize: 20,
         fontWeight: FontWeight.w900,
       ),
@@ -253,7 +382,7 @@ ThemeData cozyTheme() {
     ),
     snackBarTheme: SnackBarThemeData(
       behavior: SnackBarBehavior.floating,
-      backgroundColor: kCoffee,
+      backgroundColor: palette.text,
       contentTextStyle:
           const TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
@@ -297,6 +426,7 @@ class AppState extends ChangeNotifier {
   static const _savedUserKey = 'eatwhat.savedUsername';
   static const _savedPasswordKey = 'eatwhat.savedPassword';
   static const _rememberKey = 'eatwhat.rememberPassword';
+  static const _themeKey = 'eatwhat.themeKey';
 
   bool loading = true;
   String? token;
@@ -304,8 +434,10 @@ class AppState extends ChangeNotifier {
   Map<String, dynamic>? household;
   DateTime? lastLoginAt;
   String? sessionNotice;
+  String themeKey = kThemeCreamPeach;
 
   bool get isAuthed => token != null && token!.isNotEmpty;
+  AppThemePalette get themePalette => paletteForKey(themeKey);
   DateTime? get tokenExpiresAt => jwtExpiresAt(token);
   String get userId => textOf(user?['id'] ?? user?['_id'] ?? user?['uid']);
   String get displayName {
@@ -325,6 +457,8 @@ class AppState extends ChangeNotifier {
   Future<void> init() async {
     final prefs = await SharedPreferences.getInstance();
     token = prefs.getString(_tokenKey);
+    themeKey =
+        paletteForKey(prefs.getString(_themeKey) ?? kThemeCreamPeach).key;
     user = jsonMap(prefs.getString(_cachedUserKey));
     household = jsonMap(prefs.getString(_cachedHouseholdKey));
     lastLoginAt = DateTime.tryParse(prefs.getString(_lastLoginAtKey) ?? '');
@@ -369,6 +503,17 @@ class AppState extends ChangeNotifier {
     } else {
       await prefs.remove(_savedPasswordKey);
     }
+  }
+
+  Future<void> setThemeKey(String key) async {
+    final palette = paletteForKey(key);
+    if (palette.key == themeKey) {
+      return;
+    }
+    themeKey = palette.key;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_themeKey, themeKey);
+    notifyListeners();
   }
 
   Future<void> login(String username, String password) async {
@@ -1571,6 +1716,7 @@ class _HomeShellState extends State<HomeShell> {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.app.themePalette;
     return Scaffold(
       appBar: AppBar(
         title: Row(
@@ -1628,7 +1774,7 @@ class _HomeShellState extends State<HomeShell> {
         ),
       ),
       bottomNavigationBar: ColoredBox(
-        color: kCream,
+        color: palette.background,
         child: SafeArea(
           top: false,
           child: Padding(
@@ -1637,10 +1783,10 @@ class _HomeShellState extends State<HomeShell> {
               decoration: BoxDecoration(
                 color: Colors.white.withValues(alpha: 0.92),
                 borderRadius: BorderRadius.circular(30),
-                border: Border.all(color: kLine),
+                border: Border.all(color: palette.line),
                 boxShadow: [
                   BoxShadow(
-                    color: kCaramel.withValues(alpha: 0.15),
+                    color: palette.primary.withValues(alpha: 0.15),
                     blurRadius: 24,
                     offset: const Offset(0, 10),
                   ),
@@ -5321,6 +5467,33 @@ class _SettingsPageState extends State<SettingsPage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              const SectionTitle(icon: Icons.palette_outlined, title: '主题风格'),
+              const SizedBox(height: 8),
+              const Text(
+                '选择更适合你们小家的饭桌氛围，颜色会同步到首页、导航、卡片和按钮。',
+                style: TextStyle(color: kCocoa, fontWeight: FontWeight.w700),
+              ),
+              const SizedBox(height: 12),
+              Wrap(
+                spacing: 10,
+                runSpacing: 10,
+                children: [
+                  for (final palette in kThemePalettes)
+                    ThemeChoiceCard(
+                      palette: palette,
+                      selected: context.app.themeKey == palette.key,
+                      onTap: () => context.appRead.setThemeKey(palette.key),
+                    ),
+                ],
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 12),
+        SoftCard(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
               const SectionTitle(icon: Icons.apps_outlined, title: '功能入口'),
               const SizedBox(height: 10),
               Wrap(
@@ -5433,6 +5606,119 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 }
 
+class ThemeChoiceCard extends StatelessWidget {
+  const ThemeChoiceCard({
+    super.key,
+    required this.palette,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final AppThemePalette palette;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      borderRadius: BorderRadius.circular(22),
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 260),
+        curve: Curves.easeOutCubic,
+        width: 158,
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: selected
+              ? palette.secondary.withValues(alpha: 0.24)
+              : Colors.white.withValues(alpha: 0.72),
+          borderRadius: BorderRadius.circular(22),
+          border: Border.all(
+            color: selected ? palette.accent : palette.line,
+            width: selected ? 1.6 : 1,
+          ),
+          boxShadow: selected
+              ? [
+                  BoxShadow(
+                    color: palette.primary.withValues(alpha: 0.14),
+                    blurRadius: 18,
+                    offset: const Offset(0, 8),
+                  ),
+                ]
+              : null,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    palette.label,
+                    style: TextStyle(
+                      color: palette.text,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ),
+                AnimatedScale(
+                  scale: selected ? 1 : 0.75,
+                  duration: const Duration(milliseconds: 220),
+                  child: Icon(
+                    selected ? Icons.check_circle : Icons.circle_outlined,
+                    color: selected ? palette.accent : palette.muted,
+                    size: 18,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                _ThemeSwatch(color: palette.background),
+                _ThemeSwatch(color: palette.secondary),
+                _ThemeSwatch(color: palette.primary),
+                _ThemeSwatch(color: palette.accent),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              palette.description,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: palette.muted,
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ThemeSwatch extends StatelessWidget {
+  const _ThemeSwatch({required this.color});
+
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 22,
+      height: 22,
+      margin: const EdgeInsets.only(right: 5),
+      decoration: BoxDecoration(
+        color: color,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.9)),
+      ),
+    );
+  }
+}
+
 List<Map<String, dynamic>> imageIssues(dynamic response) {
   final data = payload(response);
   final items = data is Map
@@ -5453,10 +5739,11 @@ class AppBackdrop extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.app.themePalette;
     return DecoratedBox(
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: [kCream, kOat, Color(0xFFFFF8F0)],
+          colors: palette.gradient,
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
@@ -5468,7 +5755,7 @@ class AppBackdrop extends StatelessWidget {
             right: -54,
             child: _BackdropCircle(
               size: 190,
-              color: kPeach.withValues(alpha: 0.22),
+              color: palette.secondary.withValues(alpha: 0.22),
             ),
           ),
           Positioned(
@@ -5476,20 +5763,20 @@ class AppBackdrop extends StatelessWidget {
             bottom: 90,
             child: _BackdropCircle(
               size: 150,
-              color: kCaramel.withValues(alpha: 0.13),
+              color: palette.primary.withValues(alpha: 0.13),
             ),
           ),
           Positioned(
             left: 22,
             top: 74,
             child: Icon(Icons.ramen_dining_outlined,
-                size: 72, color: kCaramel.withValues(alpha: 0.07)),
+                size: 72, color: palette.primary.withValues(alpha: 0.07)),
           ),
           Positioned(
             right: 28,
             bottom: 36,
             child: Icon(Icons.favorite,
-                size: 58, color: kCoral.withValues(alpha: 0.06)),
+                size: 58, color: palette.accent.withValues(alpha: 0.06)),
           ),
           Align(alignment: alignment, child: child),
         ],
@@ -5525,6 +5812,7 @@ class BrandMark extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.app.themePalette;
     final bowlSize = size * (compact ? 0.45 : 0.52);
     return Container(
       width: size,
@@ -5539,7 +5827,7 @@ class BrandMark extends StatelessWidget {
         border: Border.all(color: Colors.white.withValues(alpha: 0.84)),
         boxShadow: [
           BoxShadow(
-            color: kCaramel.withValues(alpha: 0.22),
+            color: palette.primary.withValues(alpha: 0.22),
             blurRadius: compact ? 8 : 20,
             offset: Offset(0, compact ? 3 : 9),
           ),
@@ -5559,14 +5847,14 @@ class BrandMark extends StatelessWidget {
           Positioned(
             left: size * 0.19,
             bottom: size * 0.22,
-            child:
-                Icon(Icons.rice_bowl_outlined, color: kCaramel, size: bowlSize),
+            child: Icon(Icons.rice_bowl_outlined,
+                color: palette.primary, size: bowlSize),
           ),
           Positioned(
             right: size * 0.17,
             bottom: size * 0.20,
             child: Icon(Icons.soup_kitchen_outlined,
-                color: kCoral, size: bowlSize),
+                color: palette.accent, size: bowlSize),
           ),
           Positioned(
             bottom: size * 0.12,
@@ -5574,7 +5862,7 @@ class BrandMark extends StatelessWidget {
               width: size * 0.62,
               height: compact ? 2 : 4,
               decoration: BoxDecoration(
-                color: kSage.withValues(alpha: 0.34),
+                color: palette.success.withValues(alpha: 0.34),
                 borderRadius: BorderRadius.circular(999),
               ),
             ),
@@ -5592,16 +5880,17 @@ class PartnerPresencePill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.app.themePalette;
     return AnimatedContainer(
       duration: const Duration(milliseconds: 300),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
         color: Colors.white.withValues(alpha: 0.76),
         borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: kLine),
+        border: Border.all(color: palette.line),
         boxShadow: [
           BoxShadow(
-            color: kCaramel.withValues(alpha: 0.08),
+            color: palette.primary.withValues(alpha: 0.08),
             blurRadius: 16,
             offset: const Offset(0, 7),
           ),
@@ -5614,10 +5903,10 @@ class PartnerPresencePill extends StatelessWidget {
             width: 28,
             height: 28,
             decoration: BoxDecoration(
-              color: kPeach.withValues(alpha: 0.42),
+              color: palette.secondary.withValues(alpha: 0.42),
               shape: BoxShape.circle,
             ),
-            child: const Icon(Icons.favorite, size: 15, color: kCoral),
+            child: Icon(Icons.favorite, size: 15, color: palette.accent),
           ),
           const SizedBox(width: 8),
           Flexible(
@@ -5625,8 +5914,8 @@ class PartnerPresencePill extends StatelessWidget {
               text,
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                color: kCoffee,
+              style: TextStyle(
+                color: palette.text,
                 fontWeight: FontWeight.w800,
                 fontSize: 12,
               ),
@@ -5646,25 +5935,26 @@ class TapedLabel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.app.themePalette;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
       decoration: BoxDecoration(
         color: Colors.white.withValues(alpha: 0.74),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: kLine),
+        border: Border.all(color: palette.line),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           if (icon != null) ...[
-            Icon(icon, size: 15, color: kCaramel),
+            Icon(icon, size: 15, color: palette.primary),
             const SizedBox(width: 5),
           ],
           Text(
             text,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 12,
-              color: kCocoa,
+              color: palette.muted,
               fontWeight: FontWeight.w900,
             ),
           ),
@@ -5754,18 +6044,20 @@ class SoftCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.app.themePalette;
     return AnimatedContainer(
       duration: const Duration(milliseconds: 300),
       curve: Curves.easeOutCubic,
       padding: padding,
       decoration: BoxDecoration(
-        color: gradient == null ? kPaper.withValues(alpha: 0.94) : null,
+        color:
+            gradient == null ? palette.surface.withValues(alpha: 0.94) : null,
         gradient: gradient,
         borderRadius: BorderRadius.circular(30),
         border: Border.all(color: Colors.white.withValues(alpha: 0.72)),
         boxShadow: [
           BoxShadow(
-            color: kCaramel.withValues(alpha: 0.13),
+            color: palette.primary.withValues(alpha: 0.13),
             blurRadius: 26,
             offset: const Offset(0, 12),
           ),
@@ -5789,17 +6081,18 @@ class SectionTitle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.app.themePalette;
     return Row(
       children: [
         Container(
           width: 34,
           height: 34,
           decoration: BoxDecoration(
-            color: kPeach.withValues(alpha: 0.26),
+            color: palette.secondary.withValues(alpha: 0.26),
             borderRadius: BorderRadius.circular(13),
             border: Border.all(color: Colors.white.withValues(alpha: 0.82)),
           ),
-          child: Icon(icon, color: kCaramel, size: 19),
+          child: Icon(icon, color: palette.primary, size: 19),
         ),
         const SizedBox(width: 10),
         Expanded(
@@ -5808,7 +6101,7 @@ class SectionTitle extends StatelessWidget {
             style: Theme.of(context)
                 .textTheme
                 .titleMedium
-                ?.copyWith(fontWeight: FontWeight.w900, color: kCoffee),
+                ?.copyWith(fontWeight: FontWeight.w900, color: palette.text),
           ),
         ),
       ],
@@ -5854,24 +6147,25 @@ class InfoChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.app.themePalette;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color: kPeach.withValues(alpha: 0.16),
+        color: palette.secondary.withValues(alpha: 0.16),
         borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: kLine),
+        border: Border.all(color: palette.line),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           if (icon != null) ...[
-            Icon(icon, size: 14, color: kCaramel),
+            Icon(icon, size: 14, color: palette.primary),
             const SizedBox(width: 4),
           ],
           Text(label,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 12,
-                color: kCocoa,
+                color: palette.muted,
                 fontWeight: FontWeight.w800,
               )),
         ],
