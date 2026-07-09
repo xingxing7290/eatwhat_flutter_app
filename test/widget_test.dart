@@ -199,6 +199,46 @@ void main() {
     expect(names, ['酸菜猪肉饺子', '番茄牛腩']);
   });
 
+  test('anniversary helpers parse templates and build descriptions', () {
+    final templates = anniversaryTemplates({
+      'value': [
+        {
+          'title': '恋爱纪念日',
+          'theme': '纪念日',
+          'description': '选两道共同喜欢的菜。',
+          'structure': ['共同喜欢', '甜品']
+        }
+      ]
+    });
+
+    expect(templates, hasLength(1));
+    expect(anniversaryTemplateStructure(templates.first), ['共同喜欢', '甜品']);
+    expect(
+      anniversaryTemplateDescription(templates.first),
+      '选两道共同喜欢的菜。\n建议结构：共同喜欢、甜品',
+    );
+    expect(isDateText('2026-07-09'), isTrue);
+    expect(isDateText('2026/07/09'), isFalse);
+  });
+
+  test('anniversaryMenuMealNames reads populated menu meals', () {
+    final names = anniversaryMenuMealNames({
+      'meals': {
+        'breakfast': [
+          {
+            'meal': {'name': '小米粥'}
+          }
+        ],
+        'dinner': [
+          {'name': '番茄牛腩'},
+          {'name': '番茄牛腩'}
+        ],
+      }
+    });
+
+    expect(names, ['小米粥', '番茄牛腩']);
+  });
+
   test('wishlist meal helpers accept populated object and string id', () {
     expect(
       wishlistMealId({

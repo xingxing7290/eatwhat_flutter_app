@@ -6545,25 +6545,59 @@ class _AnniversaryPageState extends State<AnniversaryPage> {
         future = load();
       });
 
+  Future<List<Map<String, dynamic>>> loadTemplates() async {
+    final response = await context.appRead.get('/anniversary-templates');
+    return anniversaryTemplates(response);
+  }
+
+  Future<Map<String, dynamic>?> chooseTemplate(
+    List<Map<String, dynamic>> templates,
+  ) {
+    if (templates.isEmpty) {
+      return Future.value(<String, dynamic>{});
+    }
+    return showModalBottomSheet<Map<String, dynamic>>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => AnniversaryTemplatePicker(templates: templates),
+    );
+  }
+
   Future<void> create() async {
     try {
-      final templatesResponse =
-          await context.appRead.get('/anniversary-templates');
-      final templates = asList(payload(templatesResponse));
-      final template =
-          templates.isNotEmpty ? asMap(templates.first) : <String, dynamic>{};
+      final template = await chooseTemplate(await loadTemplates());
+      if (template == null) {
+        return;
+      }
+      final date = await textDialog(
+        context,
+        title: '纪念日日期',
+        hint: '例如：${dateString(DateTime.now())}',
+        initial: dateString(DateTime.now()),
+      );
+      final dateText = date?.trim() ?? '';
+      if (!isDateText(dateText)) {
+        if (mounted) {
+          showMessage(context, '请填写 YYYY-MM-DD 格式的日期');
+        }
+        return;
+      }
       await context.appRead.multipart('POST', '/anniversaries', fields: {
         'title': textOf(template['title']).isEmpty
             ? '周末小家宴'
             : textOf(template['title']),
-        'date': dateString(DateTime.now()),
-        'description': textOf(template['description']),
+        'date': dateText,
+        'description': anniversaryTemplateDescription(template),
         'theme': textOf(template['theme']).isEmpty
             ? '温馨小家'
             : textOf(template['theme']),
         'meals': jsonEncode({'breakfast': [], 'lunch': [], 'dinner': []}),
       });
       reload();
+      if (mounted) {
+        showMessage(context, '已创建纪念日菜单');
+      }
     } catch (error) {
       if (mounted) {
         showMessage(context, errorText(error));
@@ -6592,26 +6626,35 @@ class _AnniversaryPageState extends State<AnniversaryPage> {
               padding: const EdgeInsets.all(16),
               children: [
                 SoftCard(
-                  child: FilledButton.icon(
-                    onPressed: create,
-                    icon: const Icon(Icons.celebration_outlined),
-                    label: const Text('用模板创建纪念日菜单'),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      const SectionTitle(
+                        icon: Icons.celebration_outlined,
+                        title: '纪念日菜单模板',
+                      ),
+                      const SizedBox(height: 8),
+                      const Text(
+                        '生日、恋爱纪念日、节日聚餐和周末小家宴都可以从模板开始，再慢慢补菜品和照片。',
+                        style: TextStyle(
+                          color: kCocoa,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      FilledButton.icon(
+                        onPressed: create,
+                        icon: const Icon(Icons.celebration_outlined),
+                        label: const Text('选择模板创建菜单'),
+                      ),
+                    ],
                   ),
                 ),
                 const SizedBox(height: 12),
                 if (items.isEmpty)
                   const EmptyState(title: '还没有纪念日菜单')
                 else
-                  ...items.map((item) => SoftCard(
-                        child: ListTile(
-                          contentPadding: EdgeInsets.zero,
-                          leading: const CircleAvatar(
-                              child: Icon(Icons.celebration_outlined)),
-                          title: Text(textOf(item['title'])),
-                          subtitle: Text(
-                              '${textOf(item['date']).split('T').first} · ${textOf(item['theme'])}'),
-                        ),
-                      )),
+                  ...items.map((item) => AnniversaryMenuCard(item: item)),
               ],
             );
           },
@@ -6619,6 +6662,214 @@ class _AnniversaryPageState extends State<AnniversaryPage> {
       ),
     );
   }
+}
+
+List<Map<String, dynamic>> anniversaryTemplates(dynamic response) {
+  final data = payload(response);
+  final items = data is Map
+      ? asList(
+          data['templates'] ?? data['items'] ?? data['list'] ?? data['value'])
+      : asList(data);
+  return items.map(asMap).where((item) => item.isNotEmpty).toList();
+}
+
+List<String> anniversaryTemplateStructure(Map<String, dynamic> template) {
+  return asList(template['structure'])
+      .map(textOf)
+      .where((item) => item.trim().isNotEmpty)
+      .toList();
+}
+
+String anniversaryTemplateDescription(Map<String, dynamic> template) {
+  final description = textOf(template['description']).trim();
+  final structure = anniversaryTemplateStructure(template);
+  if (structure.isEmpty) {
+    return description;
+  }
+  final structureText = '建议结构：${structure.join('、')}';
+  return description.isEmpty ? structureText : '$description\n$structureText';
+}
+
+bool isDateText(String value) =>
+    RegExp(r'^\d{4}-\d{2}-\d{2}$').hasMatch(value.trim());
+
+class AnniversaryTemplatePicker extends StatelessWidget {
+  const AnniversaryTemplatePicker({super.key, required this.templates});
+
+  final List<Map<String, dynamic>> templates;
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+        child: SoftCard(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const SectionTitle(
+                icon: Icons.celebration_outlined,
+                title: '选择纪念日模板',
+              ),
+              const SizedBox(height: 12),
+              ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxHeight: MediaQuery.sizeOf(context).height * 0.62,
+                ),
+                child: ListView.separated(
+                  shrinkWrap: true,
+                  itemCount: templates.length,
+                  separatorBuilder: (_, __) => const SizedBox(height: 10),
+                  itemBuilder: (context, index) {
+                    final template = templates[index];
+                    final structure = anniversaryTemplateStructure(template);
+                    return InkWell(
+                      borderRadius: BorderRadius.circular(22),
+                      onTap: () => Navigator.pop(context, template),
+                      child: Container(
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(
+                          color: kPaper,
+                          borderRadius: BorderRadius.circular(22),
+                          border: Border.all(color: kLine),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Container(
+                                  width: 42,
+                                  height: 42,
+                                  decoration: BoxDecoration(
+                                    color: kPeach.withValues(alpha: 0.22),
+                                    borderRadius: BorderRadius.circular(16),
+                                  ),
+                                  child: const Icon(
+                                    Icons.favorite,
+                                    color: kCoral,
+                                    size: 20,
+                                  ),
+                                ),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        textOf(template['title']).isEmpty
+                                            ? '温馨小家菜单'
+                                            : textOf(template['title']),
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.w900,
+                                        ),
+                                      ),
+                                      if (textOf(template['theme']).isNotEmpty)
+                                        Text(
+                                          textOf(template['theme']),
+                                          style: const TextStyle(
+                                            color: kCocoa,
+                                            fontWeight: FontWeight.w700,
+                                          ),
+                                        ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                            if (textOf(template['description']).isNotEmpty) ...[
+                              const SizedBox(height: 10),
+                              Text(textOf(template['description'])),
+                            ],
+                            if (structure.isNotEmpty) ...[
+                              const SizedBox(height: 10),
+                              Wrap(
+                                spacing: 8,
+                                runSpacing: 8,
+                                children: structure
+                                    .map((item) => InfoChip(
+                                          item,
+                                          icon: Icons.restaurant_menu,
+                                        ))
+                                    .toList(),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class AnniversaryMenuCard extends StatelessWidget {
+  const AnniversaryMenuCard({super.key, required this.item});
+
+  final Map<String, dynamic> item;
+
+  @override
+  Widget build(BuildContext context) {
+    final meals = anniversaryMenuMealNames(item);
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: SoftCard(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: const CircleAvatar(
+                child: Icon(Icons.celebration_outlined),
+              ),
+              title: Text(
+                textOf(item['title']).isEmpty ? '纪念日菜单' : textOf(item['title']),
+                style: const TextStyle(fontWeight: FontWeight.w900),
+              ),
+              subtitle: Text(
+                '${textOf(item['date']).split('T').first} · ${textOf(item['theme'])}',
+              ),
+            ),
+            if (textOf(item['description']).isNotEmpty) ...[
+              const SizedBox(height: 4),
+              Text(textOf(item['description'])),
+            ],
+            if (meals.isNotEmpty) ...[
+              const SizedBox(height: 10),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: meals
+                    .take(6)
+                    .map((item) => InfoChip(
+                          item,
+                          icon: Icons.restaurant_menu,
+                        ))
+                    .toList(),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+List<String> anniversaryMenuMealNames(Map<String, dynamic> item) {
+  final meals = asMap(item['meals']);
+  final names = <String>[];
+  for (final type in ['breakfast', 'lunch', 'dinner']) {
+    names.addAll(mealNames(meals[type]));
+  }
+  return names.where((item) => item.trim().isNotEmpty).toSet().toList();
 }
 
 class SettingsPage extends StatefulWidget {
