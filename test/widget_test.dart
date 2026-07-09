@@ -219,6 +219,60 @@ void main() {
     expect(ids, ['meal-a', 'meal-b', 'meal-c', 'meal-d']);
   });
 
+  test('weekly draft helpers remove meal from ids and preview', () {
+    final draft = {
+      'days': [
+        {
+          'date': '2026-07-06',
+          'meals': {
+            'breakfast': ['meal-a', 'meal-b'],
+            'lunch': ['meal-c'],
+            'dinner': []
+          }
+        }
+      ],
+      'preview': [
+        {
+          'date': '2026-07-06',
+          'meals': {
+            'breakfast': [
+              {'_id': 'meal-a', 'name': '番茄牛腩'},
+              {'_id': 'meal-b', 'name': '鸡蛋灌饼'}
+            ],
+            'lunch': [
+              {'_id': 'meal-c', 'name': '大盘鸡'}
+            ],
+            'dinner': []
+          }
+        }
+      ],
+    };
+
+    final initialEntries = planMealEntries(
+        asMap(asList(draft['preview']).first)['meals']['breakfast']);
+    expect(initialEntries.first['id'], 'meal-a');
+    expect(initialEntries.first['name'], '番茄牛腩');
+
+    final updated = removeMealFromWeeklyDraft(
+      draft,
+      date: '2026-07-06',
+      type: 'breakfast',
+      mealId: 'meal-a',
+    );
+    final updatedDays = asList(updated['days']).map(asMap).toList();
+    final updatedPreview = asList(updated['preview']).map(asMap).toList();
+
+    expect(
+      mealIdsFromPlanValue(asMap(updatedDays.first['meals'])['breakfast']),
+      ['meal-b'],
+    );
+    expect(
+      planMealEntries(asMap(updatedPreview.first['meals'])['breakfast'])
+          .map((item) => item['id']),
+      ['meal-b'],
+    );
+  });
+
   test('week helpers format ranges and relative labels', () {
     final sample = DateTime(2026, 7, 9);
     final currentWeek = mondayOf(DateTime.now());

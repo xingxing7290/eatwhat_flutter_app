@@ -2963,18 +2963,7 @@ List<String> mealIdsFromPlanValue(dynamic value) {
       ? asList(value['meals'] ?? value['mealIds'] ?? value['items'])
       : asList(value);
   for (final item in list) {
-    var id = '';
-    if (item is String) {
-      id = item;
-    } else {
-      final map = asMap(item);
-      final nestedMeal = asMap(map['meal']);
-      id = textOf(map['mealId'] ??
-          map['_id'] ??
-          map['id'] ??
-          nestedMeal['_id'] ??
-          nestedMeal['id']);
-    }
+    final id = planItemMealId(item);
     if (id.isNotEmpty && !result.contains(id)) {
       result.add(id);
     }
@@ -5311,6 +5300,21 @@ class _WeeklyPlanPageState extends State<WeeklyPlanPage> {
         future = load();
       });
 
+  void removeDraftMeal(String date, String type, String mealId) {
+    final current = draft;
+    if (current == null) {
+      return;
+    }
+    setState(() {
+      draft = removeMealFromWeeklyDraft(
+        current,
+        date: date,
+        type: type,
+        mealId: mealId,
+      );
+    });
+  }
+
   Future<void> generate() async {
     setState(() => busy = true);
     try {
@@ -5413,9 +5417,12 @@ class _WeeklyPlanPageState extends State<WeeklyPlanPage> {
                 PlanBlock(title: '当前周计划', data: data),
                 if (draft != null) ...[
                   const SizedBox(height: 12),
-                  PlanBlock(title: '新生成草稿', data: {
-                    'days': draft!['preview'] ?? draft!['days'] ?? []
-                  }),
+                  PlanBlock(
+                    title: '新生成草稿',
+                    data: {'days': draft!['preview'] ?? draft!['days'] ?? []},
+                    editable: true,
+                    onRemoveMeal: removeDraftMeal,
+                  ),
                 ],
               ],
             );
@@ -5427,10 +5434,18 @@ class _WeeklyPlanPageState extends State<WeeklyPlanPage> {
 }
 
 class PlanBlock extends StatelessWidget {
-  const PlanBlock({super.key, required this.title, required this.data});
+  const PlanBlock({
+    super.key,
+    required this.title,
+    required this.data,
+    this.editable = false,
+    this.onRemoveMeal,
+  });
 
   final String title;
   final Map<String, dynamic> data;
+  final bool editable;
+  final void Function(String date, String type, String mealId)? onRemoveMeal;
 
   @override
   Widget build(BuildContext context) {
@@ -5454,10 +5469,36 @@ class PlanBlock extends StatelessWidget {
                   children: [
                     Text(textOf(day['date']),
                         style: const TextStyle(fontWeight: FontWeight.w900)),
-                    MealBadges(
-                        title: '早', value: planMealValue(day, 'breakfast')),
-                    MealBadges(title: '午', value: planMealValue(day, 'lunch')),
-                    MealBadges(title: '晚', value: planMealValue(day, 'dinner')),
+                    if (editable) ...[
+                      PlanMealEditorRow(
+                        title: '早',
+                        type: 'breakfast',
+                        date: textOf(day['date']),
+                        value: planMealValue(day, 'breakfast'),
+                        onRemoveMeal: onRemoveMeal,
+                      ),
+                      PlanMealEditorRow(
+                        title: '午',
+                        type: 'lunch',
+                        date: textOf(day['date']),
+                        value: planMealValue(day, 'lunch'),
+                        onRemoveMeal: onRemoveMeal,
+                      ),
+                      PlanMealEditorRow(
+                        title: '晚',
+                        type: 'dinner',
+                        date: textOf(day['date']),
+                        value: planMealValue(day, 'dinner'),
+                        onRemoveMeal: onRemoveMeal,
+                      ),
+                    ] else ...[
+                      MealBadges(
+                          title: '早', value: planMealValue(day, 'breakfast')),
+                      MealBadges(
+                          title: '午', value: planMealValue(day, 'lunch')),
+                      MealBadges(
+                          title: '晚', value: planMealValue(day, 'dinner')),
+                    ],
                   ],
                 ),
               );
@@ -5471,6 +5512,158 @@ class PlanBlock extends StatelessWidget {
 dynamic planMealValue(Map<String, dynamic> day, String type) {
   final meals = asMap(day['meals']);
   return day[type] ?? meals[type] ?? const [];
+}
+
+class PlanMealEditorRow extends StatelessWidget {
+  const PlanMealEditorRow({
+    super.key,
+    required this.title,
+    required this.type,
+    required this.date,
+    required this.value,
+    this.onRemoveMeal,
+  });
+
+  final String title;
+  final String type;
+  final String date;
+  final dynamic value;
+  final void Function(String date, String type, String mealId)? onRemoveMeal;
+
+  @override
+  Widget build(BuildContext context) {
+    final entries = planMealEntries(value);
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: Icon(mealIcon(title), size: 16, color: kCaramel),
+          ),
+          const SizedBox(width: 6),
+          Padding(
+            padding: const EdgeInsets.only(top: 7),
+            child: Text(
+              title,
+              style: const TextStyle(
+                color: kCocoa,
+                fontSize: 12,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: entries.isEmpty
+                ? const Padding(
+                    padding: EdgeInsets.only(top: 8),
+                    child: Text(
+                      '待定',
+                      style: TextStyle(
+                        color: Color(0xFF9E8D83),
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  )
+                : Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: entries.map((entry) {
+                      final mealId = entry['id'] ?? '';
+                      return InputChip(
+                        label: Text(entry['name'] ?? mealId),
+                        onDeleted: mealId.isEmpty || onRemoveMeal == null
+                            ? null
+                            : () => onRemoveMeal!(date, type, mealId),
+                      );
+                    }).toList(),
+                  ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+List<Map<String, String>> planMealEntries(dynamic value) {
+  final list = value is Map
+      ? asList(value['meals'] ?? value['mealIds'] ?? value['items'])
+      : asList(value);
+  return list
+      .map((item) {
+        final id = planItemMealId(item);
+        final name = planItemMealName(item);
+        return {
+          'id': id,
+          'name': name.isEmpty ? id : name,
+        };
+      })
+      .where((item) =>
+          (item['id'] ?? '').isNotEmpty || (item['name'] ?? '').isNotEmpty)
+      .toList();
+}
+
+String planItemMealId(dynamic item) {
+  if (item is String) {
+    return item;
+  }
+  final map = asMap(item);
+  final nestedMeal = asMap(map['meal']);
+  final nestedId = idOf(nestedMeal);
+  if (nestedId.isNotEmpty) {
+    return nestedId;
+  }
+  final directId = idOf(map);
+  if (directId.isNotEmpty) {
+    return directId;
+  }
+  return textOf(map['mealId'] ?? map['id'] ?? item);
+}
+
+String planItemMealName(dynamic item) {
+  if (item is String) {
+    return item;
+  }
+  final map = asMap(item);
+  final nestedMeal = asMap(map['meal']);
+  return textOf(map['name'] ??
+      map['title'] ??
+      nestedMeal['name'] ??
+      nestedMeal['title'] ??
+      item);
+}
+
+Map<String, dynamic> removeMealFromWeeklyDraft(
+  Map<String, dynamic> draft, {
+  required String date,
+  required String type,
+  required String mealId,
+}) {
+  final result = Map<String, dynamic>.from(draft);
+  for (final key in ['days', 'preview', 'plan']) {
+    if (!result.containsKey(key)) {
+      continue;
+    }
+    result[key] = asList(result[key]).map((rawDay) {
+      final day = Map<String, dynamic>.from(asMap(rawDay));
+      if (textOf(day['date']).split('T').first != date) {
+        return day;
+      }
+      final meals = Map<String, dynamic>.from(asMap(day['meals']));
+      final current = asList(day[type] ?? meals[type]);
+      final filtered =
+          current.where((item) => planItemMealId(item) != mealId).toList();
+      if (day.containsKey(type)) {
+        day[type] = filtered;
+      }
+      meals[type] = filtered;
+      day['meals'] = meals;
+      return day;
+    }).toList();
+  }
+  return result;
 }
 
 class ShoppingListPage extends StatefulWidget {
