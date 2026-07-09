@@ -3682,6 +3682,12 @@ Future<void> toggleMealFavorite(
   }
 }
 
+String mealDeleteConfirmMessage(Map<String, dynamic> meal) {
+  final name = textOf(meal['name']);
+  final target = name.isEmpty ? '这道菜' : '「$name」';
+  return '确定删除$target吗？日历和饭后回忆里已经关联的历史记录不会自动清理。';
+}
+
 class MealCard extends StatelessWidget {
   const MealCard({
     super.key,
@@ -3952,6 +3958,29 @@ class _MealDetailPageState extends State<MealDetailPage> {
     }
   }
 
+  Future<void> deleteMeal(Map<String, dynamic> meal) async {
+    final confirmed = await confirmDialog(
+      context,
+      title: '删除菜品',
+      message: mealDeleteConfirmMessage(meal),
+      confirmText: '删除',
+    );
+    if (!confirmed || !mounted) {
+      return;
+    }
+    try {
+      await context.appRead.delete('/meals/${widget.mealId}');
+      if (mounted) {
+        showMessage(context, '已删除菜品');
+        Navigator.pop(context, true);
+      }
+    } catch (error) {
+      if (mounted) {
+        showMessage(context, errorText(error));
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -4115,6 +4144,11 @@ class _MealDetailPageState extends State<MealDetailPage> {
                             },
                             icon: const Icon(Icons.edit_outlined),
                             label: const Text('编辑'),
+                          ),
+                          TextButton.icon(
+                            onPressed: () => deleteMeal(meal),
+                            icon: const Icon(Icons.delete_outline),
+                            label: const Text('删除菜品'),
                           ),
                           OutlinedButton.icon(
                             onPressed: () =>

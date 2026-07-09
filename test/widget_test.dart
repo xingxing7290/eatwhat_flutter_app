@@ -236,6 +236,17 @@ void main() {
     );
   });
 
+  test('meal delete confirm message names the target safely', () {
+    expect(
+      mealDeleteConfirmMessage({'name': '番茄牛腩'}),
+      contains('「番茄牛腩」'),
+    );
+    expect(
+      mealDeleteConfirmMessage({}),
+      contains('这道菜'),
+    );
+  });
+
   test('weekly draft helpers remove meal from ids and preview', () {
     final draft = {
       'days': [
