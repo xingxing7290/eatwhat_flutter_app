@@ -3848,15 +3848,27 @@ class MealDetailPage extends StatefulWidget {
 
 class _MealDetailPageState extends State<MealDetailPage> {
   late Future<dynamic> future;
+  late Future<dynamic> memoriesFuture;
 
   @override
   void initState() {
     super.initState();
-    future = context.appRead.get('/meals/${widget.mealId}');
+    future = loadMeal();
+    memoriesFuture = loadMemories();
   }
 
   void reload() => setState(() {
-        future = context.appRead.get('/meals/${widget.mealId}');
+        future = loadMeal();
+        memoriesFuture = loadMemories();
+      });
+
+  Future<dynamic> loadMeal() => context.appRead.get('/meals/${widget.mealId}');
+
+  Future<dynamic> loadMemories() =>
+      context.appRead.get('/memories', query: {'mealId': widget.mealId});
+
+  void reloadMemories() => setState(() {
+        memoriesFuture = loadMemories();
       });
 
   Future<void> scheduleTodayDinner(Map<String, dynamic> meal) async {
@@ -4012,6 +4024,7 @@ class _MealDetailPageState extends State<MealDetailPage> {
                                 ),
                               );
                               if (changed == true && mounted) {
+                                reloadMemories();
                                 showMessage(context, '已记录这顿饭');
                               }
                             },
@@ -4086,6 +4099,11 @@ class _MealDetailPageState extends State<MealDetailPage> {
                       ],
                     ),
                   ),
+                const SizedBox(height: 12),
+                MealRelatedMemoriesSection(
+                  future: memoriesFuture,
+                  onRetry: reloadMemories,
+                ),
               ],
             );
           },
@@ -4093,6 +4111,81 @@ class _MealDetailPageState extends State<MealDetailPage> {
       ),
     );
   }
+}
+
+class MealRelatedMemoriesSection extends StatelessWidget {
+  const MealRelatedMemoriesSection({
+    super.key,
+    required this.future,
+    required this.onRetry,
+  });
+
+  final Future<dynamic> future;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return SoftCard(
+      child: FutureBuilder<dynamic>(
+        future: future,
+        builder: (context, snapshot) {
+          const title = SectionTitle(
+              icon: Icons.auto_stories_outlined, title: '这道菜的饭后回忆');
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                SectionTitle(
+                    icon: Icons.auto_stories_outlined, title: '这道菜的饭后回忆'),
+                SizedBox(height: 12),
+                LinearProgressIndicator(minHeight: 3),
+              ],
+            );
+          }
+          if (snapshot.hasError) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                title,
+                const SizedBox(height: 10),
+                Text(errorText(snapshot.error!)),
+                const SizedBox(height: 10),
+                OutlinedButton.icon(
+                  onPressed: onRetry,
+                  icon: const Icon(Icons.refresh_outlined),
+                  label: const Text('重新加载'),
+                ),
+              ],
+            );
+          }
+          final memories = mealRelatedMemoryItems(snapshot.data);
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              title,
+              const SizedBox(height: 10),
+              if (memories.isEmpty)
+                const Text('这道菜还没有饭后回忆，做过一次后会自动出现在这里。')
+              else
+                ...memories.map((memory) => MemoryCard(memory: memory)),
+            ],
+          );
+        },
+      ),
+    );
+  }
+}
+
+List<Map<String, dynamic>> mealRelatedMemoryItems(dynamic response,
+    {int limit = 3}) {
+  final items = memoryListFrom(response)
+      .map(asMap)
+      .where((item) => item.isNotEmpty)
+      .toList();
+  if (limit <= 0) {
+    return items;
+  }
+  return items.take(limit).toList();
 }
 
 List<Widget> ingredientWidgets(dynamic value) {

@@ -369,6 +369,31 @@ void main() {
     expect(photos.last['title'], '周末晚餐');
   });
 
+  test('mealRelatedMemoryItems reads wrapped memories and limits preview', () {
+    final memories = mealRelatedMemoryItems({
+      'memories': [
+        {'_id': 'memory-a', 'title': 'first'},
+        {},
+        {'_id': 'memory-b', 'title': 'second'},
+        {'_id': 'memory-c', 'title': 'third'},
+        {'_id': 'memory-d', 'title': 'fourth'},
+      ]
+    });
+
+    expect(memories.map((item) => item['_id']),
+        ['memory-a', 'memory-b', 'memory-c']);
+    expect(
+      mealRelatedMemoryItems({
+        'memories': [
+          {'_id': 'memory-a'},
+          {'_id': 'memory-b'},
+        ]
+      }, limit: 0)
+          .map((item) => item['_id']),
+      ['memory-a', 'memory-b'],
+    );
+  });
+
   test('photoMealNames extracts populated meal names', () {
     final names = photoMealNames({
       'meals': [
