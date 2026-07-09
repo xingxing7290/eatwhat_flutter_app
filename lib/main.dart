@@ -7273,6 +7273,10 @@ String householdInviteCode(Map<String, dynamic> household) {
   return friendlyText(household['inviteCode']).toUpperCase();
 }
 
+String normalizeInviteCode(String value) {
+  return value.trim().replaceAll(RegExp(r'\s+'), '').toUpperCase();
+}
+
 List<Map<String, dynamic>> householdMembers(Map<String, dynamic> household) {
   return asList(household['members'])
       .map(asMap)
@@ -7348,6 +7352,38 @@ class _SettingsPageState extends State<SettingsPage> {
       final code = householdInviteCode(context.appRead.household ?? const {});
       if (mounted) {
         showMessage(context, code.isEmpty ? '已刷新邀请码' : '新邀请码：$code');
+      }
+    } catch (error) {
+      if (mounted) {
+        showMessage(context, errorText(error));
+      }
+    }
+  }
+
+  Future<void> joinHousehold() async {
+    final rawCode = await textDialog(
+      context,
+      title: '加入 TA 的小家',
+      hint: '输入 TA 发给你的 6 位邀请码',
+    );
+    final code = normalizeInviteCode(rawCode ?? '');
+    if (code.isEmpty) {
+      return;
+    }
+    final confirmed = await confirmDialog(
+      context,
+      title: '确认加入小家',
+      message: '加入后会切换到对方的小家，共享菜谱、日历、回忆和购物清单。确认继续吗？',
+      confirmText: '加入',
+    );
+    if (!confirmed) {
+      return;
+    }
+    try {
+      await context.appRead.post('/household/join', body: {'inviteCode': code});
+      await context.appRead.refreshMe();
+      if (mounted) {
+        showMessage(context, '已加入 ${context.appRead.householdName}');
       }
     } catch (error) {
       if (mounted) {
@@ -7524,6 +7560,11 @@ class _SettingsPageState extends State<SettingsPage> {
                     onPressed: updateHousehold,
                     icon: const Icon(Icons.home_work_outlined),
                     label: const Text('修改小家'),
+                  ),
+                  OutlinedButton.icon(
+                    onPressed: joinHousehold,
+                    icon: const Icon(Icons.group_add_outlined),
+                    label: const Text('加入小家'),
                   ),
                   OutlinedButton.icon(
                     onPressed: () => context.appRead.logout(),

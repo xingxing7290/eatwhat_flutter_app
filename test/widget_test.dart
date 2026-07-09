@@ -196,6 +196,7 @@ void main() {
     };
 
     expect(householdInviteCode(household), '00B1CE');
+    expect(normalizeInviteCode(' 00 b1 ce '), '00B1CE');
     expect(householdMembers(household), hasLength(2));
     expect(householdMemberName(householdMembers(household).last), '星星');
   });
