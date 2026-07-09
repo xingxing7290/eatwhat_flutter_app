@@ -436,6 +436,19 @@ void main() {
     expect(shoppingCategoryFor('椰奶'), 'other');
   });
 
+  test('shopping item draft normalizes manual entry fields', () {
+    expect(normalizedShoppingCategory('vegetable'), 'vegetable');
+    expect(normalizedShoppingCategory('unknown'), 'other');
+
+    final draft = shoppingItemDraftFromText('鸡蛋 10个', category: 'meat_egg');
+    expect(draft, isNotNull);
+    expect(draft!['name'], '鸡蛋');
+    expect(draft['amount'], '10个');
+    expect(draft['category'], 'meat_egg');
+
+    expect(shoppingItemDraftFromText('   '), isNull);
+  });
+
   test('food focus renderer highlights center subject', () {
     final source = img.Image(width: 48, height: 48);
     for (var y = 0; y < source.height; y += 1) {

@@ -5514,17 +5514,18 @@ class _ShoppingListPageState extends State<ShoppingListPage> {
   }
 
   Future<void> addItem() async {
-    final text = await textDialog(context, title: '补充采购项', hint: '例如：鸡蛋 10个');
-    if (text == null || text.trim().isEmpty) {
+    final draft = await shoppingItemDialog(
+      context,
+      title: '补充采购项',
+      initialCategory: 'other',
+    );
+    if (draft == null) {
       return;
     }
-    final parts = text.trim().split(RegExp(r'\s+'));
     try {
       await context.appRead.post('/shopping-list/items', body: {
         'weekStart': dateString(weekStart),
-        'name': parts.first,
-        'amount': parts.length > 1 ? parts.sublist(1).join(' ') : '',
-        'category': 'other',
+        ...draft,
       });
       reload();
     } catch (error) {
@@ -5659,6 +5660,120 @@ String shoppingCategoryLabel(dynamic value) {
   }
 }
 
+const List<String> kShoppingCategoryValues = [
+  'vegetable',
+  'meat_egg',
+  'staple',
+  'seasoning',
+  'other',
+];
+
+String normalizedShoppingCategory(dynamic value) {
+  final category = textOf(value);
+  return kShoppingCategoryValues.contains(category) ? category : 'other';
+}
+
+Map<String, String>? shoppingItemDraftFromText(
+  String value, {
+  String category = 'other',
+}) {
+  final text = value.trim();
+  if (text.isEmpty) {
+    return null;
+  }
+  final parts = text.split(RegExp(r'\s+'));
+  final name = parts.first.trim();
+  if (name.isEmpty) {
+    return null;
+  }
+  final amount = parts.length > 1 ? parts.sublist(1).join(' ').trim() : '';
+  return {
+    'name': name,
+    'amount': amount,
+    'category': normalizedShoppingCategory(category),
+  };
+}
+
+Future<Map<String, String>?> shoppingItemDialog(
+  BuildContext context, {
+  required String title,
+  String initialName = '',
+  String initialAmount = '',
+  String initialCategory = 'other',
+}) async {
+  final nameController = TextEditingController(text: initialName);
+  final amountController = TextEditingController(text: initialAmount);
+  var category = normalizedShoppingCategory(initialCategory);
+  String? error;
+
+  try {
+    return await showDialog<Map<String, String>>(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) => AlertDialog(
+          title: Text(title),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: nameController,
+                autofocus: true,
+                decoration: InputDecoration(
+                  labelText: '食材名称',
+                  errorText: error,
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: amountController,
+                decoration: const InputDecoration(labelText: '数量，例如 10个'),
+              ),
+              const SizedBox(height: 12),
+              DropdownButtonFormField<String>(
+                value: category,
+                decoration: const InputDecoration(labelText: '分类'),
+                items: kShoppingCategoryValues
+                    .map((item) => DropdownMenuItem(
+                          value: item,
+                          child: Text(shoppingCategoryLabel(item)),
+                        ))
+                    .toList(),
+                onChanged: (value) => setState(
+                  () => category = normalizedShoppingCategory(value),
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('取消'),
+            ),
+            FilledButton(
+              onPressed: () {
+                final name = nameController.text.trim();
+                if (name.isEmpty) {
+                  setState(() => error = '请填写食材名称');
+                  return;
+                }
+                Navigator.pop(context, {
+                  'name': name,
+                  'amount': amountController.text.trim(),
+                  'category': category,
+                });
+              },
+              child: const Text('保存'),
+            ),
+          ],
+        ),
+      ),
+    );
+  } finally {
+    nameController.dispose();
+    amountController.dispose();
+  }
+}
+
 class ShoppingGroup extends StatelessWidget {
   const ShoppingGroup({
     super.key,
@@ -5686,25 +5801,65 @@ class ShoppingGroup extends StatelessWidget {
               final id = idOf(item);
               final checked =
                   item['checked'] == true || item['purchased'] == true;
+              final amount = textOf(item['amount']);
+              final category = normalizedShoppingCategory(item['category']);
+              final subtitle = [
+                if (amount.isNotEmpty) amount,
+                shoppingCategoryLabel(category),
+              ].join(' · ');
               return CheckboxListTile(
                 value: checked,
                 title: Text(textOf(item['name'])),
-                subtitle: Text(textOf(item['amount'])),
-                secondary: IconButton(
-                  icon: const Icon(Icons.delete_outline),
-                  onPressed: () async {
-                    try {
-                      await context.appRead
-                          .delete('/shopping-list/items/$id', query: {
-                        'weekStart': dateString(weekStart),
-                      });
-                      onChanged();
-                    } catch (error) {
-                      if (context.mounted) {
-                        showMessage(context, errorText(error));
-                      }
-                    }
-                  },
+                subtitle: Text(subtitle),
+                secondary: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    IconButton(
+                      tooltip: '编辑',
+                      icon: const Icon(Icons.edit_outlined),
+                      onPressed: () async {
+                        final draft = await shoppingItemDialog(
+                          context,
+                          title: '编辑采购项',
+                          initialName: textOf(item['name']),
+                          initialAmount: amount,
+                          initialCategory: category,
+                        );
+                        if (draft == null) {
+                          return;
+                        }
+                        try {
+                          await context.appRead
+                              .patch('/shopping-list/items/$id', body: {
+                            'weekStart': dateString(weekStart),
+                            ...draft,
+                          });
+                          onChanged();
+                        } catch (error) {
+                          if (context.mounted) {
+                            showMessage(context, errorText(error));
+                          }
+                        }
+                      },
+                    ),
+                    IconButton(
+                      tooltip: '删除',
+                      icon: const Icon(Icons.delete_outline),
+                      onPressed: () async {
+                        try {
+                          await context.appRead
+                              .delete('/shopping-list/items/$id', query: {
+                            'weekStart': dateString(weekStart),
+                          });
+                          onChanged();
+                        } catch (error) {
+                          if (context.mounted) {
+                            showMessage(context, errorText(error));
+                          }
+                        }
+                      },
+                    ),
+                  ],
                 ),
                 onChanged: (value) async {
                   try {
