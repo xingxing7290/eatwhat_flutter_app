@@ -1194,6 +1194,29 @@ String two(int value) => value.toString().padLeft(2, '0');
 String dateString(DateTime value) =>
     '${value.year}-${two(value.month)}-${two(value.day)}';
 String monthString(DateTime value) => '${value.year}-${two(value.month)}';
+String monthTitleLabel(DateTime value) => '${value.year} 年 ${value.month} 月';
+
+DateTime monthOnly(DateTime value) => DateTime(value.year, value.month);
+
+DateTime addMonths(DateTime value, int months) =>
+    DateTime(value.year, value.month + months);
+
+String monthRelativeLabel(DateTime value) {
+  final current = monthOnly(DateTime.now());
+  final target = monthOnly(value);
+  final diff =
+      (target.year - current.year) * 12 + (target.month - current.month);
+  if (diff == 0) {
+    return '本月';
+  }
+  if (diff == -1) {
+    return '上月';
+  }
+  if (diff == 1) {
+    return '下月';
+  }
+  return diff > 0 ? '$diff 个月后' : '${diff.abs()} 个月前';
+}
 
 String dateTimeMinuteText(DateTime? value) {
   if (value == null) {
@@ -5135,6 +5158,79 @@ class WeekSwitcher extends StatelessWidget {
   }
 }
 
+class MonthSwitcher extends StatelessWidget {
+  const MonthSwitcher({
+    super.key,
+    required this.month,
+    required this.onChanged,
+    this.suffix = '',
+  });
+
+  final DateTime month;
+  final ValueChanged<DateTime> onChanged;
+  final String suffix;
+
+  @override
+  Widget build(BuildContext context) {
+    final isCurrentMonth = monthOnly(month) == monthOnly(DateTime.now());
+    final title = suffix.isEmpty
+        ? monthTitleLabel(month)
+        : '${monthTitleLabel(month)} · $suffix';
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: kOat.withValues(alpha: 0.44),
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: kLine),
+      ),
+      child: Row(
+        children: [
+          IconButton.filledTonal(
+            tooltip: '上个月',
+            onPressed: () => onChanged(addMonths(month, -1)),
+            icon: const Icon(Icons.chevron_left),
+          ),
+          Expanded(
+            child: Column(
+              children: [
+                Text(
+                  title,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w900,
+                    color: kCoffee,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  monthRelativeLabel(month),
+                  style: const TextStyle(
+                    color: kCocoa,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          IconButton.filledTonal(
+            tooltip: '下个月',
+            onPressed: () => onChanged(addMonths(month, 1)),
+            icon: const Icon(Icons.chevron_right),
+          ),
+          if (!isCurrentMonth) ...[
+            const SizedBox(width: 6),
+            TextButton(
+              onPressed: () => onChanged(monthOnly(DateTime.now())),
+              child: const Text('本月'),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
 class WeeklyPlanPage extends StatefulWidget {
   const WeeklyPlanPage({super.key});
 
@@ -5793,6 +5889,92 @@ class _PhotoAlbumPageState extends State<PhotoAlbumPage> {
         future = load();
       });
 
+  void setMonth(DateTime value) => setState(() {
+        month = monthOnly(value);
+        future = load();
+      });
+
+  void showPhotoDetail(Map<String, dynamic> photo) {
+    final url = imageUrl(photo['url'] ?? photo['photo'] ?? photo['src']);
+    final title =
+        textOf(photo['title']).isEmpty ? '一张饭桌照片' : textOf(photo['title']);
+    final date = textOf(photo['date']).split('T').first;
+    final mood = textOf(photo['mood']);
+    final note = textOf(photo['note'] ?? photo['remark']);
+    final meals = photoMealNames(photo);
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => SafeArea(
+        child: SingleChildScrollView(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+            child: SoftCard(
+              padding: EdgeInsets.zero,
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(30),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    AspectRatio(
+                      aspectRatio: 16 / 11,
+                      child: RemoteImage(url: url),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.all(18),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            title,
+                            style: Theme.of(context)
+                                .textTheme
+                                .titleLarge
+                                ?.copyWith(fontWeight: FontWeight.w900),
+                          ),
+                          const SizedBox(height: 8),
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            children: [
+                              if (date.isNotEmpty)
+                                InfoChip(date, icon: Icons.calendar_today),
+                              if (mood.isNotEmpty)
+                                InfoChip(mood, icon: Icons.favorite_outline),
+                              ...meals.take(3).map((item) => InfoChip(
+                                    item,
+                                    icon: Icons.restaurant_menu,
+                                  )),
+                            ],
+                          ),
+                          if (note.isNotEmpty) ...[
+                            const SizedBox(height: 12),
+                            Text(note),
+                          ],
+                          const SizedBox(height: 12),
+                          Align(
+                            alignment: Alignment.centerRight,
+                            child: TextButton.icon(
+                              onPressed: () => Navigator.pop(context),
+                              icon: const Icon(Icons.close),
+                              label: const Text('收起'),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -5810,46 +5992,68 @@ class _PhotoAlbumPageState extends State<PhotoAlbumPage> {
                   message: errorText(snapshot.error!), onRetry: reload);
             }
             final photos = photoItems(snapshot.data);
-            if (photos.isEmpty) {
-              return ListView(
+            return RefreshIndicator(
+              onRefresh: () async => reload(),
+              child: ListView(
                 padding: const EdgeInsets.all(16),
-                children: const [
-                  EmptyState(title: '这个月还没有饭桌照片'),
-                ],
-              );
-            }
-            return GridView.builder(
-              padding: const EdgeInsets.all(16),
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 2,
-                crossAxisSpacing: 12,
-                mainAxisSpacing: 12,
-              ),
-              itemCount: photos.length,
-              itemBuilder: (context, index) {
-                final photo = photos[index];
-                return HoverLift(
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(24),
-                    child: GridTile(
-                      footer: Container(
-                        color: kCoffee.withValues(alpha: 0.62),
-                        padding: const EdgeInsets.all(8),
-                        child: Text(
-                          textOf(photo['title'] ?? photo['date']),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                              color: Colors.white, fontWeight: FontWeight.w800),
-                        ),
-                      ),
-                      child: RemoteImage(
-                          url: imageUrl(
-                              photo['url'] ?? photo['photo'] ?? photo['src'])),
+                children: [
+                  SoftCard(
+                    child: MonthSwitcher(
+                      month: month,
+                      suffix: '饭桌相册',
+                      onChanged: setMonth,
                     ),
                   ),
-                );
-              },
+                  const SizedBox(height: 12),
+                  if (photos.isEmpty)
+                    const EmptyState(title: '这个月还没有饭桌照片')
+                  else
+                    GridView.builder(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      gridDelegate:
+                          const SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: 2,
+                        crossAxisSpacing: 12,
+                        mainAxisSpacing: 12,
+                      ),
+                      itemCount: photos.length,
+                      itemBuilder: (context, index) {
+                        final photo = photos[index];
+                        return HoverLift(
+                          child: InkWell(
+                            borderRadius: BorderRadius.circular(24),
+                            onTap: () => showPhotoDetail(photo),
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(24),
+                              child: GridTile(
+                                footer: Container(
+                                  color: kCoffee.withValues(alpha: 0.62),
+                                  padding: const EdgeInsets.all(8),
+                                  child: Text(
+                                    textOf(photo['title']).isEmpty
+                                        ? textOf(photo['date'])
+                                        : textOf(photo['title']),
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.w800,
+                                    ),
+                                  ),
+                                ),
+                                child: RemoteImage(
+                                    url: imageUrl(photo['url'] ??
+                                        photo['photo'] ??
+                                        photo['src'])),
+                              ),
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                ],
+              ),
             );
           },
         ),
@@ -5869,6 +6073,18 @@ List<Map<String, dynamic>> photoItems(dynamic response) {
     }
     return asMap(item);
   }).toList();
+}
+
+List<String> photoMealNames(Map<String, dynamic> photo) {
+  final names = <String>[
+    ...mealNames(photo['meals'] ?? photo['mealIds']),
+  ];
+  final singleMeal = asMap(photo['meal']);
+  final singleName = textOf(singleMeal['name'] ?? singleMeal['title']);
+  if (singleName.isNotEmpty) {
+    names.add(singleName);
+  }
+  return names.where((item) => item.trim().isNotEmpty).toSet().toList();
 }
 
 enum ReviewScope { month, year }

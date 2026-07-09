@@ -161,6 +161,44 @@ void main() {
     expect(weekRelativeLabel(addWeeks(currentWeek, 1)), '下周');
   });
 
+  test('month helpers format relative labels and roll over years', () {
+    final sample = DateTime(2026, 12, 15);
+    final currentMonth = monthOnly(DateTime.now());
+
+    expect(monthString(sample), '2026-12');
+    expect(monthTitleLabel(sample), '2026 年 12 月');
+    expect(monthString(addMonths(sample, 1)), '2027-01');
+    expect(monthRelativeLabel(currentMonth), '本月');
+    expect(monthRelativeLabel(addMonths(currentMonth, -1)), '上月');
+    expect(monthRelativeLabel(addMonths(currentMonth, 1)), '下月');
+  });
+
+  test('photoItems accepts plain urls and object photos', () {
+    final photos = photoItems({
+      'photos': [
+        'http://113.44.50.108:3002/uploads/one.jpg',
+        {'photo': '/api/uploads/two.jpg', 'title': '周末晚餐'}
+      ]
+    });
+
+    expect(photos, hasLength(2));
+    expect(photos.first['url'], 'http://113.44.50.108:3002/uploads/one.jpg');
+    expect(photos.last['title'], '周末晚餐');
+  });
+
+  test('photoMealNames extracts populated meal names', () {
+    final names = photoMealNames({
+      'meals': [
+        {
+          'meal': {'name': '酸菜猪肉饺子'}
+        }
+      ],
+      'meal': {'name': '番茄牛腩'}
+    });
+
+    expect(names, ['酸菜猪肉饺子', '番茄牛腩']);
+  });
+
   test('wishlist meal helpers accept populated object and string id', () {
     expect(
       wishlistMealId({
