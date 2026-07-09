@@ -2657,6 +2657,32 @@ List<String> mealIdsFromPlanValue(dynamic value) {
   return result;
 }
 
+Future<void> appendMealToTodayDinner(
+  BuildContext context, {
+  required String mealId,
+  String mealName = '',
+}) async {
+  if (mealId.trim().isEmpty) {
+    showMessage(context, '这个想吃项还没有关联菜品，先把它建成菜谱再安排。');
+    return;
+  }
+  final app = context.appRead;
+  final today = dateString(DateTime.now());
+  final response = await app.get('/schedules/day/$today');
+  final schedule = asMap(payload(response));
+  final dinnerIds = mealIdsFromPlanValue(planMealValue(schedule, 'dinner'));
+  if (!dinnerIds.contains(mealId)) {
+    dinnerIds.add(mealId);
+  }
+  await app.put('/schedules/$today/dinner', body: {
+    'mealIds': dinnerIds,
+  });
+  if (context.mounted) {
+    final name = mealName.trim();
+    showMessage(context, name.isEmpty ? '已安排到今天晚餐' : '今晚就吃「$name」');
+  }
+}
+
 class ScheduleSheet extends StatefulWidget {
   const ScheduleSheet({
     super.key,
@@ -3339,21 +3365,12 @@ class _MealDetailPageState extends State<MealDetailPage> {
       });
 
   Future<void> scheduleTodayDinner(Map<String, dynamic> meal) async {
-    final today = dateString(DateTime.now());
     try {
-      final response = await context.appRead.get('/schedules/day/$today');
-      final schedule = asMap(payload(response));
-      final dinnerIds = mealIdsFromPlanValue(planMealValue(schedule, 'dinner'));
-      if (!dinnerIds.contains(widget.mealId)) {
-        dinnerIds.add(widget.mealId);
-      }
-      await context.appRead.put('/schedules/$today/dinner', body: {
-        'mealIds': dinnerIds,
-      });
-      if (mounted) {
-        final name = textOf(meal['name']).trim();
-        showMessage(context, name.isEmpty ? '已安排到今天晚餐' : '今晚就吃「$name」');
-      }
+      await appendMealToTodayDinner(
+        context,
+        mealId: widget.mealId,
+        mealName: textOf(meal['name']),
+      );
     } catch (error) {
       if (mounted) {
         showMessage(context, errorText(error));
@@ -5101,6 +5118,18 @@ List<Map<String, dynamic>> wishlistItems(dynamic response) {
   return items.map(asMap).toList();
 }
 
+String wishlistMealId(Map<String, dynamic> item) {
+  final meal = asMap(item['mealId'] ?? item['meal']);
+  final nestedId = idOf(meal);
+  return nestedId.isNotEmpty ? nestedId : textOf(item['mealId']);
+}
+
+String wishlistMealName(Map<String, dynamic> item) {
+  final meal = asMap(item['mealId'] ?? item['meal']);
+  final name = textOf(meal['name']);
+  return name.isNotEmpty ? name : textOf(item['title']);
+}
+
 class WishlistCard extends StatelessWidget {
   const WishlistCard({super.key, required this.item, required this.onChanged});
 
@@ -5110,6 +5139,7 @@ class WishlistCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final id = idOf(item);
+    final mealId = wishlistMealId(item);
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: SoftCard(
@@ -5144,6 +5174,27 @@ class WishlistCard extends StatelessWidget {
                   icon: const Icon(Icons.event_available_outlined),
                   label: const Text('标记已安排'),
                 ),
+                if (mealId.isNotEmpty)
+                  FilledButton.icon(
+                    onPressed: () async {
+                      try {
+                        await appendMealToTodayDinner(
+                          context,
+                          mealId: mealId,
+                          mealName: wishlistMealName(item),
+                        );
+                        await context.appRead.patch('/wishlist/$id/status',
+                            body: {'status': 'planned'});
+                        onChanged();
+                      } catch (error) {
+                        if (context.mounted) {
+                          showMessage(context, errorText(error));
+                        }
+                      }
+                    },
+                    icon: const Icon(Icons.dinner_dining_outlined),
+                    label: const Text('今晚安排'),
+                  ),
                 OutlinedButton.icon(
                   onPressed: () async {
                     await context.appRead.delete('/wishlist/$id');

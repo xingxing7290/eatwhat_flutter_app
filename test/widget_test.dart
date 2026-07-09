@@ -149,6 +149,25 @@ void main() {
     expect(ids, ['meal-a', 'meal-b', 'meal-c', 'meal-d']);
   });
 
+  test('wishlist meal helpers accept populated object and string id', () {
+    expect(
+      wishlistMealId({
+        'title': '想吃番茄牛腩',
+        'mealId': {'_id': 'meal-a', 'name': '番茄牛腩'}
+      }),
+      'meal-a',
+    );
+    expect(
+      wishlistMealName({
+        'title': '想吃番茄牛腩',
+        'mealId': {'_id': 'meal-a', 'name': '番茄牛腩'}
+      }),
+      '番茄牛腩',
+    );
+    expect(wishlistMealId({'title': '手写愿望', 'mealId': 'meal-b'}), 'meal-b');
+    expect(wishlistMealName({'title': '手写愿望', 'mealId': 'meal-b'}), '手写愿望');
+  });
+
   test('food focus renderer highlights center subject', () {
     final source = img.Image(width: 48, height: 48);
     for (var y = 0; y < source.height; y += 1) {
