@@ -2795,6 +2795,7 @@ class TodayScheduleCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final recordTypes = recordableMealTypes;
+    final balanceHints = scheduleBalanceHints(schedule);
     return SoftCard(
       gradient: const LinearGradient(
         colors: [Color(0xFFFFFCF7), Color(0xFFFFEFE7)],
@@ -2848,6 +2849,17 @@ class TodayScheduleCard extends StatelessWidget {
           MealBadges(title: '早', value: planMealValue(schedule, 'breakfast')),
           MealBadges(title: '午', value: planMealValue(schedule, 'lunch')),
           MealBadges(title: '晚', value: planMealValue(schedule, 'dinner')),
+          if (balanceHints.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: balanceHints
+                  .take(3)
+                  .map((hint) => InfoChip(hint, icon: Icons.eco_outlined))
+                  .toList(),
+            ),
+          ],
           if (!hasMeals) ...[
             const SizedBox(height: 6),
             const Text(
@@ -3299,6 +3311,67 @@ List<String> scheduleMealIdsFor(Map<String, dynamic> schedule, String type) {
 List<String> scheduleMealTypesWithMeals(Map<String, dynamic> schedule) {
   return mealTypes
       .where((type) => scheduleMealIdsFor(schedule, type).isNotEmpty)
+      .toList();
+}
+
+List<String> scheduleMealTagTexts(Map<String, dynamic> schedule) {
+  final values = <String>[];
+  for (final type in mealTypes) {
+    final items = planMealValue(schedule, type);
+    final list = items is Map
+        ? asList(items['meals'] ?? items['mealIds'] ?? items['items'])
+        : asList(items);
+    for (final item in list) {
+      final map = asMap(item);
+      final meal = asMap(map['meal']);
+      final source = meal.isNotEmpty ? meal : map;
+      for (final key in ['healthTags', 'tags', 'flavors', 'tasteTags']) {
+        values.addAll(asList(source[key]).map(friendlyText));
+      }
+      for (final key in ['taste', 'category', 'subcategory']) {
+        values.add(friendlyText(source[key]));
+      }
+    }
+  }
+  return values.where((item) => item.isNotEmpty).toSet().toList();
+}
+
+bool textContainsAny(String text, List<String> needles) {
+  return needles.any(text.contains);
+}
+
+List<String> scheduleBalanceHints(Map<String, dynamic> schedule) {
+  final hints = <String>[...planHints(schedule)];
+  final arrangedTypes = scheduleMealTypesWithMeals(schedule);
+  final tags = scheduleMealTagTexts(schedule);
+  if (arrangedTypes.length >= 2 && tags.isNotEmpty) {
+    final hasVegetable = tags.any(
+      (tag) => textContainsAny(tag, const ['蔬菜', '青菜', '素', '清淡', '少油', '高纤']),
+    );
+    final hasProtein = tags.any(
+      (tag) => textContainsAny(
+          tag, const ['高蛋白', '肉', '鸡', '牛', '鱼', '蛋', '虾', '豆']),
+    );
+    final heavyCount = tags
+        .where(
+          (tag) =>
+              textContainsAny(tag, const ['重口', '下饭', '香辣', '麻辣', '油炸', '红烧']),
+        )
+        .length;
+    if (!hasVegetable) {
+      hints.add('今天蔬菜偏少，补一份青菜更舒服');
+    }
+    if (heavyCount >= 2) {
+      hints.add('重口菜偏多，搭配清淡汤水');
+    }
+    if (!hasProtein) {
+      hints.add('蛋白质偏少，可以加蛋或豆制品');
+    }
+  }
+  return hints
+      .map(friendlyText)
+      .where((item) => item.isNotEmpty)
+      .toSet()
       .toList();
 }
 

@@ -315,6 +315,41 @@ void main() {
     expect(scheduleMemoryTitle('lunch'), '午餐饭后回忆');
   });
 
+  test('scheduleBalanceHints combines backend hints and health tags', () {
+    final schedule = {
+      'balanceHints': ['今天记得多喝水'],
+      'meals': {
+        'breakfast': [
+          {
+            'meal': {
+              '_id': 'meal-a',
+              'name': '油条',
+              'healthTags': ['重口', '下饭'],
+              'category': '面食主食',
+            }
+          }
+        ],
+        'lunch': [
+          {
+            'meal': {
+              '_id': 'meal-b',
+              'name': '炸酱面',
+              'tags': ['重口'],
+              'category': '面食主食',
+            }
+          }
+        ],
+      }
+    };
+
+    final hints = scheduleBalanceHints(schedule);
+
+    expect(hints, contains('今天记得多喝水'));
+    expect(hints, contains('今天蔬菜偏少，补一份青菜更舒服'));
+    expect(hints, contains('重口菜偏多，搭配清淡汤水'));
+    expect(hints, contains('蛋白质偏少，可以加蛋或豆制品'));
+  });
+
   test('meal favorite helpers build safe lightweight update fields', () {
     final meal = {'_id': 'meal-a', 'name': '番茄牛腩', 'favorite': true};
     final stringFavorite = {
