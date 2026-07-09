@@ -8545,6 +8545,37 @@ List<String> photoMealNames(Map<String, dynamic> photo) {
 
 enum ReviewScope { month, year }
 
+List<String> reviewNextStepHints(Map<String, dynamic> data) {
+  final summary = asMap(data['summary'] ?? data);
+  final planned = intValue(summary['plannedMealCount']);
+  final memories = intValue(summary['memoryCount']);
+  final photos = intValue(summary['photoCount']);
+  final wishlistOpen = intValue(summary['wishlistOpen']);
+  final topMeals = asList(data['topMeals']);
+  final hints = <String>[];
+
+  if (planned == 0) {
+    hints.add('先安排一顿这个周期最想吃的饭');
+  }
+  if (memories == 0) {
+    hints.add('吃完后补一条饭后回忆，留下今天的味道');
+  }
+  if (photos == 0) {
+    hints.add('下次开饭前拍一张饭桌照片');
+  }
+  if (wishlistOpen > 0) {
+    hints.add('把 1 个想吃愿望安排进最近的晚餐');
+  }
+  if (planned > 0 && topMeals.isEmpty) {
+    hints.add('多安排几顿后会形成常上桌菜榜');
+  }
+  if (hints.isEmpty) {
+    hints.add('给最喜欢的一道菜补充做法、照片或小技巧');
+  }
+
+  return hints.take(3).toList();
+}
+
 class TableReviewPage extends StatefulWidget {
   const TableReviewPage({super.key});
 
@@ -8619,6 +8650,7 @@ class _TableReviewPageState extends State<TableReviewPage> {
             final topMeals = asList(data['topMeals']).map(asMap).toList();
             final photos = asList(data['photos']).map(asMap).toList();
             final bestMemory = asMap(data['bestMemory']);
+            final nextSteps = reviewNextStepHints(data);
             return RefreshIndicator(
               onRefresh: () async => reload(),
               child: ListView(
@@ -8734,6 +8766,10 @@ class _TableReviewPageState extends State<TableReviewPage> {
                     ],
                   ),
                   const SizedBox(height: 14),
+                  if (nextSteps.isNotEmpty) ...[
+                    ReviewNextStepsCard(hints: nextSteps),
+                    const SizedBox(height: 14),
+                  ],
                   ReviewTopMealsCard(meals: topMeals),
                   const SizedBox(height: 14),
                   ReviewChipsCard(
@@ -8761,6 +8797,72 @@ class _TableReviewPageState extends State<TableReviewPage> {
             );
           },
         ),
+      ),
+    );
+  }
+}
+
+class ReviewNextStepsCard extends StatelessWidget {
+  const ReviewNextStepsCard({super.key, required this.hints});
+
+  final List<String> hints;
+
+  @override
+  Widget build(BuildContext context) {
+    return SoftCard(
+      gradient: const LinearGradient(
+        colors: [Color(0xFFFFF8EA), Color(0xFFFFE6D6)],
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const SectionTitle(
+            icon: Icons.flag_outlined,
+            title: '下个饭桌小目标',
+          ),
+          const SizedBox(height: 10),
+          ...hints.map(
+            (hint) => Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Icon(Icons.check_circle_outline,
+                      size: 18, color: kCoral),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      hint,
+                      style: const TextStyle(
+                        color: kCoffee,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 10,
+            runSpacing: 10,
+            children: [
+              OutlinedButton.icon(
+                onPressed: () => pushPage(context, const WeeklyPlanPage()),
+                icon: const Icon(Icons.calendar_view_week_outlined),
+                label: const Text('去排餐'),
+              ),
+              OutlinedButton.icon(
+                onPressed: () => pushPage(context, const MemoryEditPage()),
+                icon: const Icon(Icons.auto_stories_outlined),
+                label: const Text('记一顿饭'),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }

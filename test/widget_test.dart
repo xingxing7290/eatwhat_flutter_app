@@ -521,6 +521,50 @@ void main() {
     expect(weekRelativeLabel(addWeeks(currentWeek, 1)), '下周');
   });
 
+  test('reviewNextStepHints suggests useful follow-up actions', () {
+    expect(
+      reviewNextStepHints({
+        'summary': {
+          'plannedMealCount': 0,
+          'memoryCount': 0,
+          'photoCount': 0,
+          'wishlistOpen': 2,
+        }
+      }),
+      [
+        '先安排一顿这个周期最想吃的饭',
+        '吃完后补一条饭后回忆，留下今天的味道',
+        '下次开饭前拍一张饭桌照片',
+      ],
+    );
+    expect(
+      reviewNextStepHints({
+        'summary': {
+          'plannedMealCount': 4,
+          'memoryCount': 2,
+          'photoCount': 1,
+          'wishlistOpen': 1,
+        },
+        'topMeals': [],
+      }),
+      ['把 1 个想吃愿望安排进最近的晚餐', '多安排几顿后会形成常上桌菜榜'],
+    );
+    expect(
+      reviewNextStepHints({
+        'summary': {
+          'plannedMealCount': 4,
+          'memoryCount': 2,
+          'photoCount': 1,
+          'wishlistOpen': 0,
+        },
+        'topMeals': [
+          {'name': '番茄牛腩'}
+        ],
+      }),
+      ['给最喜欢的一道菜补充做法、照片或小技巧'],
+    );
+  });
+
   test('month helpers format relative labels and roll over years', () {
     final sample = DateTime(2026, 12, 15);
     final currentMonth = monthOnly(DateTime.now());
