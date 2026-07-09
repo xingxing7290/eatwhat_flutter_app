@@ -412,6 +412,22 @@ void main() {
     expect(photos.first['title'], '晚餐');
   });
 
+  test('image issue helpers extract meal identity and note', () {
+    final populated = {
+      '_id': 'issue-a',
+      'meal': {'_id': 'meal-a', 'name': '番茄牛腩'},
+      'note': '图片像甜品',
+    };
+    expect(imageIssueMealId(populated), 'meal-a');
+    expect(imageIssueMealName(populated), '番茄牛腩');
+    expect(imageIssueNote(populated), '图片像甜品');
+
+    final fallback = {'mealId': 'meal-b', 'issueType': 'mismatch'};
+    expect(imageIssueMealId(fallback), 'meal-b');
+    expect(imageIssueMealName(fallback), 'meal-b');
+    expect(imageIssueNote(fallback), 'mismatch');
+  });
+
   test('shoppingItemsFromIngredients normalizes and merges ingredients', () {
     final items = shoppingItemsFromIngredients([
       {'name': '鸡蛋', 'amount': '2个'},

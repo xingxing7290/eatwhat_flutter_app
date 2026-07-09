@@ -7981,22 +7981,12 @@ class _SettingsPageState extends State<SettingsPage> {
                   if (issues.isEmpty)
                     const Text('当前没有待修正图片。')
                   else
-                    ...issues.map((issue) => ListTile(
-                          contentPadding: EdgeInsets.zero,
-                          title: Text(textOf(asMap(issue['meal'])['name'] ??
-                              issue['mealName'] ??
-                              issue['mealId'])),
-                          subtitle: Text(textOf(issue['note'])),
-                          trailing: TextButton(
-                            onPressed: () async {
-                              await context.appRead.patch(
-                                  '/meal-image-issues/${idOf(issue)}',
-                                  body: {'status': 'fixed'});
-                              reload();
-                            },
-                            child: const Text('标记完成'),
-                          ),
-                        )),
+                    ...issues.map(
+                      (issue) => ImageIssueTile(
+                        issue: issue,
+                        onChanged: reload,
+                      ),
+                    ),
                 ],
               ),
             );
@@ -8287,6 +8277,151 @@ List<Map<String, dynamic>> imageIssues(dynamic response) {
       ? asList(data['issues'] ?? data['items'] ?? data['list'])
       : asList(data);
   return items.map(asMap).toList();
+}
+
+Map<String, dynamic> imageIssueMeal(Map<String, dynamic> issue) {
+  final meal = asMap(issue['meal']);
+  if (meal.isNotEmpty) {
+    return meal;
+  }
+  return asMap(issue['mealId']);
+}
+
+String imageIssueMealId(Map<String, dynamic> issue) {
+  final meal = imageIssueMeal(issue);
+  final nestedId = idOf(meal);
+  if (nestedId.isNotEmpty) {
+    return nestedId;
+  }
+  return textOf(issue['mealId']);
+}
+
+String imageIssueMealName(Map<String, dynamic> issue) {
+  final meal = imageIssueMeal(issue);
+  final name = friendlyText(meal['name']);
+  if (name.isNotEmpty) {
+    return name;
+  }
+  final fallback = friendlyText(issue['mealName'] ?? issue['mealTitle']);
+  if (fallback.isNotEmpty) {
+    return fallback;
+  }
+  final mealId = imageIssueMealId(issue);
+  return mealId.isEmpty ? '未知菜品' : mealId;
+}
+
+String imageIssueNote(Map<String, dynamic> issue) {
+  final note = friendlyText(issue['note'] ?? issue['reason']);
+  if (note.isNotEmpty) {
+    return note;
+  }
+  final type = textOf(issue['issueType']);
+  return type.isEmpty ? '图片与菜名不匹配' : type;
+}
+
+class ImageIssueTile extends StatelessWidget {
+  const ImageIssueTile({
+    super.key,
+    required this.issue,
+    required this.onChanged,
+  });
+
+  final Map<String, dynamic> issue;
+  final VoidCallback onChanged;
+
+  Future<void> markFixed(BuildContext context) async {
+    final issueId = idOf(issue);
+    if (issueId.isEmpty) {
+      showMessage(context, '这个纠错记录缺少 ID');
+      return;
+    }
+    try {
+      await context.appRead
+          .patch('/meal-image-issues/$issueId', body: {'status': 'fixed'});
+      onChanged();
+    } catch (error) {
+      if (context.mounted) {
+        showMessage(context, errorText(error));
+      }
+    }
+  }
+
+  Future<void> openMealDetail(BuildContext context) async {
+    final mealId = imageIssueMealId(issue);
+    if (mealId.isEmpty) {
+      showMessage(context, '这个纠错记录没有关联菜品');
+      return;
+    }
+    await pushPage(context, MealDetailPage(mealId: mealId));
+  }
+
+  Future<void> editMealImage(BuildContext context) async {
+    final mealId = imageIssueMealId(issue);
+    if (mealId.isEmpty) {
+      showMessage(context, '这个纠错记录没有关联菜品');
+      return;
+    }
+    final changed = await pushPage(context, MealEditPage(mealId: mealId));
+    if (changed == true && context.mounted) {
+      await markFixed(context);
+      if (context.mounted) {
+        showMessage(context, '已更新菜品并标记图片纠错完成');
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final mealName = imageIssueMealName(issue);
+    final note = imageIssueNote(issue);
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: context.app.themePalette.surface.withValues(alpha: 0.76),
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: context.app.themePalette.line),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              mealName,
+              style: const TextStyle(fontWeight: FontWeight.w900),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              note,
+              style: TextStyle(color: context.app.themePalette.muted),
+            ),
+            const SizedBox(height: 10),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                OutlinedButton.icon(
+                  onPressed: () => openMealDetail(context),
+                  icon: const Icon(Icons.visibility_outlined),
+                  label: const Text('查看菜品'),
+                ),
+                FilledButton.icon(
+                  onPressed: () => editMealImage(context),
+                  icon: const Icon(Icons.image_search_outlined),
+                  label: const Text('去换图'),
+                ),
+                TextButton.icon(
+                  onPressed: () => markFixed(context),
+                  icon: const Icon(Icons.check_circle_outline),
+                  label: const Text('标记完成'),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 class AppBackdrop extends StatelessWidget {
