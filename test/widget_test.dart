@@ -239,6 +239,29 @@ void main() {
     expect(names, ['小米粥', '番茄牛腩']);
   });
 
+  test('anniversaryMenuMealIds extracts selected meal ids by meal type', () {
+    final ids = anniversaryMenuMealIds({
+      'meals': {
+        'breakfast': [
+          {'_id': 'meal-a', 'name': '小米粥'}
+        ],
+        'lunch': ['meal-b'],
+        'dinner': [
+          {
+            'meal': {'_id': 'meal-c', 'name': '番茄牛腩'}
+          },
+          {
+            'meal': {'_id': 'meal-c'}
+          },
+        ],
+      }
+    });
+
+    expect(ids['breakfast'], ['meal-a']);
+    expect(ids['lunch'], ['meal-b']);
+    expect(ids['dinner'], ['meal-c']);
+  });
+
   test('wishlist meal helpers accept populated object and string id', () {
     expect(
       wishlistMealId({

@@ -6583,7 +6583,7 @@ class _AnniversaryPageState extends State<AnniversaryPage> {
         }
         return;
       }
-      await context.appRead.multipart('POST', '/anniversaries', fields: {
+      await context.appRead.post('/anniversaries', body: {
         'title': textOf(template['title']).isEmpty
             ? '周末小家宴'
             : textOf(template['title']),
@@ -6592,7 +6592,7 @@ class _AnniversaryPageState extends State<AnniversaryPage> {
         'theme': textOf(template['theme']).isEmpty
             ? '温馨小家'
             : textOf(template['theme']),
-        'meals': jsonEncode({'breakfast': [], 'lunch': [], 'dinner': []}),
+        'meals': {'breakfast': [], 'lunch': [], 'dinner': []},
       });
       reload();
       if (mounted) {
@@ -6654,7 +6654,10 @@ class _AnniversaryPageState extends State<AnniversaryPage> {
                 if (items.isEmpty)
                   const EmptyState(title: '还没有纪念日菜单')
                 else
-                  ...items.map((item) => AnniversaryMenuCard(item: item)),
+                  ...items.map((item) => AnniversaryMenuCard(
+                        item: item,
+                        onChanged: reload,
+                      )),
               ],
             );
           },
@@ -6812,9 +6815,48 @@ class AnniversaryTemplatePicker extends StatelessWidget {
 }
 
 class AnniversaryMenuCard extends StatelessWidget {
-  const AnniversaryMenuCard({super.key, required this.item});
+  const AnniversaryMenuCard({
+    super.key,
+    required this.item,
+    required this.onChanged,
+  });
 
   final Map<String, dynamic> item;
+  final VoidCallback onChanged;
+
+  Future<void> remove(BuildContext context) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('删除纪念日菜单'),
+        content: Text('确认删除「${textOf(item['title'])}」吗？'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('删除'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) {
+      return;
+    }
+    try {
+      await context.appRead.delete('/anniversaries/${idOf(item)}');
+      onChanged();
+      if (context.mounted) {
+        showMessage(context, '已删除纪念日菜单');
+      }
+    } catch (error) {
+      if (context.mounted) {
+        showMessage(context, errorText(error));
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -6856,6 +6898,31 @@ class AnniversaryMenuCard extends StatelessWidget {
                     .toList(),
               ),
             ],
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 10,
+              runSpacing: 10,
+              children: [
+                FilledButton.icon(
+                  onPressed: () async {
+                    final changed = await pushPage(
+                      context,
+                      AnniversaryMenuEditPage(item: item),
+                    );
+                    if (changed == true) {
+                      onChanged();
+                    }
+                  },
+                  icon: const Icon(Icons.edit_outlined),
+                  label: const Text('编辑菜单'),
+                ),
+                OutlinedButton.icon(
+                  onPressed: () => remove(context),
+                  icon: const Icon(Icons.delete_outline),
+                  label: const Text('删除'),
+                ),
+              ],
+            ),
           ],
         ),
       ),
@@ -6863,13 +6930,215 @@ class AnniversaryMenuCard extends StatelessWidget {
   }
 }
 
+class AnniversaryMenuEditPage extends StatefulWidget {
+  const AnniversaryMenuEditPage({super.key, required this.item});
+
+  final Map<String, dynamic> item;
+
+  @override
+  State<AnniversaryMenuEditPage> createState() =>
+      _AnniversaryMenuEditPageState();
+}
+
+class _AnniversaryMenuEditPageState extends State<AnniversaryMenuEditPage> {
+  late final TextEditingController titleController;
+  late final TextEditingController dateController;
+  late final TextEditingController themeController;
+  late final TextEditingController descriptionController;
+  late Future<dynamic> mealsFuture;
+  late Map<String, Set<String>> selectedMeals;
+  bool saving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    titleController = TextEditingController(text: textOf(widget.item['title']));
+    dateController = TextEditingController(
+        text: textOf(widget.item['date']).split('T').first);
+    themeController = TextEditingController(text: textOf(widget.item['theme']));
+    descriptionController =
+        TextEditingController(text: textOf(widget.item['description']));
+    selectedMeals = anniversaryMenuMealIds(widget.item)
+        .map((key, value) => MapEntry(key, value.toSet()));
+    mealsFuture = context.appRead.get('/meals', query: {'limit': '1'});
+  }
+
+  @override
+  void dispose() {
+    titleController.dispose();
+    dateController.dispose();
+    themeController.dispose();
+    descriptionController.dispose();
+    super.dispose();
+  }
+
+  void toggleMeal(String type, String id) {
+    setState(() {
+      final bucket = selectedMeals.putIfAbsent(type, () => <String>{});
+      bucket.contains(id) ? bucket.remove(id) : bucket.add(id);
+    });
+  }
+
+  Future<void> save() async {
+    final title = titleController.text.trim();
+    final date = dateController.text.trim();
+    if (title.isEmpty) {
+      showMessage(context, '请填写菜单标题');
+      return;
+    }
+    if (!isDateText(date)) {
+      showMessage(context, '请填写 YYYY-MM-DD 格式的日期');
+      return;
+    }
+    setState(() => saving = true);
+    try {
+      await context.appRead.put('/anniversaries/${idOf(widget.item)}', body: {
+        'title': title,
+        'date': date,
+        'theme': themeController.text.trim(),
+        'description': descriptionController.text.trim(),
+        'meals': {
+          for (final type in mealTypes)
+            type: (selectedMeals[type] ?? <String>{}).toList(),
+        },
+        'existingPhotos': asList(widget.item['photos']),
+      });
+      if (mounted) {
+        Navigator.pop(context, true);
+      }
+    } catch (error) {
+      if (mounted) {
+        showMessage(context, errorText(error));
+      }
+    } finally {
+      if (mounted) {
+        setState(() => saving = false);
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('编辑纪念日菜单')),
+      bottomNavigationBar: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+          child: FilledButton.icon(
+            onPressed: saving ? null : save,
+            icon: const Icon(Icons.save_outlined),
+            label: Text(saving ? '保存中...' : '保存菜单'),
+          ),
+        ),
+      ),
+      body: AppBackdrop(
+        alignment: Alignment.topCenter,
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 96),
+          children: [
+            SoftCard(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  TextField(
+                    controller: titleController,
+                    decoration: const InputDecoration(labelText: '标题'),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: dateController,
+                    decoration:
+                        const InputDecoration(labelText: '日期 YYYY-MM-DD'),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: themeController,
+                    decoration: const InputDecoration(labelText: '主题'),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: descriptionController,
+                    minLines: 3,
+                    maxLines: 8,
+                    decoration: const InputDecoration(labelText: '备注和菜单结构'),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+            FutureBuilder<dynamic>(
+              future: mealsFuture,
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const LoadingList();
+                }
+                if (snapshot.hasError) {
+                  return ErrorState(
+                    message: errorText(snapshot.error!),
+                    onRetry: () => setState(() {
+                      mealsFuture =
+                          context.appRead.get('/meals', query: {'limit': '1'});
+                    }),
+                  );
+                }
+                final meals = mealListFrom(snapshot.data)
+                    .map(asMap)
+                    .where((meal) => idOf(meal).isNotEmpty)
+                    .toList();
+                return SoftCard(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const SectionTitle(
+                        icon: Icons.restaurant_menu,
+                        title: '选择菜单菜品',
+                      ),
+                      const SizedBox(height: 8),
+                      ...mealTypes.map((type) => ExpansionTile(
+                            tilePadding: EdgeInsets.zero,
+                            initiallyExpanded: type == 'dinner',
+                            title: Text(
+                              '${mealTypeLabel(type)} ${(selectedMeals[type] ?? <String>{}).length} 道',
+                            ),
+                            children: meals.map((meal) {
+                              final id = idOf(meal);
+                              return CheckboxListTile(
+                                value: (selectedMeals[type] ?? <String>{})
+                                    .contains(id),
+                                title: Text(textOf(meal['name'])),
+                                subtitle: Text(textOf(meal['category'])),
+                                onChanged: (_) => toggleMeal(type, id),
+                              );
+                            }).toList(),
+                          )),
+                    ],
+                  ),
+                );
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+const mealTypes = ['breakfast', 'lunch', 'dinner'];
+
 List<String> anniversaryMenuMealNames(Map<String, dynamic> item) {
   final meals = asMap(item['meals']);
   final names = <String>[];
-  for (final type in ['breakfast', 'lunch', 'dinner']) {
+  for (final type in mealTypes) {
     names.addAll(mealNames(meals[type]));
   }
   return names.where((item) => item.trim().isNotEmpty).toSet().toList();
+}
+
+Map<String, List<String>> anniversaryMenuMealIds(Map<String, dynamic> item) {
+  final meals = asMap(item['meals']);
+  return {
+    for (final type in mealTypes) type: mealIdsFromPlanValue(meals[type]),
+  };
 }
 
 class SettingsPage extends StatefulWidget {
