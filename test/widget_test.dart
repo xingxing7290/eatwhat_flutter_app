@@ -869,6 +869,36 @@ void main() {
     expect(shoppingItemPreviewText(items.last), '番茄 3个');
   });
 
+  test('dashboard maintenance helpers count default meals and image issues',
+      () {
+    final data = {
+      'defaultMeals': {
+        'total': 200,
+        'imported': 180,
+        'missing': 20,
+      },
+      'imageIssues': {
+        'items': [
+          {'_id': 'issue-a'},
+          {'_id': 'issue-b'},
+        ],
+      },
+    };
+
+    final status = dashboardDefaultMealStatus(data);
+
+    expect(defaultMealTotalCount(status), 200);
+    expect(defaultMealImportedCount(status), 180);
+    expect(defaultMealMissingCount(status), 20);
+    expect(dashboardImageIssueOpenCount(data), 2);
+    expect(dashboardNeedsMaintenance(data), isTrue);
+    expect(
+        dashboardNeedsMaintenance({
+          'defaultMeals': {'missing': 0}
+        }),
+        isFalse);
+  });
+
   test('image issue helpers extract meal identity and note', () {
     final populated = {
       '_id': 'issue-a',

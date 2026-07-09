@@ -2123,6 +2123,20 @@ class _DashboardPageState extends State<DashboardPage> {
         ),
       }),
     );
+    final defaultStatus = asMap(
+      payload(
+          await loadPart(() => context.appRead.get('/default-meals/status'))),
+    );
+    final openImageIssues = imageIssues(
+      payload(
+        await loadPart(
+          () => context.appRead.get(
+            '/meal-image-issues',
+            query: {'status': 'open'},
+          ),
+        ),
+      ),
+    );
     if (summary.isNotEmpty) {
       return {
         ...summary,
@@ -2131,6 +2145,12 @@ class _DashboardPageState extends State<DashboardPage> {
           'anniversaries': anniversaries,
         if (dashboardShoppingItems(summary).isEmpty && shopping.isNotEmpty)
           'shoppingList': shopping,
+        if (dashboardDefaultMealStatus(summary).isEmpty &&
+            defaultStatus.isNotEmpty)
+          'defaultMeals': defaultStatus,
+        if (dashboardImageIssueOpenCount(summary) == 0 &&
+            openImageIssues.isNotEmpty)
+          'imageIssues': openImageIssues,
       };
     }
     final today = DateTime.now();
@@ -2138,7 +2158,6 @@ class _DashboardPageState extends State<DashboardPage> {
       loadPart(
           () => context.appRead.get('/schedules/day/${dateString(today)}')),
       loadPart(() => context.appRead.get('/meals', query: {'limit': '1'})),
-      loadPart(() => context.appRead.get('/default-meals/status')),
     ]);
     final meals = mealListFrom(results[1]);
     return <String, dynamic>{
@@ -2146,8 +2165,8 @@ class _DashboardPageState extends State<DashboardPage> {
       'mealCount': dashboardMealCount(results[1], meals),
       'wishlist': 0,
       'memories': 0,
-      'defaultMeals': asMap(payload(results[2])),
-      'imageIssues': {'open': 0},
+      'defaultMeals': defaultStatus,
+      'imageIssues': openImageIssues,
       'anniversaries': anniversaries,
       'shoppingList': shopping,
     };
@@ -2186,6 +2205,9 @@ class _DashboardPageState extends State<DashboardPage> {
           final recentPhotos = dashboardRecentPhotos(data);
           final anniversaryMenus = dashboardAnniversaryMenus(data);
           final shopping = dashboardShoppingItems(data);
+          final defaultStatus = dashboardDefaultMealStatus(data);
+          final openIssueCount = dashboardImageIssueOpenCount(data);
+          final showMaintenance = dashboardNeedsMaintenance(data);
           return ListView(
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 120),
             children: [
@@ -2320,6 +2342,13 @@ class _DashboardPageState extends State<DashboardPage> {
               const SizedBox(height: 14),
               if (shopping.isNotEmpty) ...[
                 DashboardShoppingCard(items: shopping),
+                const SizedBox(height: 14),
+              ],
+              if (showMaintenance) ...[
+                DashboardMaintenanceCard(
+                  defaultStatus: defaultStatus,
+                  openIssueCount: openIssueCount,
+                ),
                 const SizedBox(height: 14),
               ],
               if (partnerWishlist.isNotEmpty) ...[
@@ -2488,6 +2517,77 @@ String shoppingItemPreviewText(Map<String, dynamic> item) {
   return amount.isEmpty ? name : '$name $amount';
 }
 
+Map<String, dynamic> dashboardDefaultMealStatus(Map<String, dynamic> data) {
+  final status = asMap(
+    data['defaultMeals'] ??
+        data['defaultMealStatus'] ??
+        data['defaultStatus'] ??
+        data['defaultMeal'],
+  );
+  return status;
+}
+
+int intValue(dynamic value) {
+  if (value is int) {
+    return value;
+  }
+  if (value is num) {
+    return value.toInt();
+  }
+  return int.tryParse(textOf(value)) ?? 0;
+}
+
+int firstIntValue(Map<String, dynamic> data, List<String> keys) {
+  for (final key in keys) {
+    if (data.containsKey(key)) {
+      return intValue(data[key]);
+    }
+  }
+  return 0;
+}
+
+int defaultMealMissingCount(Map<String, dynamic> status) {
+  return firstIntValue(
+    status,
+    const ['missing', 'missingCount', 'notImported', 'notImportedCount'],
+  );
+}
+
+int defaultMealImportedCount(Map<String, dynamic> status) {
+  return firstIntValue(status, const ['imported', 'importedCount']);
+}
+
+int defaultMealTotalCount(Map<String, dynamic> status) {
+  return firstIntValue(status, const ['total', 'defaultTotal', 'count']);
+}
+
+int dashboardImageIssueOpenCount(Map<String, dynamic> data) {
+  final raw = data['imageIssues'] ??
+      data['mealImageIssues'] ??
+      data['imageIssueStatus'] ??
+      data['imageIssueCount'];
+  if (raw is List) {
+    return raw.length;
+  }
+  final map = asMap(raw);
+  if (map.isEmpty) {
+    return intValue(raw);
+  }
+  final listed = imageIssues(map);
+  if (listed.isNotEmpty) {
+    return listed.length;
+  }
+  return firstIntValue(
+    map,
+    const ['open', 'openCount', 'pending', 'pendingCount', 'count', 'total'],
+  );
+}
+
+bool dashboardNeedsMaintenance(Map<String, dynamic> data) {
+  return defaultMealMissingCount(dashboardDefaultMealStatus(data)) > 0 ||
+      dashboardImageIssueOpenCount(data) > 0;
+}
+
 List<Map<String, dynamic>> dashboardAnniversaryMenus(
   Map<String, dynamic> data, {
   DateTime? today,
@@ -2638,6 +2738,67 @@ class DashboardShoppingCard extends StatelessWidget {
             onPressed: () => pushPage(context, const ShoppingListPage()),
             icon: const Icon(Icons.arrow_forward),
             label: const Text('去勾选采购项'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class DashboardMaintenanceCard extends StatelessWidget {
+  const DashboardMaintenanceCard({
+    super.key,
+    required this.defaultStatus,
+    required this.openIssueCount,
+  });
+
+  final Map<String, dynamic> defaultStatus;
+  final int openIssueCount;
+
+  @override
+  Widget build(BuildContext context) {
+    final missing = defaultMealMissingCount(defaultStatus);
+    final imported = defaultMealImportedCount(defaultStatus);
+    final total = defaultMealTotalCount(defaultStatus);
+    return SoftCard(
+      gradient: const LinearGradient(
+        colors: [Color(0xFFFFF5EC), Color(0xFFFFE1D8)],
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const SectionTitle(
+            icon: Icons.home_repair_service_outlined,
+            title: '小家维护提醒',
+          ),
+          const SizedBox(height: 10),
+          const Text(
+            '把默认菜品和图片整理好，之后排餐、买菜和回忆都会更顺手。',
+            style: TextStyle(color: kCocoa, fontWeight: FontWeight.w700),
+          ),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              if (missing > 0)
+                InfoChip('缺失默认菜 $missing 道',
+                    icon: Icons.restaurant_menu_outlined),
+              if (openIssueCount > 0)
+                InfoChip('待修正图片 $openIssueCount 张',
+                    icon: Icons.report_outlined),
+              if (total > 0)
+                InfoChip('已导入 $imported/$total',
+                    icon: Icons.check_circle_outline),
+            ],
+          ),
+          const SizedBox(height: 12),
+          OutlinedButton.icon(
+            onPressed: () => pushPage(context, const SettingsPage()),
+            icon: const Icon(Icons.arrow_forward),
+            label: const Text('去设置处理'),
           ),
         ],
       ),
@@ -9997,7 +10158,7 @@ class _SettingsPageState extends State<SettingsPage> {
                   const SizedBox(height: 8),
                   Text(
                       '总数：${countText(data['total'] ?? data['defaultTotal'])}  已导入：${countText(data['imported'] ?? data['importedCount'])}  缺失：${countText(data['missing'] ?? data['missingCount'])}'),
-                  const SizedBox(height: 80),
+                  const SizedBox(height: 10),
                   Wrap(
                     spacing: 10,
                     runSpacing: 10,
