@@ -5738,6 +5738,7 @@ class WishlistPage extends StatefulWidget {
 
 class _WishlistPageState extends State<WishlistPage> {
   late Future<dynamic> future;
+  String statusFilter = 'open';
 
   @override
   void initState() {
@@ -5745,9 +5746,16 @@ class _WishlistPageState extends State<WishlistPage> {
     future = load();
   }
 
-  Future<dynamic> load() =>
-      context.appRead.get('/wishlist', query: {'status': 'open'});
+  Future<dynamic> load() => context.appRead.get(
+        '/wishlist',
+        query: statusFilter == 'all' ? null : {'status': statusFilter},
+      );
   void reload() => setState(() {
+        future = load();
+      });
+
+  void setStatusFilter(String value) => setState(() {
+        statusFilter = value;
         future = load();
       });
 
@@ -5788,9 +5796,40 @@ class _WishlistPageState extends State<WishlistPage> {
                   message: errorText(snapshot.error!), onRetry: reload);
             }
             final items = wishlistItems(snapshot.data);
+            final filterCard = SoftCard(
+              child: SegmentedButton<String>(
+                showSelectedIcon: false,
+                segments: const [
+                  ButtonSegment(
+                    value: 'open',
+                    label: Text('\u60f3\u5403\u4e2d'),
+                    icon: Icon(Icons.favorite_border),
+                  ),
+                  ButtonSegment(
+                    value: 'planned',
+                    label: Text('\u5df2\u5b89\u6392'),
+                    icon: Icon(Icons.event_available_outlined),
+                  ),
+                  ButtonSegment(
+                    value: 'done',
+                    label: Text('\u5df2\u5b8c\u6210'),
+                    icon: Icon(Icons.check_circle_outline),
+                  ),
+                  ButtonSegment(
+                    value: 'all',
+                    label: Text('\u5168\u90e8'),
+                    icon: Icon(Icons.list_alt_outlined),
+                  ),
+                ],
+                selected: {statusFilter},
+                onSelectionChanged: (value) => setStatusFilter(value.first),
+              ),
+            );
             return ListView(
               padding: const EdgeInsets.all(16),
               children: [
+                filterCard,
+                const SizedBox(height: 12),
                 SoftCard(
                   child: FilledButton.icon(
                     onPressed: addWish,
@@ -5800,7 +5839,10 @@ class _WishlistPageState extends State<WishlistPage> {
                 ),
                 const SizedBox(height: 12),
                 if (items.isEmpty)
-                  const EmptyState(title: '暂时没有想吃项')
+                  EmptyState(
+                    title:
+                        '\u6682\u65f6\u6ca1\u6709${wishlistStatusLabel(statusFilter)}\u9879',
+                  )
                 else
                   ...items.map(
                       (item) => WishlistCard(item: item, onChanged: reload)),
@@ -5819,6 +5861,30 @@ List<Map<String, dynamic>> wishlistItems(dynamic response) {
       ? asList(data['items'] ?? data['wishlist'] ?? data['list'])
       : asList(data);
   return items.map(asMap).toList();
+}
+
+String wishlistStatusLabel(String status) {
+  switch (status) {
+    case 'open':
+      return '\u60f3\u5403\u4e2d';
+    case 'planned':
+      return '\u5df2\u5b89\u6392';
+    case 'done':
+      return '\u5df2\u5b8c\u6210';
+    case 'all':
+      return '\u5168\u90e8';
+    default:
+      return '\u60f3\u5403';
+  }
+}
+
+String wishlistStatusBadgeLabel(Map<String, dynamic> item) {
+  final status = textOf(item['status']);
+  return wishlistStatusLabel(status.isEmpty ? 'open' : status);
+}
+
+bool wishlistIsDone(Map<String, dynamic> item) {
+  return textOf(item['status']) == 'done';
 }
 
 String wishlistMealId(Map<String, dynamic> item) {
@@ -5896,6 +5962,28 @@ class WishlistCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final id = idOf(item);
     final mealId = wishlistMealId(item);
+    final status =
+        textOf(item['status']).isEmpty ? 'open' : textOf(item['status']);
+    final isDone = wishlistIsDone(item);
+    final isPlanned = status == 'planned';
+
+    Future<void> updateStatus(String nextStatus) async {
+      if (id.isEmpty) {
+        return;
+      }
+      try {
+        await context.appRead.patch(
+          '/wishlist/$id/status',
+          body: {'status': nextStatus},
+        );
+        onChanged();
+      } catch (error) {
+        if (context.mounted) {
+          showMessage(context, errorText(error));
+        }
+      }
+    }
+
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: SoftCard(
@@ -5907,6 +5995,15 @@ class WishlistCard extends StatelessWidget {
                     .textTheme
                     .titleMedium
                     ?.copyWith(fontWeight: FontWeight.w900)),
+            const SizedBox(height: 8),
+            InfoChip(
+              wishlistStatusBadgeLabel(item),
+              icon: isDone
+                  ? Icons.check_circle_outline
+                  : isPlanned
+                      ? Icons.event_available_outlined
+                      : Icons.favorite_border,
+            ),
             if (textOf(item['note']).isNotEmpty) Text(textOf(item['note'])),
             const SizedBox(height: 10),
             Wrap(
@@ -5921,16 +6018,25 @@ class WishlistCard extends StatelessWidget {
                   icon: const Icon(Icons.thumb_up_alt_outlined),
                   label: Text('投票 ${countText(item['votes'])}'),
                 ),
-                OutlinedButton.icon(
-                  onPressed: () async {
-                    await context.appRead.patch('/wishlist/$id/status',
-                        body: {'status': 'planned'});
-                    onChanged();
-                  },
-                  icon: const Icon(Icons.event_available_outlined),
-                  label: const Text('标记已安排'),
-                ),
-                if (mealId.isNotEmpty)
+                if (!isPlanned && !isDone)
+                  OutlinedButton.icon(
+                    onPressed: () => updateStatus('planned'),
+                    icon: const Icon(Icons.event_available_outlined),
+                    label: const Text('标记已安排'),
+                  ),
+                if (!isDone)
+                  OutlinedButton.icon(
+                    onPressed: () => updateStatus('done'),
+                    icon: const Icon(Icons.check_circle_outline),
+                    label: const Text('\u6807\u8bb0\u5b8c\u6210'),
+                  ),
+                if (isPlanned || isDone)
+                  OutlinedButton.icon(
+                    onPressed: () => updateStatus('open'),
+                    icon: const Icon(Icons.favorite_border),
+                    label: const Text('\u91cd\u65b0\u60f3\u5403'),
+                  ),
+                if (mealId.isNotEmpty && !isDone)
                   FilledButton.icon(
                     onPressed: () async {
                       try {
@@ -5939,9 +6045,7 @@ class WishlistCard extends StatelessWidget {
                           mealId: mealId,
                           mealName: wishlistMealName(item),
                         );
-                        await context.appRead.patch('/wishlist/$id/status',
-                            body: {'status': 'planned'});
-                        onChanged();
+                        await updateStatus('planned');
                       } catch (error) {
                         if (context.mounted) {
                           showMessage(context, errorText(error));
@@ -5951,7 +6055,7 @@ class WishlistCard extends StatelessWidget {
                     icon: const Icon(Icons.dinner_dining_outlined),
                     label: const Text('今晚安排'),
                   ),
-                if (mealId.isEmpty)
+                if (mealId.isEmpty && !isDone)
                   FilledButton.icon(
                     onPressed: () async {
                       try {

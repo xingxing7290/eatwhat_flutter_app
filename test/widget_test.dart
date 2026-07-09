@@ -351,6 +351,20 @@ void main() {
     expect(wishlistMealName({'title': '手写愿望', 'mealId': 'meal-b'}), '手写愿望');
   });
 
+  test('wishlist status helpers provide readable state labels', () {
+    expect(wishlistStatusLabel('open'), '\u60f3\u5403\u4e2d');
+    expect(wishlistStatusLabel('planned'), '\u5df2\u5b89\u6392');
+    expect(wishlistStatusLabel('done'), '\u5df2\u5b8c\u6210');
+    expect(wishlistStatusLabel('all'), '\u5168\u90e8');
+    expect(wishlistStatusLabel('unknown'), '\u60f3\u5403');
+    expect(wishlistStatusBadgeLabel({'title': '\u624b\u5199\u613f\u671b'}),
+        '\u60f3\u5403\u4e2d');
+    expect(
+        wishlistStatusBadgeLabel({'status': 'planned'}), '\u5df2\u5b89\u6392');
+    expect(wishlistIsDone({'status': 'done'}), isTrue);
+    expect(wishlistIsDone({'status': 'open'}), isFalse);
+  });
+
   test('wishlist meal draft fields create a valid meal payload', () {
     final fields = wishlistMealDraftFields({
       'title': '\u5468\u672b\u725b\u8089\u9762',
