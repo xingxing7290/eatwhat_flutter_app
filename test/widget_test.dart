@@ -594,6 +594,19 @@ void main() {
         wishlistStatusBadgeLabel({'status': 'planned'}), '\u5df2\u5b89\u6392');
     expect(wishlistIsDone({'status': 'done'}), isTrue);
     expect(wishlistIsDone({'status': 'open'}), isFalse);
+    expect(wishlistPriorityLabel('high'), '\u4f18\u5148\u60f3\u5403');
+    expect(wishlistPriorityLabel('low'), '\u968f\u7f18\u60f3\u5403');
+    expect(wishlistPriorityLabel('normal'), '\u666e\u901a\u60f3\u5403');
+    expect(wishlistPriorityLabel('unknown'), '\u666e\u901a\u60f3\u5403');
+    expect(
+      wishlistSignalLabels({
+        'createdByPartner': true,
+        'votedByPartner': true,
+        'votedByMe': true,
+      }),
+      ['TA \u521b\u5efa', 'TA \u4e5f\u6295\u4e86', '\u6211\u5df2\u6295'],
+    );
+    expect(wishlistSignalLabels({'partnerSignal': true}), ['TA \u60f3\u5403']);
   });
 
   test('wishlist meal draft fields create a valid meal payload', () {

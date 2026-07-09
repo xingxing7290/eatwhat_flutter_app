@@ -6923,6 +6923,35 @@ bool wishlistIsDone(Map<String, dynamic> item) {
   return textOf(item['status']) == 'done';
 }
 
+String wishlistPriorityLabel(String priority) {
+  switch (priority) {
+    case 'high':
+      return '优先想吃';
+    case 'low':
+      return '随缘想吃';
+    case 'normal':
+      return '普通想吃';
+    default:
+      return '普通想吃';
+  }
+}
+
+List<String> wishlistSignalLabels(Map<String, dynamic> item) {
+  final labels = <String>[];
+  if (item['createdByPartner'] == true) {
+    labels.add('TA 创建');
+  }
+  if (item['votedByPartner'] == true) {
+    labels.add('TA 也投了');
+  } else if (item['partnerSignal'] == true) {
+    labels.add('TA 想吃');
+  }
+  if (item['votedByMe'] == true) {
+    labels.add('我已投');
+  }
+  return labels.toSet().toList();
+}
+
 String wishlistMealId(Map<String, dynamic> item) {
   final meal = asMap(item['mealId'] ?? item['meal']);
   final nestedId = idOf(meal);
@@ -7002,6 +7031,13 @@ class WishlistCard extends StatelessWidget {
         textOf(item['status']).isEmpty ? 'open' : textOf(item['status']);
     final isDone = wishlistIsDone(item);
     final isPlanned = status == 'planned';
+    final priority = textOf(item['priority']);
+    final priorityIcon = priority == 'high'
+        ? Icons.local_fire_department_outlined
+        : priority == 'low'
+            ? Icons.spa_outlined
+            : Icons.flag_outlined;
+    final signalLabels = wishlistSignalLabels(item);
 
     Future<void> updateStatus(String nextStatus) async {
       if (id.isEmpty) {
@@ -7032,14 +7068,33 @@ class WishlistCard extends StatelessWidget {
                     .titleMedium
                     ?.copyWith(fontWeight: FontWeight.w900)),
             const SizedBox(height: 8),
-            InfoChip(
-              wishlistStatusBadgeLabel(item),
-              icon: isDone
-                  ? Icons.check_circle_outline
-                  : isPlanned
-                      ? Icons.event_available_outlined
-                      : Icons.favorite_border,
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                InfoChip(
+                  wishlistStatusBadgeLabel(item),
+                  icon: isDone
+                      ? Icons.check_circle_outline
+                      : isPlanned
+                          ? Icons.event_available_outlined
+                          : Icons.favorite_border,
+                ),
+                InfoChip(
+                  wishlistPriorityLabel(priority),
+                  icon: priorityIcon,
+                ),
+                ...signalLabels.map(
+                  (label) => InfoChip(
+                    label,
+                    icon: label == '我已投'
+                        ? Icons.thumb_up_alt_outlined
+                        : Icons.favorite_outline,
+                  ),
+                ),
+              ],
             ),
+            const SizedBox(height: 8),
             if (textOf(item['note']).isNotEmpty) Text(textOf(item['note'])),
             const SizedBox(height: 10),
             Wrap(
