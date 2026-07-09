@@ -7,6 +7,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart';
 import 'package:image/image.dart' as img;
@@ -7268,6 +7269,30 @@ Map<String, List<String>> anniversaryMenuMealIds(Map<String, dynamic> item) {
   };
 }
 
+String householdInviteCode(Map<String, dynamic> household) {
+  return friendlyText(household['inviteCode']).toUpperCase();
+}
+
+List<Map<String, dynamic>> householdMembers(Map<String, dynamic> household) {
+  return asList(household['members'])
+      .map(asMap)
+      .where((member) => member.isNotEmpty)
+      .toList();
+}
+
+String householdMemberName(Map<String, dynamic> member) {
+  final displayName = friendlyText(member['displayName']);
+  if (displayName.isNotEmpty) {
+    return displayName;
+  }
+  final username = friendlyText(member['username']);
+  if (username.isNotEmpty) {
+    return username;
+  }
+  final id = idOf(member);
+  return id.isEmpty ? '小家成员' : id;
+}
+
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
 
@@ -7293,6 +7318,18 @@ class _SettingsPageState extends State<SettingsPage> {
       issuesFuture =
           context.appRead.get('/meal-image-issues', query: {'status': 'open'});
     });
+  }
+
+  Future<void> copyInviteCode() async {
+    final code = householdInviteCode(context.appRead.household ?? const {});
+    if (code.isEmpty) {
+      showMessage(context, '当前小家还没有邀请码');
+      return;
+    }
+    await Clipboard.setData(ClipboardData(text: code));
+    if (mounted) {
+      showMessage(context, '已复制邀请码：$code');
+    }
   }
 
   Future<void> updateHousehold() async {
@@ -7365,6 +7402,8 @@ class _SettingsPageState extends State<SettingsPage> {
   @override
   Widget build(BuildContext context) {
     final household = context.app.household ?? const {};
+    final inviteCode = householdInviteCode(household);
+    final members = householdMembers(household);
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 120),
       children: [
@@ -7374,9 +7413,67 @@ class _SettingsPageState extends State<SettingsPage> {
             children: [
               SectionTitle(
                   icon: Icons.home_outlined, title: context.app.householdName),
-              const SizedBox(height: 8),
-              Text(
-                  '邀请码：${textOf(household['inviteCode']).isEmpty ? '暂无' : textOf(household['inviteCode'])}'),
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: context.app.themePalette.secondary
+                      .withValues(alpha: 0.18),
+                  borderRadius: BorderRadius.circular(22),
+                  border: Border.all(color: context.app.themePalette.line),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.key_outlined,
+                        color: context.app.themePalette.primary),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            '小家邀请码',
+                            style: TextStyle(
+                              color: context.app.themePalette.muted,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                          const SizedBox(height: 3),
+                          Text(
+                            inviteCode.isEmpty ? '暂无' : inviteCode,
+                            style: Theme.of(context)
+                                .textTheme
+                                .titleMedium
+                                ?.copyWith(fontWeight: FontWeight.w900),
+                          ),
+                        ],
+                      ),
+                    ),
+                    FilledButton.icon(
+                      onPressed: inviteCode.isEmpty ? null : copyInviteCode,
+                      icon: const Icon(Icons.copy, size: 18),
+                      label: const Text('复制'),
+                    ),
+                  ],
+                ),
+              ),
+              if (members.isNotEmpty) ...[
+                const SizedBox(height: 12),
+                const Text(
+                  '小家成员',
+                  style: TextStyle(fontWeight: FontWeight.w900),
+                ),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    for (final member in members)
+                      HouseholdMemberChip(member: member),
+                  ],
+                ),
+              ],
               const SizedBox(height: 12),
               Wrap(
                 spacing: 10,
@@ -7570,6 +7667,71 @@ class _SettingsPageState extends State<SettingsPage> {
           },
         ),
       ],
+    );
+  }
+}
+
+class HouseholdMemberChip extends StatelessWidget {
+  const HouseholdMemberChip({super.key, required this.member});
+
+  final Map<String, dynamic> member;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.app.themePalette;
+    final name = householdMemberName(member);
+    final username = friendlyText(member['username']);
+    final initial = name.trim().isEmpty
+        ? '家'
+        : String.fromCharCode(name.trim().runes.first);
+    return Container(
+      padding: const EdgeInsets.fromLTRB(8, 7, 12, 7),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.72),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: palette.line),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          CircleAvatar(
+            radius: 14,
+            backgroundColor: palette.secondary.withValues(alpha: 0.38),
+            child: Text(
+              initial,
+              style: TextStyle(
+                color: palette.text,
+                fontSize: 12,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+          ),
+          const SizedBox(width: 7),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                name,
+                style: TextStyle(
+                  color: palette.text,
+                  fontWeight: FontWeight.w900,
+                  fontSize: 12,
+                ),
+              ),
+              if (username.isNotEmpty && username != name)
+                Text(
+                  '@$username',
+                  style: TextStyle(
+                    color: palette.muted,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 10,
+                  ),
+                ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 }

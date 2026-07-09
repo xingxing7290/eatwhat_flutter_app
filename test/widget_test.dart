@@ -151,6 +151,20 @@ void main() {
     expect(strings, contains('<string name="app_name">小家饭桌</string>'));
   });
 
+  test('household helpers extract invite code and member names', () {
+    final household = {
+      'inviteCode': '00b1ce',
+      'members': [
+        {'username': 'lsy', 'displayName': 'lsy'},
+        {'username': 'zjx', 'displayName': '星星'},
+      ],
+    };
+
+    expect(householdInviteCode(household), '00B1CE');
+    expect(householdMembers(household), hasLength(2));
+    expect(householdMemberName(householdMembers(household).last), '星星');
+  });
+
   test('mealIdsFromPlanValue extracts ids from schedule meal structures', () {
     final ids = mealIdsFromPlanValue([
       {
