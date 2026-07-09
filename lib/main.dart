@@ -3807,7 +3807,7 @@ class _MealListPageState extends State<MealListPage> {
 
   Future<dynamic> load() => context.appRead.get('/meals', query: {
         'search': searchController.text,
-        'limit': '1',
+        'limit': '200',
       });
 
   void reload() => setState(() {
@@ -4264,15 +4264,19 @@ class MealCard extends StatelessWidget {
 }
 
 Future<void> reportImageIssue(BuildContext context, String mealId) async {
-  final note = await textDialog(context, title: '图片不对', hint: '描述一下哪里不匹配');
-  if (note == null) {
+  if (mealId.trim().isEmpty) {
+    showMessage(context, '这个菜品缺少 ID，暂时无法记录图片问题');
+    return;
+  }
+  final issue = await imageIssueDialog(context);
+  if (issue == null) {
     return;
   }
   try {
     await context.appRead.post('/meal-image-issues', body: {
       'mealId': mealId,
-      'issueType': 'mismatch',
-      'note': note,
+      'issueType': issue['issueType'] ?? 'mismatch',
+      'note': issue['note'] ?? '',
     });
     if (context.mounted) {
       showMessage(context, '已记录图片纠错');
@@ -4281,6 +4285,101 @@ Future<void> reportImageIssue(BuildContext context, String mealId) async {
     if (context.mounted) {
       showMessage(context, errorText(error));
     }
+  }
+}
+
+const imageIssueReasons = <Map<String, String>>[
+  {'type': 'mismatch', 'label': '菜名不匹配'},
+  {'type': 'non_food', 'label': '不是菜品照片'},
+  {'type': 'low_quality', 'label': '图片模糊或太暗'},
+  {'type': 'missing', 'label': '没有展示成品'},
+  {'type': 'duplicate', 'label': '重复或相似图片'},
+];
+
+String imageIssueTypeLabel(String type) {
+  final normalized = type.trim();
+  for (final reason in imageIssueReasons) {
+    if (reason['type'] == normalized) {
+      return reason['label']!;
+    }
+  }
+  return normalized.isEmpty ? '图片与菜品不匹配' : friendlyText(normalized);
+}
+
+String imageIssueDraftNote({
+  required String issueType,
+  String note = '',
+}) {
+  final label = imageIssueTypeLabel(issueType);
+  final content = note.trim();
+  return content.isEmpty ? label : '$label：$content';
+}
+
+Future<Map<String, String>?> imageIssueDialog(BuildContext context) async {
+  final noteController = TextEditingController();
+  var issueType = 'mismatch';
+  try {
+    return await showDialog<Map<String, String>>(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) => AlertDialog(
+          title: const Text('图片不对'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  '先选一个原因，后续整理默认菜品图片时会优先处理。',
+                  style: TextStyle(fontWeight: FontWeight.w700),
+                ),
+                const SizedBox(height: 12),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: imageIssueReasons.map((reason) {
+                    final type = reason['type']!;
+                    return ChoiceChip(
+                      label: Text(reason['label']!),
+                      selected: issueType == type,
+                      onSelected: (_) => setState(() => issueType = type),
+                    );
+                  }).toList(),
+                ),
+                const SizedBox(height: 14),
+                TextField(
+                  controller: noteController,
+                  autofocus: true,
+                  minLines: 2,
+                  maxLines: 4,
+                  decoration: const InputDecoration(
+                    hintText: '比如：图片像甜品，不像番茄牛腩',
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('取消'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(context, {
+                'issueType': issueType,
+                'note': imageIssueDraftNote(
+                  issueType: issueType,
+                  note: noteController.text,
+                ),
+              }),
+              child: const Text('提交纠错'),
+            ),
+          ],
+        ),
+      ),
+    );
+  } finally {
+    noteController.dispose();
   }
 }
 
@@ -5394,7 +5493,7 @@ class _MemoryEditPageState extends State<MemoryEditPage> {
     } else {
       selectedMealIds.addAll(widget.initialMealIds);
     }
-    mealsFuture = context.appRead.get('/meals', query: {'limit': '1'});
+    mealsFuture = context.appRead.get('/meals', query: {'limit': '200'});
     recoverLostPhotos();
   }
 
@@ -8870,7 +8969,7 @@ class _AnniversaryMenuEditPageState extends State<AnniversaryMenuEditPage> {
         TextEditingController(text: textOf(widget.item['description']));
     selectedMeals = anniversaryMenuMealIds(widget.item)
         .map((key, value) => MapEntry(key, value.toSet()));
-    mealsFuture = context.appRead.get('/meals', query: {'limit': '1'});
+    mealsFuture = context.appRead.get('/meals', query: {'limit': '200'});
   }
 
   @override
@@ -8986,8 +9085,8 @@ class _AnniversaryMenuEditPageState extends State<AnniversaryMenuEditPage> {
                   return ErrorState(
                     message: errorText(snapshot.error!),
                     onRetry: () => setState(() {
-                      mealsFuture =
-                          context.appRead.get('/meals', query: {'limit': '1'});
+                      mealsFuture = context.appRead
+                          .get('/meals', query: {'limit': '200'});
                     }),
                   );
                 }
@@ -9983,7 +10082,7 @@ String imageIssueNote(Map<String, dynamic> issue) {
     return note;
   }
   final type = textOf(issue['issueType']);
-  return type.isEmpty ? '图片与菜名不匹配' : type;
+  return imageIssueTypeLabel(type);
 }
 
 class ImageIssueTile extends StatelessWidget {

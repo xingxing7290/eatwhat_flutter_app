@@ -820,7 +820,16 @@ void main() {
     final fallback = {'mealId': 'meal-b', 'issueType': 'mismatch'};
     expect(imageIssueMealId(fallback), 'meal-b');
     expect(imageIssueMealName(fallback), 'meal-b');
-    expect(imageIssueNote(fallback), 'mismatch');
+    expect(imageIssueNote(fallback), '菜名不匹配');
+    expect(imageIssueTypeLabel('non_food'), '不是菜品照片');
+    expect(
+      imageIssueDraftNote(issueType: 'low_quality', note: '画面太暗'),
+      '图片模糊或太暗：画面太暗',
+    );
+    expect(
+      imageIssueDraftNote(issueType: 'missing'),
+      '没有展示成品',
+    );
   });
 
   test('shoppingItemsFromIngredients normalizes and merges ingredients', () {
