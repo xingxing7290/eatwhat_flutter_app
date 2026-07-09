@@ -236,6 +236,19 @@ void main() {
     );
   });
 
+  test('meal rating helpers clamp and build safe update fields', () {
+    final meal = {'_id': 'meal-a', 'name': '番茄牛腩', 'rating': 4.5};
+
+    expect(mealRatingValue('4.5'), 4.5);
+    expect(mealRatingValue('-1'), 0);
+    expect(mealRatingValue('9'), 5);
+    expect(mealRatingValue('', fallback: 3.5), 3.5);
+    expect(
+      mealRatingUpdateFields(meal, rating: 4.25),
+      {'name': '番茄牛腩', 'rating': '4.3'},
+    );
+  });
+
   test('meal delete confirm message names the target safely', () {
     expect(
       mealDeleteConfirmMessage({'name': '番茄牛腩'}),

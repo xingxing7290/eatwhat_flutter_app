@@ -3650,6 +3650,27 @@ Map<String, String> mealFavoriteUpdateFields(
       'favorite': favorite.toString(),
     };
 
+double mealRatingValue(dynamic value, {double fallback = 0}) {
+  final parsed = double.tryParse(textOf(value));
+  final rating = parsed ?? fallback;
+  if (rating < 0) {
+    return 0;
+  }
+  if (rating > 5) {
+    return 5;
+  }
+  return rating;
+}
+
+Map<String, String> mealRatingUpdateFields(
+  Map<String, dynamic> meal, {
+  required double rating,
+}) =>
+    {
+      'name': textOf(meal['name']),
+      'rating': mealRatingValue(rating).toStringAsFixed(1),
+    };
+
 Future<void> toggleMealFavorite(
   BuildContext context,
   Map<String, dynamic> meal, {
@@ -3686,6 +3707,76 @@ String mealDeleteConfirmMessage(Map<String, dynamic> meal) {
   final name = textOf(meal['name']);
   final target = name.isEmpty ? '这道菜' : '「$name」';
   return '确定删除$target吗？日历和饭后回忆里已经关联的历史记录不会自动清理。';
+}
+
+Future<double?> mealRatingDialog(
+  BuildContext context, {
+  required double initialRating,
+}) {
+  var selected = mealRatingValue(initialRating, fallback: 4);
+  if (selected < 1) {
+    selected = 4;
+  }
+  return showModalBottomSheet<double>(
+    context: context,
+    builder: (sheetContext) => StatefulBuilder(
+      builder: (context, setSheetState) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(18, 14, 18, 18),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Center(
+                child: Container(
+                  width: 44,
+                  height: 5,
+                  decoration: BoxDecoration(
+                    color: kLine,
+                    borderRadius: BorderRadius.circular(99),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              const SectionTitle(icon: Icons.star_rounded, title: '调整这道菜的评分'),
+              const SizedBox(height: 14),
+              Center(
+                child: Wrap(
+                  spacing: 6,
+                  children: List.generate(5, (index) {
+                    final value = index + 1.0;
+                    final active = selected >= value;
+                    return IconButton(
+                      onPressed: () => setSheetState(() => selected = value),
+                      icon: Icon(
+                        active ? Icons.star_rounded : Icons.star_border_rounded,
+                        color: active ? const Color(0xFFFFB23F) : kCocoa,
+                        size: 34,
+                      ),
+                    );
+                  }),
+                ),
+              ),
+              Slider(
+                value: selected,
+                min: 1,
+                max: 5,
+                divisions: 8,
+                label: selected.toStringAsFixed(1),
+                onChanged: (value) => setSheetState(() => selected = value),
+              ),
+              const SizedBox(height: 8),
+              FilledButton.icon(
+                onPressed: () => Navigator.pop(sheetContext, selected),
+                icon: const Icon(Icons.save_outlined),
+                label: Text('保存 ${selected.toStringAsFixed(1)} 分'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    ),
+  );
 }
 
 class MealCard extends StatelessWidget {
@@ -3958,6 +4049,36 @@ class _MealDetailPageState extends State<MealDetailPage> {
     }
   }
 
+  Future<void> updateMealRating(Map<String, dynamic> meal) async {
+    if (textOf(meal['name']).isEmpty) {
+      showMessage(context, '菜品名称为空，先补全名称再评分');
+      return;
+    }
+    final rating = await mealRatingDialog(
+      context,
+      initialRating: mealRatingValue(meal['rating'], fallback: 4),
+    );
+    if (rating == null || !mounted) {
+      return;
+    }
+    try {
+      await context.appRead.multipart(
+        'PUT',
+        '/meals/${widget.mealId}',
+        fields: mealRatingUpdateFields(meal, rating: rating),
+      );
+      if (mounted) {
+        showMessage(
+            context, '已更新评分 ${mealRatingValue(rating).toStringAsFixed(1)} 分');
+        reload();
+      }
+    } catch (error) {
+      if (mounted) {
+        showMessage(context, errorText(error));
+      }
+    }
+  }
+
   Future<void> deleteMeal(Map<String, dynamic> meal) async {
     final confirmed = await confirmDialog(
       context,
@@ -4111,6 +4232,11 @@ class _MealDetailPageState extends State<MealDetailPage> {
                                 ? Icons.favorite
                                 : Icons.favorite_border_outlined),
                             label: Text(favorite ? '取消收藏' : '收藏'),
+                          ),
+                          OutlinedButton.icon(
+                            onPressed: () => updateMealRating(meal),
+                            icon: const Icon(Icons.star_rounded),
+                            label: const Text('调整评分'),
                           ),
                           OutlinedButton.icon(
                             onPressed: () async {
