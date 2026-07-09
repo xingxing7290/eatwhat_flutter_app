@@ -6542,6 +6542,7 @@ class ShoppingListPage extends StatefulWidget {
 class _ShoppingListPageState extends State<ShoppingListPage> {
   DateTime weekStart = mondayOf(DateTime.now());
   late Future<dynamic> future;
+  bool showOnlyRemaining = false;
 
   @override
   void initState() {
@@ -6622,7 +6623,10 @@ class _ShoppingListPageState extends State<ShoppingListPage> {
               return ErrorState(
                   message: errorText(snapshot.error!), onRetry: reload);
             }
-            final items = shoppingItems(snapshot.data);
+            final allItems = shoppingItems(snapshot.data);
+            final items =
+                showOnlyRemaining ? shoppingRemainingItems(allItems) : allItems;
+            final purchasedCount = shoppingPurchasedCount(allItems);
             final grouped = <String, List<Map<String, dynamic>>>{};
             for (final item in items) {
               grouped
@@ -6650,6 +6654,15 @@ class _ShoppingListPageState extends State<ShoppingListPage> {
                         onChanged: setWeekStart,
                       ),
                       const SizedBox(height: 12),
+                      if (allItems.isNotEmpty)
+                        ShoppingProgressPanel(
+                          items: allItems,
+                          showOnlyRemaining: showOnlyRemaining,
+                          onFilterChanged: (value) => setState(
+                            () => showOnlyRemaining = value,
+                          ),
+                        ),
+                      const SizedBox(height: 12),
                       Wrap(
                         spacing: 10,
                         runSpacing: 10,
@@ -6665,7 +6678,8 @@ class _ShoppingListPageState extends State<ShoppingListPage> {
                             label: const Text('手动补充'),
                           ),
                           OutlinedButton.icon(
-                            onPressed: clearPurchased,
+                            onPressed:
+                                purchasedCount == 0 ? null : clearPurchased,
                             icon: const Icon(Icons.cleaning_services_outlined),
                             label: const Text('清空已购'),
                           ),
@@ -6675,8 +6689,10 @@ class _ShoppingListPageState extends State<ShoppingListPage> {
                   ),
                 ),
                 const SizedBox(height: 12),
-                if (items.isEmpty)
+                if (allItems.isEmpty)
                   const EmptyState(title: '暂无采购项')
+                else if (items.isEmpty)
+                  const EmptyState(title: '已购项都收好啦')
                 else
                   ...grouped.entries.map((entry) => ShoppingGroup(
                         title: entry.key,
@@ -6699,6 +6715,35 @@ List<Map<String, dynamic>> shoppingItems(dynamic response) {
       ? asList(data['items'] ?? data['manualItems'] ?? data['list'])
       : asList(data);
   return items.map(asMap).toList();
+}
+
+bool shoppingItemChecked(Map<String, dynamic> item) {
+  return item['checked'] == true || item['purchased'] == true;
+}
+
+int shoppingPurchasedCount(List<Map<String, dynamic>> items) {
+  return items.where(shoppingItemChecked).length;
+}
+
+List<Map<String, dynamic>> shoppingRemainingItems(
+    List<Map<String, dynamic>> items) {
+  return items.where((item) => !shoppingItemChecked(item)).toList();
+}
+
+double shoppingProgressValue(List<Map<String, dynamic>> items) {
+  if (items.isEmpty) {
+    return 0;
+  }
+  return shoppingPurchasedCount(items) / items.length;
+}
+
+String shoppingProgressText(List<Map<String, dynamic>> items) {
+  if (items.isEmpty) {
+    return '还没有采购项';
+  }
+  final purchased = shoppingPurchasedCount(items);
+  final remaining = items.length - purchased;
+  return '已购 $purchased / 共 ${items.length}，剩余 $remaining 项';
 }
 
 String shoppingCategoryLabel(dynamic value) {
@@ -6830,6 +6875,75 @@ Future<Map<String, String>?> shoppingItemDialog(
   } finally {
     nameController.dispose();
     amountController.dispose();
+  }
+}
+
+class ShoppingProgressPanel extends StatelessWidget {
+  const ShoppingProgressPanel({
+    super.key,
+    required this.items,
+    required this.showOnlyRemaining,
+    required this.onFilterChanged,
+  });
+
+  final List<Map<String, dynamic>> items;
+  final bool showOnlyRemaining;
+  final ValueChanged<bool> onFilterChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.app.themePalette;
+    final purchased = shoppingPurchasedCount(items);
+    final remaining = items.length - purchased;
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: palette.secondary.withValues(alpha: 0.14),
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: palette.line),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  shoppingProgressText(items),
+                  style: TextStyle(
+                    color: palette.text,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ),
+              InfoChip('剩余 $remaining', icon: Icons.shopping_bag_outlined),
+            ],
+          ),
+          const SizedBox(height: 10),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(999),
+            child: LinearProgressIndicator(
+              minHeight: 8,
+              value: shoppingProgressValue(items),
+              backgroundColor: Colors.white.withValues(alpha: 0.64),
+              color:
+                  purchased == items.length ? palette.success : palette.accent,
+            ),
+          ),
+          const SizedBox(height: 8),
+          SwitchListTile.adaptive(
+            contentPadding: EdgeInsets.zero,
+            value: showOnlyRemaining,
+            onChanged: onFilterChanged,
+            title: const Text(
+              '只看未购',
+              style: TextStyle(fontWeight: FontWeight.w900),
+            ),
+            subtitle: const Text('买菜时隐藏已经勾选的食材，列表更清爽'),
+          ),
+        ],
+      ),
+    );
   }
 }
 

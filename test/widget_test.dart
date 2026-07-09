@@ -792,6 +792,25 @@ void main() {
     expect(shoppingItemDraftFromText('   '), isNull);
   });
 
+  test('shopping progress helpers track purchased and remaining items', () {
+    final items = [
+      {'name': '\u9e21\u86cb', 'checked': true},
+      {'name': '\u897f\u7ea2\u67ff', 'purchased': true},
+      {'name': '\u9762\u6761', 'checked': false},
+    ];
+
+    expect(shoppingItemChecked(items.first), isTrue);
+    expect(shoppingItemChecked(items.last), isFalse);
+    expect(shoppingPurchasedCount(items), 2);
+    expect(shoppingRemainingItems(items).map((item) => item['name']),
+        ['\u9762\u6761']);
+    expect(shoppingProgressValue(items), closeTo(2 / 3, 0.001));
+    expect(shoppingProgressText(items),
+        '\u5df2\u8d2d 2 / \u5171 3\uff0c\u5269\u4f59 1 \u9879');
+    expect(
+        shoppingProgressText(const []), '\u8fd8\u6ca1\u6709\u91c7\u8d2d\u9879');
+  });
+
   test('food focus renderer highlights center subject', () {
     final source = img.Image(width: 48, height: 48);
     for (var y = 0; y < source.height; y += 1) {
