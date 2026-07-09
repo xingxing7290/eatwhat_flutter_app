@@ -3637,6 +3637,51 @@ List<dynamic> mealListFrom(dynamic response) {
   return asList(data);
 }
 
+bool mealIsFavorite(Map<String, dynamic> meal) =>
+    meal['favorite'] == true ||
+    textOf(meal['favorite']).toLowerCase() == 'true';
+
+Map<String, String> mealFavoriteUpdateFields(
+  Map<String, dynamic> meal, {
+  required bool favorite,
+}) =>
+    {
+      'name': textOf(meal['name']),
+      'favorite': favorite.toString(),
+    };
+
+Future<void> toggleMealFavorite(
+  BuildContext context,
+  Map<String, dynamic> meal, {
+  VoidCallback? onChanged,
+}) async {
+  final id = idOf(meal);
+  if (id.isEmpty) {
+    showMessage(context, '没有找到这道菜');
+    return;
+  }
+  if (textOf(meal['name']).isEmpty) {
+    showMessage(context, '菜品名称为空，先补全名称再收藏');
+    return;
+  }
+  final nextFavorite = !mealIsFavorite(meal);
+  try {
+    await context.appRead.multipart(
+      'PUT',
+      '/meals/$id',
+      fields: mealFavoriteUpdateFields(meal, favorite: nextFavorite),
+    );
+    if (context.mounted) {
+      showMessage(context, nextFavorite ? '已收藏到小家常吃' : '已取消收藏');
+      onChanged?.call();
+    }
+  } catch (error) {
+    if (context.mounted) {
+      showMessage(context, errorText(error));
+    }
+  }
+}
+
 class MealCard extends StatelessWidget {
   const MealCard({
     super.key,
@@ -3650,6 +3695,7 @@ class MealCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final id = idOf(meal);
+    final favorite = mealIsFavorite(meal);
     final image =
         imageUrl(meal['image'] ?? meal['coverImage'] ?? meal['imageUrl']);
     final tags = asList(meal['tags'])
@@ -3665,10 +3711,8 @@ class MealCard extends StatelessWidget {
     return InkWell(
       borderRadius: BorderRadius.circular(28),
       onTap: () async {
-        final changed = await pushPage(context, MealDetailPage(mealId: id));
-        if (changed == true) {
-          onChanged();
-        }
+        await pushPage(context, MealDetailPage(mealId: id));
+        onChanged();
       },
       child: HoverLift(
         child: SoftCard(
@@ -3749,6 +3793,19 @@ class MealCard extends StatelessWidget {
                                 ),
                           ),
                         ),
+                        _RoundIconButton(
+                          tooltip: favorite ? '取消收藏' : '收藏',
+                          icon: favorite
+                              ? Icons.favorite
+                              : Icons.favorite_border_outlined,
+                          color: kCoral,
+                          onPressed: () => toggleMealFavorite(
+                            context,
+                            meal,
+                            onChanged: onChanged,
+                          ),
+                        ),
+                        const SizedBox(width: 6),
                         _RoundIconButton(
                           tooltip: '图片不对',
                           icon: Icons.report_gmailerrorred_outlined,
@@ -3912,6 +3969,7 @@ class _MealDetailPageState extends State<MealDetailPage> {
                   message: errorText(snapshot.error!), onRetry: reload);
             }
             final meal = asMap(payload(snapshot.data));
+            final favorite = mealIsFavorite(meal);
             final image = imageUrl(
                 meal['image'] ?? meal['coverImage'] ?? meal['imageUrl']);
             final photos = asList(meal['photos'])
@@ -4013,6 +4071,17 @@ class _MealDetailPageState extends State<MealDetailPage> {
                             onPressed: () => scheduleTodayDinner(meal),
                             icon: const Icon(Icons.event_available_outlined),
                             label: const Text('今晚就吃它'),
+                          ),
+                          OutlinedButton.icon(
+                            onPressed: () => toggleMealFavorite(
+                              context,
+                              meal,
+                              onChanged: reload,
+                            ),
+                            icon: Icon(favorite
+                                ? Icons.favorite
+                                : Icons.favorite_border_outlined),
+                            label: Text(favorite ? '取消收藏' : '收藏'),
                           ),
                           OutlinedButton.icon(
                             onPressed: () async {

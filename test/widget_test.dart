@@ -219,6 +219,23 @@ void main() {
     expect(ids, ['meal-a', 'meal-b', 'meal-c', 'meal-d']);
   });
 
+  test('meal favorite helpers build safe lightweight update fields', () {
+    final meal = {'_id': 'meal-a', 'name': '番茄牛腩', 'favorite': true};
+    final stringFavorite = {
+      '_id': 'meal-b',
+      'name': '酸菜饺子',
+      'favorite': 'true',
+    };
+
+    expect(mealIsFavorite(meal), isTrue);
+    expect(mealIsFavorite(stringFavorite), isTrue);
+    expect(mealIsFavorite({'favorite': false}), isFalse);
+    expect(
+      mealFavoriteUpdateFields(meal, favorite: false),
+      {'name': '番茄牛腩', 'favorite': 'false'},
+    );
+  });
+
   test('weekly draft helpers remove meal from ids and preview', () {
     final draft = {
       'days': [
