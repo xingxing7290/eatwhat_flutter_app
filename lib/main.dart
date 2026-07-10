@@ -7673,6 +7673,41 @@ String shoppingProgressText(List<Map<String, dynamic>> items) {
   return '已购 $purchased / 共 ${items.length}，剩余 $remaining 项';
 }
 
+List<MapEntry<String, int>> shoppingRemainingCategoryCounts(
+  List<Map<String, dynamic>> items,
+) {
+  final counts = <String, int>{};
+  for (final item in shoppingRemainingItems(items)) {
+    final category = normalizedShoppingCategory(item['category']);
+    counts[category] = (counts[category] ?? 0) + 1;
+  }
+  final entries = counts.entries.toList();
+  entries.sort((a, b) {
+    final rankA = kShoppingCategoryValues.indexOf(a.key);
+    final rankB = kShoppingCategoryValues.indexOf(b.key);
+    final normalizedRankA =
+        rankA == -1 ? kShoppingCategoryValues.length : rankA;
+    final normalizedRankB =
+        rankB == -1 ? kShoppingCategoryValues.length : rankB;
+    final rankCompare = normalizedRankA.compareTo(normalizedRankB);
+    if (rankCompare != 0) {
+      return rankCompare;
+    }
+    return shoppingCategoryLabel(a.key).compareTo(shoppingCategoryLabel(b.key));
+  });
+  return entries;
+}
+
+String shoppingRemainingCategorySummary(List<Map<String, dynamic>> items) {
+  final counts = shoppingRemainingCategoryCounts(items);
+  if (counts.isEmpty) {
+    return '本周采购项都已勾选完成';
+  }
+  return counts
+      .map((entry) => '${shoppingCategoryLabel(entry.key)} ${entry.value}')
+      .join(' · ');
+}
+
 String shoppingCategoryLabel(dynamic value) {
   switch (textOf(value)) {
     case 'vegetable':
@@ -7822,6 +7857,7 @@ class ShoppingProgressPanel extends StatelessWidget {
     final palette = context.app.themePalette;
     final purchased = shoppingPurchasedCount(items);
     final remaining = items.length - purchased;
+    final remainingCategoryCounts = shoppingRemainingCategoryCounts(items);
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
@@ -7857,6 +7893,29 @@ class ShoppingProgressPanel extends StatelessWidget {
                   purchased == items.length ? palette.success : palette.accent,
             ),
           ),
+          const SizedBox(height: 10),
+          Text(
+            shoppingRemainingCategorySummary(items),
+            style: TextStyle(
+              color: palette.muted,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          if (remainingCategoryCounts.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: remainingCategoryCounts
+                  .map(
+                    (entry) => InfoChip(
+                      '${shoppingCategoryLabel(entry.key)} ${entry.value}',
+                      icon: Icons.storefront_outlined,
+                    ),
+                  )
+                  .toList(),
+            ),
+          ],
           const SizedBox(height: 8),
           SwitchListTile.adaptive(
             contentPadding: EdgeInsets.zero,

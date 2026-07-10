@@ -1122,6 +1122,38 @@ void main() {
         shoppingProgressText(const []), '\u8fd8\u6ca1\u6709\u91c7\u8d2d\u9879');
   });
 
+  test('shopping remaining category summary groups unchecked items', () {
+    final items = [
+      {'name': '白菜', 'category': 'vegetable', 'checked': false},
+      {'name': '鸡蛋', 'category': 'meat_egg', 'checked': true},
+      {'name': '牛肉', 'category': 'meat_egg', 'checked': false},
+      {'name': '面条', 'category': 'staple', 'checked': false},
+      {'name': '生抽', 'category': 'seasoning', 'purchased': false},
+      {'name': '保鲜袋', 'category': 'other', 'checked': false},
+      {'name': '香菜', 'category': 'vegetable', 'checked': false},
+    ];
+
+    final counts = shoppingRemainingCategoryCounts(items);
+
+    expect(counts.map((entry) => '${entry.key}:${entry.value}'), [
+      'vegetable:2',
+      'meat_egg:1',
+      'staple:1',
+      'seasoning:1',
+      'other:1',
+    ]);
+    expect(
+      shoppingRemainingCategorySummary(items),
+      '蔬菜 2 · 肉蛋 1 · 主食 1 · 调料 1 · 其他 1',
+    );
+    expect(
+      shoppingRemainingCategorySummary([
+        {'name': '鸡蛋', 'category': 'meat_egg', 'checked': true},
+      ]),
+      '本周采购项都已勾选完成',
+    );
+  });
+
   test('food focus renderer highlights center subject', () {
     final source = img.Image(width: 48, height: 48);
     for (var y = 0; y < source.height; y += 1) {
