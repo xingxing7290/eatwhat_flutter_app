@@ -385,6 +385,41 @@ void main() {
     );
   });
 
+  test('meal completeness helpers find missing recipe details', () {
+    final complete = mealCompleteness({
+      'image': '/uploads/beef.jpg',
+      'description': '牛肉软烂，番茄汤汁浓。',
+      'ingredients': [
+        {'name': '牛肉', 'amount': '500g'}
+      ],
+      'steps': [
+        {'description': '牛肉焯水后和番茄一起炖煮'}
+      ],
+      'tips': '最后加盐，汤味更清亮。',
+    });
+    final incomplete = mealCompleteness({
+      'photos': [
+        {'url': '/uploads/noodle.jpg'}
+      ],
+      'ingredients': ['面条 1把'],
+      'steps': [],
+    });
+
+    expect(complete.completed, 5);
+    expect(complete.value, 1);
+    expect(mealCompletenessLabel(complete), '资料完整');
+    expect(mealCompletenessHint(complete), contains('照片、食材、做法和小技巧'));
+    expect(incomplete.completed, 2);
+    expect(incomplete.missing, ['简介', '做法步骤', '小技巧']);
+    expect(mealCompletenessLabel(incomplete), '资料 2/5');
+    expect(mealCompletenessHint(incomplete), contains('简介、做法步骤、小技巧'));
+    expect(
+        mealHasNonEmptyList([
+          {'name': '', 'amount': ''}
+        ]),
+        isFalse);
+  });
+
   test('meal delete confirm message names the target safely', () {
     expect(
       mealDeleteConfirmMessage({'name': '番茄牛腩'}),

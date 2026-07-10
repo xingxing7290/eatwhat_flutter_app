@@ -4512,6 +4512,75 @@ Map<String, String> mealRatingUpdateFields(
       'rating': mealRatingValue(rating).toStringAsFixed(1),
     };
 
+class MealCompleteness {
+  const MealCompleteness({
+    required this.completed,
+    required this.total,
+    required this.missing,
+  });
+
+  final int completed;
+  final int total;
+  final List<String> missing;
+
+  double get value => total == 0 ? 0 : completed / total;
+  bool get isComplete => completed >= total && total > 0;
+}
+
+MealCompleteness mealCompleteness(Map<String, dynamic> meal) {
+  final checks = <MapEntry<String, bool>>[
+    MapEntry('成品照片', mealHasDisplayPhoto(meal)),
+    MapEntry('简介', textOf(meal['description']).trim().isNotEmpty),
+    MapEntry('食材', mealHasNonEmptyList(meal['ingredients'])),
+    MapEntry('做法步骤', mealHasNonEmptyList(meal['steps'])),
+    MapEntry('小技巧', textOf(meal['tips']).trim().isNotEmpty),
+  ];
+  final missing =
+      checks.where((entry) => !entry.value).map((entry) => entry.key).toList();
+  return MealCompleteness(
+    completed: checks.length - missing.length,
+    total: checks.length,
+    missing: missing,
+  );
+}
+
+bool mealHasDisplayPhoto(Map<String, dynamic> meal) {
+  if (imageUrl(meal['image'] ?? meal['coverImage'] ?? meal['imageUrl'])
+      .isNotEmpty) {
+    return true;
+  }
+  return asList(meal['photos']).any((item) {
+    final photo = asMap(item);
+    return imageUrl(photo['url'] ?? photo['photo'] ?? photo['src'] ?? item)
+        .isNotEmpty;
+  });
+}
+
+bool mealHasNonEmptyList(dynamic value) {
+  return asList(value).any((item) {
+    if (item is String) {
+      return item.trim().isNotEmpty;
+    }
+    final map = asMap(item);
+    return map.values.any((value) => textOf(value).trim().isNotEmpty);
+  });
+}
+
+String mealCompletenessLabel(MealCompleteness completeness) {
+  return completeness.isComplete
+      ? '资料完整'
+      : '资料 ${completeness.completed}/${completeness.total}';
+}
+
+String mealCompletenessHint(MealCompleteness completeness) {
+  if (completeness.isComplete) {
+    return '这道菜的照片、食材、做法和小技巧都比较完整。';
+  }
+  final visible = completeness.missing.take(3).join('、');
+  final suffix = completeness.missing.length > 3 ? '等' : '';
+  return '建议补充：$visible$suffix，让排餐和买菜更顺手。';
+}
+
 Future<void> toggleMealFavorite(
   BuildContext context,
   Map<String, dynamic> meal, {
@@ -4634,6 +4703,7 @@ class MealCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final id = idOf(meal);
     final favorite = mealIsFavorite(meal);
+    final completeness = mealCompleteness(meal);
     final image =
         imageUrl(meal['image'] ?? meal['coverImage'] ?? meal['imageUrl']);
     final tags = asList(meal['tags'])
@@ -4778,6 +4848,11 @@ class MealCard extends StatelessWidget {
                         height: 1.35,
                       ),
                     ),
+                    const SizedBox(height: 10),
+                    MealCompletenessStrip(
+                      completeness: completeness,
+                      showHint: false,
+                    ),
                     const SizedBox(height: 12),
                     Wrap(
                       spacing: 6,
@@ -4806,6 +4881,96 @@ class MealCard extends StatelessWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+class MealCompletenessStrip extends StatelessWidget {
+  const MealCompletenessStrip({
+    super.key,
+    required this.completeness,
+    this.showHint = true,
+  });
+
+  final MealCompleteness completeness;
+  final bool showHint;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.app.themePalette;
+    final percent = (completeness.value * 100).round();
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: palette.secondary.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: palette.line),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                completeness.isComplete
+                    ? Icons.verified_outlined
+                    : Icons.tips_and_updates_outlined,
+                size: 18,
+                color:
+                    completeness.isComplete ? palette.success : palette.accent,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  mealCompletenessLabel(completeness),
+                  style: TextStyle(
+                    color: palette.text,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ),
+              Text(
+                '$percent%',
+                style: TextStyle(
+                  color: palette.muted,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(999),
+            child: LinearProgressIndicator(
+              minHeight: 7,
+              value: completeness.value,
+              backgroundColor: Colors.white.withValues(alpha: 0.72),
+              color: completeness.isComplete ? palette.success : palette.accent,
+            ),
+          ),
+          if (showHint) ...[
+            const SizedBox(height: 8),
+            Text(
+              mealCompletenessHint(completeness),
+              style: TextStyle(
+                color: palette.muted,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            if (completeness.missing.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: completeness.missing
+                    .map(
+                        (item) => InfoChip(item, icon: Icons.add_task_outlined))
+                    .toList(),
+              ),
+            ],
+          ],
+        ],
       ),
     );
   }
@@ -5114,6 +5279,7 @@ class _MealDetailPageState extends State<MealDetailPage> {
             }
             final meal = asMap(payload(snapshot.data));
             final favorite = mealIsFavorite(meal);
+            final completeness = mealCompleteness(meal);
             final image = imageUrl(
                 meal['image'] ?? meal['coverImage'] ?? meal['imageUrl']);
             final photos = asList(meal['photos'])
@@ -5205,6 +5371,11 @@ class _MealDetailPageState extends State<MealDetailPage> {
                               .map((item) =>
                                   InfoChip(item, icon: Icons.eco_outlined)),
                         ],
+                      ),
+                      const SizedBox(height: 16),
+                      MealCompletenessStrip(
+                        completeness: completeness,
+                        showHint: true,
                       ),
                       const SizedBox(height: 16),
                       Wrap(
