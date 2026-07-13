@@ -355,6 +355,72 @@ void main() {
     expect(hints, contains('蛋白质偏少，可以加蛋或豆制品'));
   });
 
+  test('schedule month summary counts arranged days and nudges next steps', () {
+    final summary = scheduleMonthSummary(
+      {
+        '2026-07-01': {
+          'meals': {
+            'breakfast': [
+              {'name': '小米粥'}
+            ],
+            'lunch': [],
+            'dinner': [
+              {
+                'meal': {'_id': 'meal-a', 'name': '番茄牛腩'}
+              }
+            ],
+          }
+        },
+        '2026-07-02': {
+          'lunch': [
+            {'mealId': 'meal-b', 'name': '牛肉面'}
+          ],
+        },
+      },
+      year: 2026,
+      month: 7,
+    );
+
+    expect(summary.totalDays, 31);
+    expect(summary.arrangedDays, 2);
+    expect(summary.emptyDays, 29);
+    expect(summary.mealSlotCount, 3);
+    expect(summary.mealCount, 3);
+    expect(summary.progress, closeTo(2 / 31, 0.001));
+    expect(scheduleMonthSummaryText(summary), '7 月已安排 2 天、3 餐，共 3 道菜。');
+    expect(scheduleMonthEmptyDaysLabel(summary, limit: 3), '待安排：3、4、5 日等');
+    expect(scheduleMonthNudge(summary), '已安排的日子里餐次还偏少，可以把早餐或午餐也补上。');
+  });
+
+  test('schedule month summary handles empty and nearly full months', () {
+    final empty = scheduleMonthSummary(const {}, year: 2026, month: 2);
+
+    expect(empty.totalDays, 28);
+    expect(empty.arrangedDays, 0);
+    expect(empty.progress, 0);
+    expect(scheduleMonthSummaryText(empty), '2 月还没有饭桌安排，可以先从本周菜单生成一份草稿。');
+    expect(scheduleMonthNudge(empty), '先安排今晚，再慢慢补齐两个人的一周三餐。');
+
+    final almostFullSchedules = {
+      for (var day = 1; day <= 28; day += 1)
+        if (day != 27 && day != 28)
+          dateString(DateTime(2026, 2, day)): {
+            'dinner': [
+              {'name': '家常晚餐'}
+            ],
+          },
+    };
+    final almostFull = scheduleMonthSummary(
+      almostFullSchedules,
+      year: 2026,
+      month: 2,
+    );
+
+    expect(almostFull.arrangedDays, 26);
+    expect(scheduleMonthEmptyDaysLabel(almostFull), '待安排：27、28 日');
+    expect(scheduleMonthNudge(almostFull), '这个月饭桌节奏很完整，记得吃完补回忆和照片。');
+  });
+
   test('meal favorite helpers build safe lightweight update fields', () {
     final meal = {'_id': 'meal-a', 'name': '番茄牛腩', 'favorite': true};
     final stringFavorite = {

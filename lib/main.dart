@@ -3308,6 +3308,11 @@ class _CalendarPageState extends State<CalendarPage> {
         }
         final schedules = scheduleMap(payload(snapshot.data));
         final days = DateUtils.getDaysInMonth(month.year, month.month);
+        final monthSummary = scheduleMonthSummary(
+          schedules,
+          year: month.year,
+          month: month.month,
+        );
         final today = DateTime.now();
         final isCurrentMonth =
             month.year == today.year && month.month == today.month;
@@ -3337,6 +3342,14 @@ class _CalendarPageState extends State<CalendarPage> {
                         icon: const Icon(Icons.chevron_right)),
                   ],
                 ),
+              ),
+              const SizedBox(height: 12),
+              CalendarMonthSummaryCard(
+                summary: monthSummary,
+                onOpenWeeklyPlan: () =>
+                    pushPage(context, const WeeklyPlanPage()),
+                onOpenShoppingList: () =>
+                    pushPage(context, const ShoppingListPage()),
               ),
               const SizedBox(height: 12),
               if (isCurrentMonth) ...[
@@ -3407,6 +3420,207 @@ Map<String, Map<String, dynamic>> scheduleMap(dynamic value) {
     }
   }
   return result;
+}
+
+class ScheduleMonthSummary {
+  const ScheduleMonthSummary({
+    required this.year,
+    required this.month,
+    required this.totalDays,
+    required this.arrangedDays,
+    required this.emptyDays,
+    required this.mealSlotCount,
+    required this.mealCount,
+    required this.emptyDayNumbers,
+  });
+
+  final int year;
+  final int month;
+  final int totalDays;
+  final int arrangedDays;
+  final int emptyDays;
+  final int mealSlotCount;
+  final int mealCount;
+  final List<int> emptyDayNumbers;
+
+  double get progress =>
+      totalDays == 0 ? 0 : (arrangedDays / totalDays).clamp(0, 1).toDouble();
+}
+
+int scheduleDayMealSlotCount(Map<String, dynamic> schedule) {
+  return mealTypes
+      .where((type) => mealNames(planMealValue(schedule, type)).isNotEmpty)
+      .length;
+}
+
+int scheduleDayMealCount(Map<String, dynamic> schedule) {
+  var count = 0;
+  for (final type in mealTypes) {
+    count += mealNames(planMealValue(schedule, type)).length;
+  }
+  return count;
+}
+
+ScheduleMonthSummary scheduleMonthSummary(
+  Map<String, Map<String, dynamic>> schedules, {
+  required int year,
+  required int month,
+}) {
+  final totalDays = DateUtils.getDaysInMonth(year, month);
+  var arrangedDays = 0;
+  var mealSlotCount = 0;
+  var mealCount = 0;
+  final emptyDayNumbers = <int>[];
+
+  for (var day = 1; day <= totalDays; day += 1) {
+    final schedule = schedules[dateString(DateTime(year, month, day))] ??
+        const <String, dynamic>{};
+    final daySlots = scheduleDayMealSlotCount(schedule);
+    final dayMeals = scheduleDayMealCount(schedule);
+    if (daySlots == 0) {
+      emptyDayNumbers.add(day);
+      continue;
+    }
+    arrangedDays += 1;
+    mealSlotCount += daySlots;
+    mealCount += dayMeals;
+  }
+
+  return ScheduleMonthSummary(
+    year: year,
+    month: month,
+    totalDays: totalDays,
+    arrangedDays: arrangedDays,
+    emptyDays: totalDays - arrangedDays,
+    mealSlotCount: mealSlotCount,
+    mealCount: mealCount,
+    emptyDayNumbers: emptyDayNumbers,
+  );
+}
+
+String scheduleMonthSummaryText(ScheduleMonthSummary summary) {
+  if (summary.arrangedDays == 0) {
+    return '${summary.month} 月还没有饭桌安排，可以先从本周菜单生成一份草稿。';
+  }
+  return '${summary.month} 月已安排 ${summary.arrangedDays} 天、${summary.mealSlotCount} 餐，共 ${summary.mealCount} 道菜。';
+}
+
+String scheduleMonthEmptyDaysLabel(
+  ScheduleMonthSummary summary, {
+  int limit = 4,
+}) {
+  if (summary.emptyDayNumbers.isEmpty) {
+    return '本月每天都有饭桌记录，适合月底做一次饭桌回顾。';
+  }
+  final days = summary.emptyDayNumbers.take(limit).join('、');
+  return summary.emptyDayNumbers.length > limit
+      ? '待安排：$days 日等'
+      : '待安排：$days 日';
+}
+
+String scheduleMonthNudge(ScheduleMonthSummary summary) {
+  if (summary.arrangedDays == 0) {
+    return '先安排今晚，再慢慢补齐两个人的一周三餐。';
+  }
+  if (summary.emptyDays <= 3) {
+    return '这个月饭桌节奏很完整，记得吃完补回忆和照片。';
+  }
+  if (summary.mealSlotCount < summary.arrangedDays * 2) {
+    return '已安排的日子里餐次还偏少，可以把早餐或午餐也补上。';
+  }
+  return '饭桌安排已经有节奏了，可以同步生成本周购物清单。';
+}
+
+class CalendarMonthSummaryCard extends StatelessWidget {
+  const CalendarMonthSummaryCard({
+    super.key,
+    required this.summary,
+    required this.onOpenWeeklyPlan,
+    required this.onOpenShoppingList,
+  });
+
+  final ScheduleMonthSummary summary;
+  final VoidCallback onOpenWeeklyPlan;
+  final VoidCallback onOpenShoppingList;
+
+  @override
+  Widget build(BuildContext context) {
+    return SoftCard(
+      gradient: const LinearGradient(
+        colors: [Color(0xFFFFFCF7), Color(0xFFFFE9DC)],
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const SectionTitle(
+            icon: Icons.auto_stories_outlined,
+            title: '本月饭桌手账',
+          ),
+          const SizedBox(height: 10),
+          Text(
+            scheduleMonthSummaryText(summary),
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: kCocoa,
+                  fontWeight: FontWeight.w800,
+                ),
+          ),
+          const SizedBox(height: 12),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(999),
+            child: LinearProgressIndicator(
+              minHeight: 9,
+              value: summary.progress,
+              backgroundColor: Colors.white.withValues(alpha: 0.68),
+              color: context.app.themePalette.primary,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              InfoChip('${summary.arrangedDays}/${summary.totalDays} 天',
+                  icon: Icons.calendar_month_outlined),
+              InfoChip('${summary.mealSlotCount} 餐',
+                  icon: Icons.restaurant_outlined),
+              InfoChip('${summary.mealCount} 道菜',
+                  icon: Icons.ramen_dining_outlined),
+              if (summary.emptyDays > 0)
+                InfoChip('空白 ${summary.emptyDays} 天',
+                    icon: Icons.edit_note_outlined),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Text(
+            '${scheduleMonthEmptyDaysLabel(summary)} · ${scheduleMonthNudge(summary)}',
+            style: const TextStyle(
+              color: kCocoa,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 14),
+          Wrap(
+            spacing: 10,
+            runSpacing: 10,
+            children: [
+              FilledButton.icon(
+                onPressed: onOpenWeeklyPlan,
+                icon: const Icon(Icons.auto_awesome),
+                label: const Text('生成本周菜单'),
+              ),
+              OutlinedButton.icon(
+                onPressed: onOpenShoppingList,
+                icon: const Icon(Icons.shopping_bag_outlined),
+                label: const Text('购物清单'),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class DayCard extends StatelessWidget {
