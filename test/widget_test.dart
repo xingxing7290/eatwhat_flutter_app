@@ -420,6 +420,35 @@ void main() {
         isFalse);
   });
 
+  test('meal completeness sorting puts incomplete recipes first', () {
+    final meals = [
+      {
+        'name': '完整菜',
+        'image': '/uploads/full.jpg',
+        'description': '有简介',
+        'ingredients': ['鸡蛋 2个'],
+        'steps': ['炒熟'],
+        'tips': '小火',
+      },
+      {
+        'name': '缺做法',
+        'image': '/uploads/missing-step.jpg',
+        'description': '有简介',
+        'ingredients': ['面条 1把'],
+        'steps': [],
+        'tips': '',
+      },
+      {
+        'name': '空菜',
+        'ingredients': [],
+      },
+    ];
+
+    final sorted = sortMealsByCompleteness(meals).map(asMap).toList();
+
+    expect(sorted.map((meal) => meal['name']), ['空菜', '缺做法', '完整菜']);
+  });
+
   test('meal delete confirm message names the target safely', () {
     expect(
       mealDeleteConfirmMessage({'name': '番茄牛腩'}),
@@ -653,6 +682,21 @@ void main() {
         ],
       }),
       ['给最喜欢的一道菜补充做法、照片或小技巧'],
+    );
+  });
+
+  test('review top meal helpers read identity and image fields', () {
+    expect(
+      reviewTopMealId({'_id': 'meal-a', 'name': '番茄牛腩'}),
+      'meal-a',
+    );
+    expect(
+      reviewTopMealId({'mealId': 'meal-b', 'name': '牛肉面'}),
+      'meal-b',
+    );
+    expect(
+      reviewTopMealImage({'coverImage': '/uploads/cover.jpg'}),
+      '$kAssetBase/uploads/cover.jpg',
     );
   });
 

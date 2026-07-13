@@ -4340,6 +4340,7 @@ class MealListPage extends StatefulWidget {
 class _MealListPageState extends State<MealListPage> {
   final searchController = TextEditingController();
   late Future<dynamic> future;
+  bool incompleteFirst = false;
 
   @override
   void initState() {
@@ -4400,6 +4401,18 @@ class _MealListPageState extends State<MealListPage> {
                       TapedLabel(text: '投喂给 TA', icon: Icons.favorite),
                     ],
                   ),
+                  const SizedBox(height: 8),
+                  SwitchListTile.adaptive(
+                    contentPadding: EdgeInsets.zero,
+                    value: incompleteFirst,
+                    onChanged: (value) =>
+                        setState(() => incompleteFirst = value),
+                    title: const Text(
+                      '待完善优先',
+                      style: TextStyle(fontWeight: FontWeight.w900),
+                    ),
+                    subtitle: const Text('把缺照片、食材或做法的菜排在前面，方便整理默认菜谱'),
+                  ),
                 ],
               ),
             ),
@@ -4415,7 +4428,10 @@ class _MealListPageState extends State<MealListPage> {
                   return ErrorState(
                       message: errorText(snapshot.error!), onRetry: reload);
                 }
-                final meals = mealListFrom(snapshot.data);
+                final rawMeals = mealListFrom(snapshot.data);
+                final meals = incompleteFirst
+                    ? sortMealsByCompleteness(rawMeals)
+                    : rawMeals;
                 if (meals.isEmpty) {
                   return EmptyState(
                     title: '还没有菜品',
@@ -4579,6 +4595,24 @@ String mealCompletenessHint(MealCompleteness completeness) {
   final visible = completeness.missing.take(3).join('、');
   final suffix = completeness.missing.length > 3 ? '等' : '';
   return '建议补充：$visible$suffix，让排餐和买菜更顺手。';
+}
+
+List<dynamic> sortMealsByCompleteness(List<dynamic> meals) {
+  final result = [...meals];
+  result.sort((a, b) {
+    final mealA = asMap(a);
+    final mealB = asMap(b);
+    final completenessA = mealCompleteness(mealA);
+    final completenessB = mealCompleteness(mealB);
+    final completeCompare = completenessA.completed.compareTo(
+      completenessB.completed,
+    );
+    if (completeCompare != 0) {
+      return completeCompare;
+    }
+    return textOf(mealA['name']).compareTo(textOf(mealB['name']));
+  });
+  return result;
 }
 
 Future<void> toggleMealFavorite(
@@ -5377,6 +5411,22 @@ class _MealDetailPageState extends State<MealDetailPage> {
                         completeness: completeness,
                         showHint: true,
                       ),
+                      if (!completeness.isComplete) ...[
+                        const SizedBox(height: 10),
+                        OutlinedButton.icon(
+                          onPressed: () async {
+                            final changed = await pushPage(
+                              context,
+                              MealEditPage(mealId: widget.mealId),
+                            );
+                            if (changed == true && mounted) {
+                              reload();
+                            }
+                          },
+                          icon: const Icon(Icons.edit_note_outlined),
+                          label: const Text('去完善资料'),
+                        ),
+                      ],
                       const SizedBox(height: 16),
                       Wrap(
                         spacing: 10,
@@ -9292,9 +9342,13 @@ class ReviewTopMealsCard extends StatelessWidget {
             const Text('还没有足够的菜品记录，安排几顿饭后这里会自动出现。')
           else
             ...meals.take(6).map((meal) {
-              final image = imageUrl(meal['imageUrl']);
+              final mealId = reviewTopMealId(meal);
+              final image = reviewTopMealImage(meal);
               return ListTile(
                 contentPadding: EdgeInsets.zero,
+                onTap: mealId.isEmpty
+                    ? null
+                    : () => pushPage(context, MealDetailPage(mealId: mealId)),
                 leading: ClipRRect(
                   borderRadius: BorderRadius.circular(14),
                   child: SizedBox(
@@ -9313,7 +9367,7 @@ class ReviewTopMealsCard extends StatelessWidget {
                   '出现 ${countText(meal['count'])} 次 · 回忆 ${countText(meal['memoryCount'])} 次',
                 ),
                 trailing: textOf(meal['averageRating']) == '0'
-                    ? null
+                    ? (mealId.isEmpty ? null : const Icon(Icons.chevron_right))
                     : InfoChip('${textOf(meal['averageRating'])} 分'),
               );
             }),
@@ -9321,6 +9375,18 @@ class ReviewTopMealsCard extends StatelessWidget {
       ),
     );
   }
+}
+
+String reviewTopMealId(Map<String, dynamic> meal) {
+  final directId = idOf(meal);
+  if (directId.isNotEmpty) {
+    return directId;
+  }
+  return textOf(meal['mealId'] ?? meal['id']);
+}
+
+String reviewTopMealImage(Map<String, dynamic> meal) {
+  return imageUrl(meal['imageUrl'] ?? meal['image'] ?? meal['coverImage']);
 }
 
 class ReviewChipGroup {
