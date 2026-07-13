@@ -1011,6 +1011,77 @@ void main() {
     );
   });
 
+  test('wishlist sorting summarizes the best dinner candidate', () {
+    final sorted = sortWishlistItems([
+      {
+        'title': '已安排牛肉面',
+        'status': 'planned',
+        'priority': 'high',
+      },
+      {
+        'title': '完成的饺子',
+        'status': 'done',
+        'priority': 'high',
+      },
+      {
+        'title': '普通炒菜',
+        'status': 'open',
+        'priority': 'normal',
+        'votes': 10,
+        'createdAt': '2026-07-11T08:00:00.000Z',
+      },
+      {
+        'title': 'TA 的酸菜鱼',
+        'status': 'open',
+        'priority': 'high',
+        'partnerSignal': true,
+        'votes': 3,
+        'createdAt': '2026-07-10T08:00:00.000Z',
+      },
+      {
+        'title': '我想吃饺子',
+        'status': 'open',
+        'priority': 'high',
+        'votes': 8,
+        'createdAt': '2026-07-12T08:00:00.000Z',
+      },
+    ]);
+
+    expect(
+      sorted.map((item) => item['title']),
+      ['TA 的酸菜鱼', '我想吃饺子', '普通炒菜', '已安排牛肉面', '完成的饺子'],
+    );
+    expect(wishlistFilteredItems(sorted, 'open'), hasLength(3));
+    expect(wishlistStatusCounts(sorted), {'open': 3, 'planned': 1, 'done': 1});
+    expect(wishlistTopCandidate(sorted)?['title'], 'TA 的酸菜鱼');
+    expect(
+      wishlistSummaryText(sorted),
+      'TA 想吃：TA 的酸菜鱼，已有 3 票，可以一键安排到今晚。',
+    );
+    expect(
+      wishlistSummaryText(const []),
+      '当前没有待安排的想吃愿望，记录一个小馋念后就能排进今天晚餐。',
+    );
+  });
+
+  test('wishlist draft fields normalize add wish form data', () {
+    expect(wishlistDraftFields(title: '   '), isNull);
+
+    final draft = wishlistDraftFields(
+      title: '  周末牛肉面  ',
+      note: '  少辣，多放香菜  ',
+      category: '   ',
+      priority: 'unknown',
+    );
+
+    expect(draft, {
+      'title': '周末牛肉面',
+      'note': '少辣，多放香菜',
+      'category': '小家想吃',
+      'priority': 'normal',
+    });
+  });
+
   test('wishlist meal draft fields create a valid meal payload', () {
     final fields = wishlistMealDraftFields({
       'title': '\u5468\u672b\u725b\u8089\u9762',

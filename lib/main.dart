@@ -2852,7 +2852,7 @@ Future<void> scheduleWishlistForTodayDinner(
   var mealId = wishlistMealId(item);
   var mealName = wishlistMealName(item);
   if (mealName.isEmpty) {
-    mealName = textOf(item['title']);
+    mealName = wishlistDisplayTitle(item);
   }
 
   if (mealId.isEmpty) {
@@ -2890,7 +2890,7 @@ class DashboardWishlistCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final visibleItems = items.take(3).toList();
+    final visibleItems = sortWishlistItems(items).take(3).toList();
     return SoftCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -2898,9 +2898,7 @@ class DashboardWishlistCard extends StatelessWidget {
           const SectionTitle(icon: Icons.favorite_border, title: 'TA 想吃提醒'),
           const SizedBox(height: 10),
           ...visibleItems.map((item) {
-            final title = wishlistMealName(item).isEmpty
-                ? textOf(item['title'])
-                : wishlistMealName(item);
+            final title = wishlistDisplayTitle(item);
             final note = wishlistDashboardNote(item);
             return Padding(
               padding: const EdgeInsets.only(bottom: 10),
@@ -8414,10 +8412,7 @@ class _WishlistPageState extends State<WishlistPage> {
     future = load();
   }
 
-  Future<dynamic> load() => context.appRead.get(
-        '/wishlist',
-        query: statusFilter == 'all' ? null : {'status': statusFilter},
-      );
+  Future<dynamic> load() => context.appRead.get('/wishlist');
   void reload() => setState(() {
         future = load();
       });
@@ -8428,17 +8423,12 @@ class _WishlistPageState extends State<WishlistPage> {
       });
 
   Future<void> addWish() async {
-    final title = await textDialog(context, title: '想吃什么', hint: '比如：周末想吃番茄牛腩');
-    if (title == null || title.trim().isEmpty) {
+    final draft = await wishlistDraftDialog(context);
+    if (draft == null) {
       return;
     }
     try {
-      await context.appRead.post('/wishlist', body: {
-        'title': title.trim(),
-        'note': '',
-        'category': '小家想吃',
-        'priority': 'high',
-      });
+      await context.appRead.post('/wishlist', body: draft);
       reload();
     } catch (error) {
       if (mounted) {
@@ -8463,7 +8453,8 @@ class _WishlistPageState extends State<WishlistPage> {
               return ErrorState(
                   message: errorText(snapshot.error!), onRetry: reload);
             }
-            final items = wishlistItems(snapshot.data);
+            final allItems = sortWishlistItems(wishlistItems(snapshot.data));
+            final items = wishlistFilteredItems(allItems, statusFilter);
             final filterCard = SoftCard(
               child: SegmentedButton<String>(
                 showSelectedIcon: false,
@@ -8498,6 +8489,8 @@ class _WishlistPageState extends State<WishlistPage> {
               children: [
                 filterCard,
                 const SizedBox(height: 12),
+                WishlistSummaryCard(items: allItems, onChanged: reload),
+                const SizedBox(height: 12),
                 SoftCard(
                   child: FilledButton.icon(
                     onPressed: addWish,
@@ -8531,6 +8524,255 @@ List<Map<String, dynamic>> wishlistItems(dynamic response) {
   return items.map(asMap).toList();
 }
 
+String wishlistStatusOf(Map<String, dynamic> item) {
+  final status = textOf(item['status']);
+  return status.isEmpty ? 'open' : status;
+}
+
+List<Map<String, dynamic>> wishlistFilteredItems(
+  List<Map<String, dynamic>> items,
+  String status,
+) {
+  if (status == 'all') {
+    return items;
+  }
+  return items.where((item) => wishlistStatusOf(item) == status).toList();
+}
+
+int wishlistStatusRank(Map<String, dynamic> item) {
+  switch (wishlistStatusOf(item)) {
+    case 'open':
+      return 0;
+    case 'planned':
+      return 1;
+    case 'done':
+      return 2;
+    default:
+      return 3;
+  }
+}
+
+int wishlistPriorityRank(dynamic priority) {
+  switch (textOf(priority)) {
+    case 'high':
+      return 0;
+    case 'normal':
+    case '':
+      return 1;
+    case 'low':
+      return 2;
+    default:
+      return 1;
+  }
+}
+
+int wishlistSignalRank(Map<String, dynamic> item) {
+  if (item['createdByPartner'] == true ||
+      item['votedByPartner'] == true ||
+      item['partnerSignal'] == true) {
+    return 0;
+  }
+  if (item['votedByMe'] == true) {
+    return 1;
+  }
+  return 2;
+}
+
+int wishlistVoteCount(Map<String, dynamic> item) {
+  return firstIntValue(item, ['votes', 'voteCount', 'votesCount']);
+}
+
+DateTime? wishlistCreatedTime(Map<String, dynamic> item) {
+  for (final key in ['createdAt', 'updatedAt', 'date']) {
+    final value = textOf(item[key]);
+    if (value.isEmpty) {
+      continue;
+    }
+    final parsed = DateTime.tryParse(value);
+    if (parsed != null) {
+      return parsed;
+    }
+  }
+  return null;
+}
+
+String wishlistDisplayTitle(Map<String, dynamic> item) {
+  final mealName = wishlistMealName(item);
+  if (mealName.isNotEmpty) {
+    return mealName;
+  }
+  final title = friendlyText(item['title']);
+  return title.isEmpty ? '小家想吃' : title;
+}
+
+List<Map<String, dynamic>> sortWishlistItems(
+  List<Map<String, dynamic>> items,
+) {
+  final sorted = [...items];
+  sorted.sort((a, b) {
+    final comparisons = [
+      wishlistStatusRank(a).compareTo(wishlistStatusRank(b)),
+      wishlistPriorityRank(a['priority']).compareTo(
+        wishlistPriorityRank(b['priority']),
+      ),
+      wishlistSignalRank(a).compareTo(wishlistSignalRank(b)),
+      wishlistVoteCount(b).compareTo(wishlistVoteCount(a)),
+      (wishlistCreatedTime(b)?.millisecondsSinceEpoch ?? 0).compareTo(
+        wishlistCreatedTime(a)?.millisecondsSinceEpoch ?? 0,
+      ),
+      wishlistDisplayTitle(a).compareTo(wishlistDisplayTitle(b)),
+    ];
+    return comparisons.firstWhere((value) => value != 0, orElse: () => 0);
+  });
+  return sorted;
+}
+
+Map<String, int> wishlistStatusCounts(List<Map<String, dynamic>> items) {
+  final counts = {'open': 0, 'planned': 0, 'done': 0};
+  for (final item in items) {
+    final status = wishlistStatusOf(item);
+    if (counts.containsKey(status)) {
+      counts[status] = counts[status]! + 1;
+    }
+  }
+  return counts;
+}
+
+Map<String, dynamic>? wishlistTopCandidate(
+  List<Map<String, dynamic>> items,
+) {
+  final openItems = sortWishlistItems(
+    items.where((item) => wishlistStatusOf(item) == 'open').toList(),
+  );
+  return openItems.isEmpty ? null : openItems.first;
+}
+
+String wishlistSummaryText(List<Map<String, dynamic>> items) {
+  final top = wishlistTopCandidate(items);
+  if (top == null) {
+    return '当前没有待安排的想吃愿望，记录一个小馋念后就能排进今天晚餐。';
+  }
+  final title = wishlistDisplayTitle(top);
+  final signals = wishlistSignalLabels(top);
+  final votes = wishlistVoteCount(top);
+  final owner = signals.any((item) => item.startsWith('TA')) ? 'TA 想吃' : '今天优先';
+  final voteText = votes > 0 ? '，已有 $votes 票' : '';
+  return '$owner：$title$voteText，可以一键安排到今晚。';
+}
+
+Map<String, String>? wishlistDraftFields({
+  required String title,
+  String note = '',
+  String category = '小家想吃',
+  String priority = 'high',
+}) {
+  final normalizedTitle = title.trim();
+  if (normalizedTitle.isEmpty) {
+    return null;
+  }
+  final normalizedCategory = category.trim().isEmpty ? '小家想吃' : category.trim();
+  final normalizedPriority =
+      {'high', 'normal', 'low'}.contains(priority) ? priority : 'normal';
+  return {
+    'title': normalizedTitle,
+    'note': note.trim(),
+    'category': normalizedCategory,
+    'priority': normalizedPriority,
+  };
+}
+
+Future<Map<String, String>?> wishlistDraftDialog(BuildContext context) async {
+  final titleController = TextEditingController();
+  final noteController = TextEditingController();
+  final categoryController = TextEditingController(text: '小家想吃');
+  var priority = 'high';
+  String? titleError;
+
+  try {
+    return await showDialog<Map<String, String>>(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) => AlertDialog(
+          title: const Text('添加想吃'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: titleController,
+                  autofocus: true,
+                  decoration: InputDecoration(
+                    labelText: '想吃什么',
+                    hintText: '比如：周末想吃番茄牛腩',
+                    errorText: titleError,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: noteController,
+                  minLines: 2,
+                  maxLines: 4,
+                  decoration: const InputDecoration(
+                    labelText: '备注',
+                    hintText: '少辣、多香菜、想配米饭...',
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: categoryController,
+                  decoration: const InputDecoration(
+                    labelText: '分类',
+                    hintText: '小家想吃 / 面食主食 / 周末大菜',
+                  ),
+                ),
+                const SizedBox(height: 12),
+                DropdownButtonFormField<String>(
+                  value: priority,
+                  decoration: const InputDecoration(labelText: '优先级'),
+                  items: const [
+                    DropdownMenuItem(value: 'high', child: Text('优先想吃')),
+                    DropdownMenuItem(value: 'normal', child: Text('普通想吃')),
+                    DropdownMenuItem(value: 'low', child: Text('随缘想吃')),
+                  ],
+                  onChanged: (value) => setState(
+                    () => priority = value ?? 'normal',
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('取消'),
+            ),
+            FilledButton(
+              onPressed: () {
+                final draft = wishlistDraftFields(
+                  title: titleController.text,
+                  note: noteController.text,
+                  category: categoryController.text,
+                  priority: priority,
+                );
+                if (draft == null) {
+                  setState(() => titleError = '先写一个想吃的菜或愿望');
+                  return;
+                }
+                Navigator.pop(context, draft);
+              },
+              child: const Text('保存'),
+            ),
+          ],
+        ),
+      ),
+    );
+  } finally {
+    titleController.dispose();
+    noteController.dispose();
+    categoryController.dispose();
+  }
+}
+
 String wishlistStatusLabel(String status) {
   switch (status) {
     case 'open':
@@ -8547,12 +8789,11 @@ String wishlistStatusLabel(String status) {
 }
 
 String wishlistStatusBadgeLabel(Map<String, dynamic> item) {
-  final status = textOf(item['status']);
-  return wishlistStatusLabel(status.isEmpty ? 'open' : status);
+  return wishlistStatusLabel(wishlistStatusOf(item));
 }
 
 bool wishlistIsDone(Map<String, dynamic> item) {
-  return textOf(item['status']) == 'done';
+  return wishlistStatusOf(item) == 'done';
 }
 
 String wishlistPriorityLabel(String priority) {
@@ -8649,6 +8890,77 @@ Future<String> createMealFromWishlist(
   return mealId;
 }
 
+class WishlistSummaryCard extends StatelessWidget {
+  const WishlistSummaryCard({
+    super.key,
+    required this.items,
+    required this.onChanged,
+  });
+
+  final List<Map<String, dynamic>> items;
+  final VoidCallback onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final counts = wishlistStatusCounts(items);
+    final top = wishlistTopCandidate(items);
+    return SoftCard(
+      gradient: const LinearGradient(
+        colors: [Color(0xFFFFF7E8), Color(0xFFFFD8D0)],
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const SectionTitle(
+            icon: Icons.favorite_border,
+            title: '今天想吃优先级',
+          ),
+          const SizedBox(height: 10),
+          Text(
+            wishlistSummaryText(items),
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: kCocoa,
+                  fontWeight: FontWeight.w800,
+                ),
+          ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              InfoChip('待安排 ${counts['open'] ?? 0}',
+                  icon: Icons.favorite_border),
+              InfoChip('已安排 ${counts['planned'] ?? 0}',
+                  icon: Icons.event_available_outlined),
+              InfoChip('已完成 ${counts['done'] ?? 0}',
+                  icon: Icons.check_circle_outline),
+            ],
+          ),
+          if (top != null) ...[
+            const SizedBox(height: 14),
+            FilledButton.icon(
+              onPressed: () async {
+                try {
+                  await scheduleWishlistForTodayDinner(context, top);
+                  onChanged();
+                } catch (error) {
+                  if (context.mounted) {
+                    showMessage(context, errorText(error));
+                  }
+                }
+              },
+              icon: const Icon(Icons.dinner_dining_outlined),
+              label: Text(wishlistDashboardActionLabel(top)),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
 class WishlistCard extends StatelessWidget {
   const WishlistCard({super.key, required this.item, required this.onChanged});
 
@@ -8658,11 +8970,11 @@ class WishlistCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final id = idOf(item);
-    final status =
-        textOf(item['status']).isEmpty ? 'open' : textOf(item['status']);
+    final status = wishlistStatusOf(item);
     final isDone = wishlistIsDone(item);
     final isPlanned = status == 'planned';
     final priority = textOf(item['priority']);
+    final title = wishlistDisplayTitle(item);
     final priorityIcon = priority == 'high'
         ? Icons.local_fire_department_outlined
         : priority == 'low'
@@ -8693,7 +9005,7 @@ class WishlistCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(textOf(item['title']),
+            Text(title,
                 style: Theme.of(context)
                     .textTheme
                     .titleMedium
@@ -8733,10 +9045,12 @@ class WishlistCard extends StatelessWidget {
               runSpacing: 10,
               children: [
                 OutlinedButton.icon(
-                  onPressed: () async {
-                    await context.appRead.post('/wishlist/$id/vote');
-                    onChanged();
-                  },
+                  onPressed: id.isEmpty
+                      ? null
+                      : () async {
+                          await context.appRead.post('/wishlist/$id/vote');
+                          onChanged();
+                        },
                   icon: const Icon(Icons.thumb_up_alt_outlined),
                   label: Text('投票 ${countText(item['votes'])}'),
                 ),
@@ -8773,14 +9087,15 @@ class WishlistCard extends StatelessWidget {
                     icon: const Icon(Icons.dinner_dining_outlined),
                     label: Text(wishlistDashboardActionLabel(item)),
                   ),
-                OutlinedButton.icon(
-                  onPressed: () async {
-                    await context.appRead.delete('/wishlist/$id');
-                    onChanged();
-                  },
-                  icon: const Icon(Icons.delete_outline),
-                  label: const Text('删除'),
-                ),
+                if (id.isNotEmpty)
+                  OutlinedButton.icon(
+                    onPressed: () async {
+                      await context.appRead.delete('/wishlist/$id');
+                      onChanged();
+                    },
+                    icon: const Icon(Icons.delete_outline),
+                    label: const Text('删除'),
+                  ),
               ],
             ),
           ],
