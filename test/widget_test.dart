@@ -449,6 +449,35 @@ void main() {
     expect(sorted.map((meal) => meal['name']), ['空菜', '缺做法', '完整菜']);
   });
 
+  test('meal edit helpers build drafts templates and save warning', () {
+    expect(ingredientDraftsFromText('鸡蛋 2个\n葱花 少许'), [
+      {'name': '鸡蛋', 'amount': '2个'},
+      {'name': '葱花', 'amount': '少许'},
+    ]);
+    expect(stepDraftsFromText('洗菜\n炒熟'), [
+      {'description': '洗菜'},
+      {'description': '炒熟'},
+    ]);
+    expect(mealIngredientTemplate('面食主食'), contains('主食 1份'));
+    expect(mealStepTemplate('汤羹'), contains('转小火'));
+
+    final draftCompleteness = mealCompleteness(
+      mealEditDraftForCompleteness(
+        image: '',
+        description: '快手早餐',
+        ingredientsText: '鸡蛋 2个',
+        stepsText: '',
+        tips: '',
+      ),
+    );
+
+    expect(draftCompleteness.missing, ['成品照片', '做法步骤', '小技巧']);
+    expect(
+      mealSaveCompletenessConfirmMessage(draftCompleteness),
+      contains('仍然保存这道菜吗'),
+    );
+  });
+
   test('meal delete confirm message names the target safely', () {
     expect(
       mealDeleteConfirmMessage({'name': '番茄牛腩'}),

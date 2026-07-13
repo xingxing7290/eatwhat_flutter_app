@@ -4597,6 +4597,74 @@ String mealCompletenessHint(MealCompleteness completeness) {
   return '建议补充：$visible$suffix，让排餐和买菜更顺手。';
 }
 
+List<Map<String, String>> ingredientDraftsFromText(String value) {
+  return value
+      .split('\n')
+      .map((line) => line.trim())
+      .where((line) => line.isNotEmpty)
+      .map((line) {
+    final parts = line.split(RegExp(r'\s+'));
+    return {
+      'name': parts.first,
+      'amount': parts.length > 1 ? parts.sublist(1).join(' ') : '',
+    };
+  }).toList();
+}
+
+List<Map<String, String>> stepDraftsFromText(String value) {
+  return value
+      .split('\n')
+      .map((line) => line.trim())
+      .where((line) => line.isNotEmpty)
+      .map((line) => {'description': line})
+      .toList();
+}
+
+String mealIngredientTemplate(String category) {
+  final text = category.trim();
+  if (text.contains('面') || text.contains('主食') || text.contains('饼')) {
+    return '主食 1份\n鸡蛋 2个\n青菜 1把\n葱花 少许\n盐 适量';
+  }
+  if (text.contains('汤') || text.contains('粥')) {
+    return '主料 1份\n清水 适量\n姜片 2片\n盐 适量\n葱花 少许';
+  }
+  if (text.contains('肉') || text.contains('荤')) {
+    return '肉类 300g\n配菜 1份\n葱姜蒜 适量\n生抽 1勺\n盐 适量';
+  }
+  return '主料 1份\n配菜 1份\n葱姜蒜 适量\n生抽 1勺\n盐 适量';
+}
+
+String mealStepTemplate(String category) {
+  final text = category.trim();
+  if (text.contains('汤') || text.contains('粥')) {
+    return '食材洗净切好\n锅中加水，放入主料煮开\n转小火煮到食材软熟\n加入调味料，撒葱花出锅';
+  }
+  if (text.contains('面') || text.contains('主食') || text.contains('饼')) {
+    return '准备好主食和配菜\n锅中加油或加水处理主食\n放入配菜和调味料\n翻拌均匀后出锅';
+  }
+  return '食材洗净切好\n热锅少油，先炒香葱姜蒜\n放入主料和配菜翻炒\n加入调味料，炒熟后出锅';
+}
+
+Map<String, dynamic> mealEditDraftForCompleteness({
+  required String image,
+  required String description,
+  required String ingredientsText,
+  required String stepsText,
+  required String tips,
+}) {
+  return {
+    'image': image,
+    'description': description.trim(),
+    'ingredients': ingredientDraftsFromText(ingredientsText),
+    'steps': stepDraftsFromText(stepsText),
+    'tips': tips.trim(),
+  };
+}
+
+String mealSaveCompletenessConfirmMessage(MealCompleteness completeness) {
+  return '${mealCompletenessHint(completeness)}\n\n仍然保存这道菜吗？';
+}
+
 List<dynamic> sortMealsByCompleteness(List<dynamic> meals) {
   final result = [...meals];
   result.sort((a, b) {
@@ -5710,6 +5778,15 @@ class _MealEditPageState extends State<MealEditPage> {
   @override
   void initState() {
     super.initState();
+    for (final controller in [
+      descriptionController,
+      ingredientsController,
+      stepsController,
+      tipsController,
+      categoryController,
+    ]) {
+      controller.addListener(refreshCompletenessPreview);
+    }
     if (widget.mealId != null) {
       loadMeal();
     }
@@ -5727,6 +5804,39 @@ class _MealEditPageState extends State<MealEditPage> {
     cookTimeController.dispose();
     healthController.dispose();
     super.dispose();
+  }
+
+  void refreshCompletenessPreview() {
+    if (mounted) {
+      setState(() {});
+    }
+  }
+
+  MealCompleteness get editCompleteness => mealCompleteness(
+        mealEditDraftForCompleteness(
+          image: image == null ? existingImage : image!.path,
+          description: descriptionController.text,
+          ingredientsText: ingredientsController.text,
+          stepsText: stepsController.text,
+          tips: tipsController.text,
+        ),
+      );
+
+  void fillIngredientTemplate() {
+    if (ingredientsController.text.trim().isNotEmpty) {
+      return;
+    }
+    ingredientsController.text =
+        mealIngredientTemplate(categoryController.text);
+    showMessage(context, '已填入食材模板，可按实际情况修改');
+  }
+
+  void fillStepTemplate() {
+    if (stepsController.text.trim().isNotEmpty) {
+      return;
+    }
+    stepsController.text = mealStepTemplate(categoryController.text);
+    showMessage(context, '已填入做法模板，可按实际情况修改');
   }
 
   Future<void> loadMeal() async {
@@ -5791,24 +5901,21 @@ class _MealEditPageState extends State<MealEditPage> {
       showMessage(context, '请填写菜名');
       return;
     }
+    final completeness = editCompleteness;
+    if (!completeness.isComplete) {
+      final confirmed = await confirmDialog(
+        context,
+        title: '菜谱资料还没完整',
+        message: mealSaveCompletenessConfirmMessage(completeness),
+        confirmText: '仍然保存',
+      );
+      if (!confirmed || !mounted) {
+        return;
+      }
+    }
     setState(() => loading = true);
-    final ingredients = ingredientsController.text
-        .split('\n')
-        .map((line) => line.trim())
-        .where((line) => line.isNotEmpty)
-        .map((line) {
-      final parts = line.split(RegExp(r'\s+'));
-      return {
-        'name': parts.first,
-        'amount': parts.length > 1 ? parts.sublist(1).join(' ') : '',
-      };
-    }).toList();
-    final steps = stepsController.text
-        .split('\n')
-        .map((line) => line.trim())
-        .where((line) => line.isNotEmpty)
-        .map((line) => {'description': line})
-        .toList();
+    final ingredients = ingredientDraftsFromText(ingredientsController.text);
+    final steps = stepDraftsFromText(stepsController.text);
     final fields = {
       'name': nameController.text.trim(),
       'description': descriptionController.text.trim(),
@@ -5851,6 +5958,7 @@ class _MealEditPageState extends State<MealEditPage> {
 
   @override
   Widget build(BuildContext context) {
+    final completeness = editCompleteness;
     return Scaffold(
       appBar: AppBar(title: Text(widget.mealId == null ? '新增菜谱' : '编辑菜谱')),
       body: AppBackdrop(
@@ -5881,6 +5989,11 @@ class _MealEditPageState extends State<MealEditPage> {
                                     ),
                             ),
                           ),
+                        ),
+                        const SizedBox(height: 14),
+                        MealCompletenessStrip(
+                          completeness: completeness,
+                          showHint: true,
                         ),
                         const SizedBox(height: 14),
                         TextField(
@@ -5917,6 +6030,16 @@ class _MealEditPageState extends State<MealEditPage> {
                             helperText: '每行一个，例如：鸡蛋 2个',
                           ),
                         ),
+                        Align(
+                          alignment: Alignment.centerLeft,
+                          child: TextButton.icon(
+                            onPressed: ingredientsController.text.trim().isEmpty
+                                ? fillIngredientTemplate
+                                : null,
+                            icon: const Icon(Icons.playlist_add_outlined),
+                            label: const Text('填入食材模板'),
+                          ),
+                        ),
                         const SizedBox(height: 12),
                         TextField(
                           controller: stepsController,
@@ -5925,6 +6048,16 @@ class _MealEditPageState extends State<MealEditPage> {
                           decoration: const InputDecoration(
                             labelText: '做法步骤',
                             helperText: '每行一个步骤',
+                          ),
+                        ),
+                        Align(
+                          alignment: Alignment.centerLeft,
+                          child: TextButton.icon(
+                            onPressed: stepsController.text.trim().isEmpty
+                                ? fillStepTemplate
+                                : null,
+                            icon: const Icon(Icons.auto_stories_outlined),
+                            label: const Text('填入做法模板'),
                           ),
                         ),
                         const SizedBox(height: 12),
