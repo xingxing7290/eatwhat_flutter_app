@@ -4658,6 +4658,8 @@ class _MealListPageState extends State<MealListPage> {
   final searchController = TextEditingController();
   late Future<dynamic> future;
   bool incompleteFirst = false;
+  String selectedCategory = '全部';
+  String searchText = '';
 
   @override
   void initState() {
@@ -4671,10 +4673,7 @@ class _MealListPageState extends State<MealListPage> {
     super.dispose();
   }
 
-  Future<dynamic> load() => context.appRead.get(
-        '/meals',
-        query: {'search': searchController.text, 'limit': '200'},
-      );
+  Future<dynamic> load() => context.appRead.get('/meals');
 
   void reload() => setState(() {
         future = load();
@@ -4689,46 +4688,74 @@ class _MealListPageState extends State<MealListPage> {
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
             child: SoftCard(
-              padding: const EdgeInsets.fromLTRB(14, 14, 14, 12),
+              padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const SectionTitle(icon: Icons.menu_book, title: '私房菜谱本'),
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: searchController,
-                    onSubmitted: (_) => reload(),
-                    decoration: InputDecoration(
-                      hintText: '搜索菜名、食材、做法...',
-                      prefixIcon: const Icon(Icons.search),
-                      suffixIcon: IconButton(
-                        tooltip: '筛选 / 刷新',
-                        icon: const Icon(Icons.tune),
-                        onPressed: reload,
-                      ),
+                  const SectionTitle(
+                    icon: Icons.restaurant_menu,
+                    title: '今天想吃什么',
+                  ),
+                  const SizedBox(height: 4),
+                  const Text(
+                    '左边选分类，右边像点菜一样翻菜谱',
+                    style: TextStyle(
+                      color: kCocoa,
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
                   const SizedBox(height: 10),
-                  const Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
+                  Row(
                     children: [
-                      TapedLabel(text: '默认菜谱', icon: Icons.bookmark),
-                      TapedLabel(text: '照片优先', icon: Icons.image),
-                      TapedLabel(text: '投喂给 TA', icon: Icons.favorite),
+                      Expanded(
+                        child: TextField(
+                          controller: searchController,
+                          textInputAction: TextInputAction.search,
+                          onChanged: (value) {
+                            setState(() {
+                              searchText = value;
+                              if (value.trim().isNotEmpty) {
+                                selectedCategory = '全部';
+                              }
+                            });
+                          },
+                          decoration: InputDecoration(
+                            hintText: '搜索菜名、食材、分类或做法',
+                            prefixIcon: const Icon(Icons.search),
+                            suffixIcon: searchText.trim().isEmpty
+                                ? null
+                                : IconButton(
+                                    tooltip: '清空搜索',
+                                    icon: const Icon(Icons.close),
+                                    onPressed: () {
+                                      searchController.clear();
+                                      setState(() => searchText = '');
+                                    },
+                                  ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      _RoundIconButton(
+                        tooltip: '刷新菜谱',
+                        icon: Icons.refresh_rounded,
+                        color: kCoral,
+                        onPressed: reload,
+                      ),
                     ],
                   ),
                   const SizedBox(height: 8),
-                  SwitchListTile.adaptive(
-                    contentPadding: EdgeInsets.zero,
-                    value: incompleteFirst,
-                    onChanged: (value) =>
-                        setState(() => incompleteFirst = value),
-                    title: const Text(
-                      '待完善优先',
-                      style: TextStyle(fontWeight: FontWeight.w900),
+                  FilterChip(
+                    selected: incompleteFirst,
+                    avatar: Icon(
+                      incompleteFirst
+                          ? Icons.check_circle_outline
+                          : Icons.auto_fix_high_outlined,
+                      size: 18,
                     ),
-                    subtitle: const Text('把缺照片、食材或做法的菜排在前面，方便整理默认菜谱'),
+                    label: const Text('待完善优先'),
+                    onSelected: (value) =>
+                        setState(() => incompleteFirst = value),
                   ),
                 ],
               ),
@@ -4748,12 +4775,9 @@ class _MealListPageState extends State<MealListPage> {
                   );
                 }
                 final rawMeals = mealListFrom(snapshot.data);
-                final meals = incompleteFirst
-                    ? sortMealsByCompleteness(rawMeals)
-                    : rawMeals;
-                if (meals.isEmpty) {
+                if (rawMeals.isEmpty) {
                   return EmptyState(
-                    title: '还没有菜品',
+                    title: '还没有菜谱',
                     action: '新增第一道菜',
                     onPressed: () async {
                       final changed = await pushPage(
@@ -4766,26 +4790,119 @@ class _MealListPageState extends State<MealListPage> {
                     },
                   );
                 }
-                return RefreshIndicator(
-                  onRefresh: () async => reload(),
-                  child: GridView.builder(
-                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 96),
-                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount:
-                          MediaQuery.sizeOf(context).width > 760 ? 3 : 1,
-                      mainAxisExtent:
-                          MediaQuery.sizeOf(context).width > 760 ? 390 : 520,
-                      crossAxisSpacing: 14,
-                      mainAxisSpacing: 14,
-                    ),
-                    itemCount: meals.length,
-                    itemBuilder: (context, index) {
-                      return MealCard(
-                        meal: asMap(meals[index]),
-                        onChanged: reload,
-                      );
-                    },
-                  ),
+                final counts = mealMenuCategoryCounts(rawMeals);
+                final categories = mealMenuCategories(rawMeals);
+                final effectiveCategory = categories.contains(selectedCategory)
+                    ? selectedCategory
+                    : '全部';
+                final meals = filterMealsForMenu(
+                  rawMeals,
+                  category: effectiveCategory,
+                  query: searchText,
+                  incompleteFirst: incompleteFirst,
+                );
+                return LayoutBuilder(
+                  builder: (context, constraints) {
+                    final wide = constraints.maxWidth >= 700;
+                    final railWidth = wide ? 142.0 : 92.0;
+                    return Padding(
+                      padding: const EdgeInsets.fromLTRB(12, 4, 12, 0),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          SizedBox(
+                            width: railWidth,
+                            child: MealMenuCategoryRail(
+                              categories: categories,
+                              counts: counts,
+                              selected: effectiveCategory,
+                              onSelected: (category) {
+                                searchController.clear();
+                                setState(() {
+                                  selectedCategory = category;
+                                  searchText = '';
+                                });
+                              },
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Padding(
+                                  padding:
+                                      const EdgeInsets.fromLTRB(4, 2, 4, 8),
+                                  child: Row(
+                                    children: [
+                                      Expanded(
+                                        child: Text(
+                                          searchText.trim().isNotEmpty
+                                              ? '搜索结果'
+                                              : effectiveCategory,
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: Theme.of(context)
+                                              .textTheme
+                                              .titleMedium
+                                              ?.copyWith(
+                                                color: kCoffee,
+                                                fontWeight: FontWeight.w900,
+                                              ),
+                                        ),
+                                      ),
+                                      Text(
+                                        '${meals.length} 道',
+                                        style: const TextStyle(
+                                          color: kCocoa,
+                                          fontWeight: FontWeight.w800,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                Expanded(
+                                  child: meals.isEmpty
+                                      ? _MealMenuEmpty(
+                                          searching:
+                                              searchText.trim().isNotEmpty,
+                                          onClear: () {
+                                            searchController.clear();
+                                            setState(() {
+                                              searchText = '';
+                                              selectedCategory = '全部';
+                                            });
+                                          },
+                                        )
+                                      : RefreshIndicator(
+                                          onRefresh: () async => reload(),
+                                          child: ListView.separated(
+                                            physics:
+                                                const AlwaysScrollableScrollPhysics(),
+                                            padding: const EdgeInsets.fromLTRB(
+                                              0,
+                                              0,
+                                              0,
+                                              96,
+                                            ),
+                                            itemCount: meals.length,
+                                            separatorBuilder: (_, __) =>
+                                                const SizedBox(height: 10),
+                                            itemBuilder: (context, index) =>
+                                                MealMenuListItem(
+                                              meal: asMap(meals[index]),
+                                              onChanged: reload,
+                                            ),
+                                          ),
+                                        ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
                 );
               },
             ),
@@ -4814,6 +4931,105 @@ List<dynamic> mealListFrom(dynamic response) {
     );
   }
   return asList(data);
+}
+
+String mealMenuCategory(Map<String, dynamic> meal) {
+  final category = textOf(meal['category']).trim();
+  if (category.isNotEmpty) {
+    return category;
+  }
+  final subcategory = textOf(meal['subcategory']).trim();
+  return subcategory.isEmpty ? '其他' : subcategory;
+}
+
+Map<String, int> mealMenuCategoryCounts(List<dynamic> meals) {
+  final counts = <String, int>{'全部': meals.length, '收藏': 0};
+  for (final item in meals) {
+    final meal = asMap(item);
+    final category = mealMenuCategory(meal);
+    counts[category] = (counts[category] ?? 0) + 1;
+    if (mealIsFavorite(meal)) {
+      counts['收藏'] = (counts['收藏'] ?? 0) + 1;
+    }
+  }
+  return counts;
+}
+
+List<String> mealMenuCategories(List<dynamic> meals) {
+  const priority = [
+    '家常菜',
+    '川菜',
+    '东北菜',
+    '鲁菜',
+    '水产海鲜',
+    '烧烤',
+    '火锅',
+    '早餐夜宵',
+    '面食主食',
+    '中原菜',
+    '西北菜',
+    '地方特色',
+    '其他',
+  ];
+  final actual = meals.map((item) => mealMenuCategory(asMap(item))).toSet();
+  final result = <String>['全部', '收藏'];
+  result.addAll(priority.where(actual.contains));
+  final unknown = actual.where((item) => !priority.contains(item)).toList()
+    ..sort();
+  result.addAll(unknown);
+  return result;
+}
+
+String _mealMenuSearchText(Map<String, dynamic> meal) {
+  final values = <String>[
+    textOf(meal['name']),
+    textOf(meal['description']),
+    textOf(meal['category']),
+    textOf(meal['subcategory']),
+    textOf(meal['tips']),
+    textOf(meal['taste']),
+  ];
+  for (final key in ['tags', 'healthTags', 'ingredients', 'steps']) {
+    for (final item in asList(meal[key])) {
+      if (item is Map) {
+        values.addAll(item.values.map(textOf));
+      } else {
+        values.add(textOf(item));
+      }
+    }
+  }
+  return values.join(' ').toLowerCase();
+}
+
+List<dynamic> filterMealsForMenu(
+  List<dynamic> meals, {
+  required String category,
+  required String query,
+  required bool incompleteFirst,
+}) {
+  final keywords = query
+      .trim()
+      .toLowerCase()
+      .split(RegExp(r'\s+'))
+      .where((item) => item.isNotEmpty)
+      .toList();
+  final filtered = meals.where((item) {
+    final meal = asMap(item);
+    if (category == '收藏' && !mealIsFavorite(meal)) {
+      return false;
+    }
+    if (category != '全部' &&
+        category != '收藏' &&
+        mealMenuCategory(meal) != category) {
+      return false;
+    }
+    if (keywords.isEmpty) {
+      return true;
+    }
+    final searchable = _mealMenuSearchText(meal);
+    return keywords.every(searchable.contains);
+  }).toList();
+  return incompleteFirst ? sortMealsByCompleteness(filtered) : filtered;
 }
 
 bool mealIsFavorite(Map<String, dynamic> meal) =>
@@ -5110,6 +5326,405 @@ Future<double?> mealRatingDialog(
       ),
     ),
   );
+}
+
+IconData mealMenuCategoryIcon(String category) {
+  if (category == '全部') {
+    return Icons.grid_view_rounded;
+  }
+  if (category == '收藏') {
+    return Icons.favorite_rounded;
+  }
+  if (category.contains('海鲜') || category.contains('水产')) {
+    return Icons.set_meal_outlined;
+  }
+  if (category.contains('火锅')) {
+    return Icons.soup_kitchen_outlined;
+  }
+  if (category.contains('烧烤')) {
+    return Icons.outdoor_grill_outlined;
+  }
+  if (category.contains('早餐') || category.contains('夜宵')) {
+    return Icons.breakfast_dining_outlined;
+  }
+  if (category.contains('面') || category.contains('主食')) {
+    return Icons.ramen_dining_outlined;
+  }
+  return Icons.restaurant_outlined;
+}
+
+class MealMenuCategoryRail extends StatelessWidget {
+  const MealMenuCategoryRail({
+    super.key,
+    required this.categories,
+    required this.counts,
+    required this.selected,
+    required this.onSelected,
+  });
+
+  final List<String> categories;
+  final Map<String, int> counts;
+  final String selected;
+  final ValueChanged<String> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    return SoftCard(
+      padding: const EdgeInsets.all(5),
+      child: ListView.separated(
+        padding: const EdgeInsets.fromLTRB(0, 5, 0, 88),
+        itemCount: categories.length,
+        separatorBuilder: (_, __) => const SizedBox(height: 4),
+        itemBuilder: (context, index) {
+          final category = categories[index];
+          final active = category == selected;
+          return Material(
+            color: Colors.transparent,
+            child: InkWell(
+              borderRadius: BorderRadius.circular(20),
+              onTap: () => onSelected(category),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 180),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 7,
+                  vertical: 10,
+                ),
+                decoration: BoxDecoration(
+                  color: active ? kCoral : kCream.withValues(alpha: 0.52),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color: active ? kCoral : kCocoa.withValues(alpha: 0.08),
+                  ),
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      mealMenuCategoryIcon(category),
+                      size: 21,
+                      color: active ? Colors.white : kCoral,
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      category,
+                      maxLines: 2,
+                      textAlign: TextAlign.center,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: active ? Colors.white : kCoffee,
+                        fontSize: 12,
+                        height: 1.1,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      '${counts[category] ?? 0}',
+                      style: TextStyle(
+                        color: active
+                            ? Colors.white.withValues(alpha: 0.82)
+                            : kCocoa,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _MealMenuEmpty extends StatelessWidget {
+  const _MealMenuEmpty({required this.searching, required this.onClear});
+
+  final bool searching;
+  final VoidCallback onClear;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              searching ? Icons.search_off_rounded : Icons.no_meals_outlined,
+              size: 48,
+              color: kCoral,
+            ),
+            const SizedBox(height: 10),
+            Text(
+              searching ? '没有搜到这道菜' : '这个分类还没有菜谱',
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                color: kCoffee,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+            const SizedBox(height: 8),
+            TextButton.icon(
+              onPressed: onClear,
+              icon: const Icon(Icons.apps_rounded),
+              label: const Text('看看全部菜谱'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class MealMenuListItem extends StatelessWidget {
+  const MealMenuListItem({
+    super.key,
+    required this.meal,
+    required this.onChanged,
+  });
+
+  final Map<String, dynamic> meal;
+  final VoidCallback onChanged;
+
+  Future<void> _openDetail(BuildContext context) async {
+    await pushPage(context, MealDetailPage(mealId: idOf(meal)));
+    onChanged();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final id = idOf(meal);
+    final favorite = mealIsFavorite(meal);
+    final completeness = mealCompleteness(meal);
+    final image = imageUrl(
+      meal['image'] ?? meal['coverImage'] ?? meal['imageUrl'],
+    );
+    final description = textOf(meal['description']).trim();
+    final cookTime = textOf(meal['cookTime']).trim();
+    final rating = textOf(meal['rating']).trim();
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final compact = constraints.maxWidth < 410;
+        final imageWidth = compact ? 82.0 : 112.0;
+        return InkWell(
+          borderRadius: BorderRadius.circular(30),
+          onTap: () => _openDetail(context),
+          child: HoverLift(
+            child: SoftCard(
+              padding: const EdgeInsets.all(10),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Stack(
+                    children: [
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(21),
+                        child: SizedBox(
+                          width: imageWidth,
+                          height: compact ? 124 : 132,
+                          child: RemoteImage(url: image),
+                        ),
+                      ),
+                      Positioned(
+                        right: 5,
+                        top: 5,
+                        child: Material(
+                          color: Colors.white.withValues(alpha: 0.92),
+                          shape: const CircleBorder(),
+                          child: InkWell(
+                            customBorder: const CircleBorder(),
+                            onTap: () => toggleMealFavorite(
+                              context,
+                              meal,
+                              onChanged: onChanged,
+                            ),
+                            child: Padding(
+                              padding: const EdgeInsets.all(7),
+                              child: Icon(
+                                favorite
+                                    ? Icons.favorite_rounded
+                                    : Icons.favorite_border_rounded,
+                                size: 18,
+                                color: kCoral,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Expanded(
+                              child: Text(
+                                textOf(meal['name']).trim().isEmpty
+                                    ? '未命名菜谱'
+                                    : textOf(meal['name']).trim(),
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .titleMedium
+                                    ?.copyWith(
+                                      color: kCoffee,
+                                      height: 1.12,
+                                      fontWeight: FontWeight.w900,
+                                    ),
+                              ),
+                            ),
+                            SizedBox(
+                              width: 34,
+                              height: 34,
+                              child: PopupMenuButton<String>(
+                                padding: EdgeInsets.zero,
+                                tooltip: '更多操作',
+                                icon: const Icon(
+                                  Icons.more_horiz_rounded,
+                                  size: 21,
+                                  color: kCocoa,
+                                ),
+                                onSelected: (action) async {
+                                  if (action == 'edit') {
+                                    final changed = await pushPage(
+                                      context,
+                                      MealEditPage(mealId: id),
+                                    );
+                                    if (changed == true) {
+                                      onChanged();
+                                    }
+                                  } else if (action == 'report') {
+                                    await reportImageIssue(context, id);
+                                  }
+                                },
+                                itemBuilder: (context) => const [
+                                  PopupMenuItem(
+                                    value: 'edit',
+                                    child: ListTile(
+                                      contentPadding: EdgeInsets.zero,
+                                      leading: Icon(Icons.edit_outlined),
+                                      title: Text('编辑菜谱'),
+                                    ),
+                                  ),
+                                  PopupMenuItem(
+                                    value: 'report',
+                                    child: ListTile(
+                                      contentPadding: EdgeInsets.zero,
+                                      leading: Icon(
+                                        Icons.report_gmailerrorred_outlined,
+                                      ),
+                                      title: Text('图片不对'),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          description.isEmpty ? '这道菜还没有填写简介' : description,
+                          maxLines: compact ? 2 : 3,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: kCocoa,
+                            fontSize: 12,
+                            height: 1.3,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const SizedBox(height: 7),
+                        Wrap(
+                          spacing: 5,
+                          runSpacing: 5,
+                          children: [
+                            _MealMenuMeta(
+                              icon: Icons.restaurant_outlined,
+                              label: mealMenuCategory(meal),
+                            ),
+                            if (cookTime.isNotEmpty)
+                              _MealMenuMeta(
+                                icon: Icons.timer_outlined,
+                                label: '$cookTime 分钟',
+                              ),
+                            if (rating.isNotEmpty)
+                              _MealMenuMeta(
+                                icon: Icons.star_rounded,
+                                label: '$rating 分',
+                              ),
+                            _MealMenuMeta(
+                              icon: completeness.isComplete
+                                  ? Icons.verified_outlined
+                                  : Icons.auto_fix_high_outlined,
+                              label: mealCompletenessLabel(completeness),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 5),
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: TextButton.icon(
+                            onPressed: () => _openDetail(context),
+                            icon: const Icon(
+                              Icons.menu_book_outlined,
+                              size: 17,
+                            ),
+                            label: const Text('查看菜谱'),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _MealMenuMeta extends StatelessWidget {
+  const _MealMenuMeta({required this.icon, required this.label});
+
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+      decoration: BoxDecoration(
+        color: kCream.withValues(alpha: 0.82),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 12, color: kCoral),
+          const SizedBox(width: 3),
+          Text(
+            label,
+            style: const TextStyle(
+              color: kCocoa,
+              fontSize: 10,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class MealCard extends StatelessWidget {

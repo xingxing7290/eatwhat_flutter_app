@@ -459,6 +459,158 @@ void main() {
     });
   });
 
+  test('meal menu builds ordered categories and counts', () {
+    final meals = [
+      {'name': '番茄炒蛋', 'category': '家常菜', 'favorite': true},
+      {'name': '麻婆豆腐', 'category': '川菜'},
+      {'name': '创意沙拉', 'category': '创意融合', 'favorite': 'true'},
+      {'name': '清炒时蔬', 'category': '家常菜'},
+    ];
+
+    expect(mealMenuCategories(meals), [
+      '全部',
+      '收藏',
+      '家常菜',
+      '川菜',
+      '创意融合',
+    ]);
+    expect(mealMenuCategoryCounts(meals), {
+      '全部': 4,
+      '收藏': 2,
+      '家常菜': 2,
+      '川菜': 1,
+      '创意融合': 1,
+    });
+    expect(mealMenuCategory({'name': '无分类菜'}), '其他');
+  });
+
+  test('meal menu filters category favorites and full recipe text', () {
+    final meals = [
+      {
+        'name': '番茄牛腩',
+        'category': '家常菜',
+        'favorite': true,
+        'description': '浓郁下饭',
+        'ingredients': [
+          {'name': '牛腩', 'amount': '500g'},
+          {'name': '番茄', 'amount': '2个'},
+        ],
+        'steps': [
+          {'description': '小火慢炖'},
+        ],
+      },
+      {
+        'name': '麻婆豆腐',
+        'category': '川菜',
+        'ingredients': [
+          {'name': '豆腐'},
+        ],
+      },
+    ];
+
+    expect(
+      filterMealsForMenu(
+        meals,
+        category: '家常菜',
+        query: '',
+        incompleteFirst: false,
+      ).map((item) => asMap(item)['name']),
+      ['番茄牛腩'],
+    );
+    expect(
+      filterMealsForMenu(
+        meals,
+        category: '收藏',
+        query: '',
+        incompleteFirst: false,
+      ).map((item) => asMap(item)['name']),
+      ['番茄牛腩'],
+    );
+    expect(
+      filterMealsForMenu(
+        meals,
+        category: '全部',
+        query: '牛腩 慢炖',
+        incompleteFirst: false,
+      ).map((item) => asMap(item)['name']),
+      ['番茄牛腩'],
+    );
+    expect(
+      filterMealsForMenu(
+        meals,
+        category: '全部',
+        query: '不存在',
+        incompleteFirst: false,
+      ),
+      isEmpty,
+    );
+  });
+
+  testWidgets('meal menu rail and ordering row fit a phone viewport', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(360, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final appState = AppState()..loading = false;
+    addTearDown(appState.dispose);
+    final meal = {
+      '_id': 'meal-a',
+      'name': '番茄牛腩炖土豆',
+      'category': '家常菜',
+      'description': '酸甜浓郁、适合一家人分享的下饭菜。',
+      'cookTime': 45,
+      'rating': 4.8,
+      'ingredients': [
+        {'name': '牛腩', 'amount': '500g'},
+      ],
+    };
+
+    await tester.pumpWidget(
+      AppScope(
+        appState: appState,
+        child: MaterialApp(
+          theme: cozyTheme(kThemePalettes.first),
+          home: Scaffold(
+            body: Row(
+              children: [
+                SizedBox(
+                  width: 92,
+                  child: MealMenuCategoryRail(
+                    categories: const ['全部', '收藏', '家常菜', '川菜'],
+                    counts: const {
+                      '全部': 407,
+                      '收藏': 12,
+                      '家常菜': 88,
+                      '川菜': 34,
+                    },
+                    selected: '全部',
+                    onSelected: (_) {},
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: ListView(
+                    children: [
+                      MealMenuListItem(meal: meal, onChanged: () {}),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    expect(find.text('全部'), findsOneWidget);
+    expect(find.text('番茄牛腩炖土豆'), findsOneWidget);
+    expect(find.text('查看菜谱'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   test('meal rating helpers clamp and build safe update fields', () {
     final meal = {'_id': 'meal-a', 'name': '番茄牛腩', 'rating': 4.5};
 
