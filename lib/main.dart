@@ -240,10 +240,7 @@ class _EatwhatRootState extends State<EatwhatRoot> {
 
   @override
   Widget build(BuildContext context) {
-    return AppScope(
-      appState: appState,
-      child: const EatwhatApp(),
-    );
+    return AppScope(appState: appState, child: const EatwhatApp());
   }
 }
 
@@ -287,7 +284,7 @@ ThemeData cozyTheme(AppThemePalette palette) {
     fontFamilyFallback: const [
       'Microsoft YaHei',
       'PingFang SC',
-      'Noto Sans CJK SC'
+      'Noto Sans CJK SC',
     ],
     visualDensity: VisualDensity.standard,
   );
@@ -308,7 +305,7 @@ ThemeData cozyTheme(AppThemePalette palette) {
         fontWeight: FontWeight.w800,
       ),
     ),
-    cardTheme: CardTheme(
+    cardTheme: CardThemeData(
       color: palette.surface,
       elevation: 0,
       shadowColor: palette.primary.withValues(alpha: 0.18),
@@ -413,7 +410,7 @@ ThemeData cozyTheme(AppThemePalette palette) {
       overlayColor: palette.secondary.withValues(alpha: 0.18),
     ),
     progressIndicatorTheme: ProgressIndicatorThemeData(color: palette.accent),
-    dialogTheme: DialogTheme(
+    dialogTheme: DialogThemeData(
       backgroundColor: palette.surface,
       surfaceTintColor: Colors.transparent,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
@@ -433,19 +430,18 @@ ThemeData cozyTheme(AppThemePalette palette) {
     snackBarTheme: SnackBarThemeData(
       behavior: SnackBarBehavior.floating,
       backgroundColor: palette.text,
-      contentTextStyle:
-          const TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
+      contentTextStyle: const TextStyle(
+        color: Colors.white,
+        fontWeight: FontWeight.w700,
+      ),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
     ),
   );
 }
 
 class AppScope extends InheritedNotifier<AppState> {
-  const AppScope({
-    super.key,
-    required this.appState,
-    required super.child,
-  }) : super(notifier: appState);
+  const AppScope({super.key, required this.appState, required super.child})
+      : super(notifier: appState);
 
   final AppState appState;
 
@@ -507,17 +503,15 @@ class AppState extends ChangeNotifier {
   Future<void> init() async {
     final prefs = await SharedPreferences.getInstance();
     token = prefs.getString(_tokenKey);
-    themeKey =
-        paletteForKey(prefs.getString(_themeKey) ?? kThemeCreamPeach).key;
+    themeKey = paletteForKey(
+      prefs.getString(_themeKey) ?? kThemeCreamPeach,
+    ).key;
     user = jsonMap(prefs.getString(_cachedUserKey));
     household = jsonMap(prefs.getString(_cachedHouseholdKey));
     lastLoginAt = DateTime.tryParse(prefs.getString(_lastLoginAtKey) ?? '');
     if (isAuthed) {
       if (isJwtExpired(token)) {
-        await clearSession(
-          notice: '登录已过期，请重新登录',
-          notify: false,
-        );
+        await clearSession(notice: '登录已过期，请重新登录', notify: false);
       } else {
         loading = false;
         notifyListeners();
@@ -539,7 +533,10 @@ class AppState extends ChangeNotifier {
   }
 
   Future<void> saveLogin(
-      String username, String password, bool remember) async {
+    String username,
+    String password,
+    bool remember,
+  ) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(_rememberKey, remember);
     final savedUsername = username.trim();
@@ -567,12 +564,11 @@ class AppState extends ChangeNotifier {
   }
 
   Future<void> login(String username, String password) async {
-    final response = await post('/auth/login',
-        body: {
-          'username': username,
-          'password': password,
-        },
-        auth: false);
+    final response = await post(
+      '/auth/login',
+      body: {'username': username, 'password': password},
+      auth: false,
+    );
     final data = asMap(payload(response));
     token = textOf(data['token'] ?? data['accessToken']);
     if (token == null || token!.isEmpty) {
@@ -593,15 +589,17 @@ class AppState extends ChangeNotifier {
     required String householdName,
     required String inviteCode,
   }) async {
-    final response = await post('/auth/register',
-        body: {
-          'username': username,
-          'password': password,
-          'displayName': displayName,
-          'householdName': householdName,
-          'inviteCode': inviteCode,
-        },
-        auth: false);
+    final response = await post(
+      '/auth/register',
+      body: {
+        'username': username,
+        'password': password,
+        'displayName': displayName,
+        'householdName': householdName,
+        'inviteCode': inviteCode,
+      },
+      auth: false,
+    );
     final data = asMap(payload(response));
     final newToken = textOf(data['token'] ?? data['accessToken']);
     if (newToken.isEmpty) {
@@ -637,33 +635,36 @@ class AppState extends ChangeNotifier {
       final startedAt = DateTime.now();
       try {
         final response = await rawHttpRequest(
-          'GET',
-          healthUri,
-          const {
-            'Accept': 'text/plain, application/json',
-            'Accept-Encoding': 'identity',
-            'X-Mobile-Client': 'eatwhat-flutter',
-          },
-          null,
-        );
+            'GET',
+            healthUri,
+            const {
+              'Accept': 'text/plain, application/json',
+              'Accept-Encoding': 'identity',
+              'X-Mobile-Client': 'eatwhat-flutter',
+            },
+            null);
         final elapsed = DateTime.now().difference(startedAt);
         final message = utf8.decode(response.bodyBytes).trim();
-        statuses.add(ApiEndpointStatus(
-          apiBase: apiBase,
-          healthUri: healthUri,
-          ok: response.statusCode >= 200 && response.statusCode < 300,
-          statusCode: response.statusCode,
-          message: message.isEmpty ? response.reasonPhrase ?? '' : message,
-          elapsed: elapsed,
-        ));
+        statuses.add(
+          ApiEndpointStatus(
+            apiBase: apiBase,
+            healthUri: healthUri,
+            ok: response.statusCode >= 200 && response.statusCode < 300,
+            statusCode: response.statusCode,
+            message: message.isEmpty ? response.reasonPhrase ?? '' : message,
+            elapsed: elapsed,
+          ),
+        );
       } catch (error) {
-        statuses.add(ApiEndpointStatus(
-          apiBase: apiBase,
-          healthUri: healthUri,
-          ok: false,
-          message: errorText(error),
-          elapsed: DateTime.now().difference(startedAt),
-        ));
+        statuses.add(
+          ApiEndpointStatus(
+            apiBase: apiBase,
+            healthUri: healthUri,
+            ok: false,
+            message: errorText(error),
+            elapsed: DateTime.now().difference(startedAt),
+          ),
+        );
       }
     }
     return statuses;
@@ -710,13 +711,19 @@ class AppState extends ChangeNotifier {
     }
   }
 
-  Future<dynamic> get(String path,
-      {Map<String, String>? query, bool auth = true}) {
+  Future<dynamic> get(
+    String path, {
+    Map<String, String>? query,
+    bool auth = true,
+  }) {
     return request('GET', path, query: query, auth: auth);
   }
 
-  Future<dynamic> post(String path,
-      {Map<String, dynamic>? body, bool auth = true}) {
+  Future<dynamic> post(
+    String path, {
+    Map<String, dynamic>? body,
+    bool auth = true,
+  }) {
     return request('POST', path, body: body, auth: auth);
   }
 
@@ -762,8 +769,9 @@ class AppState extends ChangeNotifier {
     final bases = kApiBases;
     Object? lastError;
     for (var index = 0; index < bases.length; index += 1) {
-      final uri = Uri.parse('${bases[index]}$path')
-          .replace(queryParameters: cleanedQuery(query));
+      final uri = Uri.parse(
+        '${bases[index]}$path',
+      ).replace(queryParameters: cleanedQuery(query));
       try {
         final response = await rawHttpRequest(method, uri, headers, encoded);
         return decodeResponse(response);
@@ -824,8 +832,9 @@ class AppState extends ChangeNotifier {
         socket.add(bodyBytes);
       }
       await socket.flush().timeout(kRequestTimeout);
-      final rawResponse =
-          await readSocketResponse(socket).timeout(kRequestTimeout);
+      final rawResponse = await readSocketResponse(
+        socket,
+      ).timeout(kRequestTimeout);
       final parsed = parseHttpResponse(rawResponse);
       final responseBody = parsed.headers['content-encoding'] == 'gzip'
           ? io.gzip.decode(parsed.bodyBytes)
@@ -853,7 +862,9 @@ class AppState extends ChangeNotifier {
     for (var index = 0; index < kApiBases.length; index += 1) {
       try {
         final request = http.MultipartRequest(
-            method, Uri.parse('${kApiBases[index]}$path'));
+          method,
+          Uri.parse('${kApiBases[index]}$path'),
+        );
         request.headers['Accept'] = 'application/json';
         request.headers['Accept-Encoding'] = 'identity';
         if (isAuthed) {
@@ -865,28 +876,34 @@ class AppState extends ChangeNotifier {
         }
         request.fields.addAll(fields ?? {});
         for (final entry in (files ?? {}).entries) {
-          request.files.add(http.MultipartFile.fromBytes(
-            entry.key,
-            await entry.value.readAsBytes(),
-            filename: uploadFileName(entry.value),
-            contentType: uploadContentType(entry.value),
-          ));
+          request.files.add(
+            http.MultipartFile.fromBytes(
+              entry.key,
+              await entry.value.readAsBytes(),
+              filename: uploadFileName(entry.value),
+              contentType: uploadContentType(entry.value),
+            ),
+          );
         }
         for (final entry in (multiFiles ?? {}).entries) {
           for (final file in entry.value) {
-            request.files.add(http.MultipartFile.fromBytes(
-              entry.key,
-              await file.readAsBytes(),
-              filename: uploadFileName(file),
-              contentType: uploadContentType(file),
-            ));
+            request.files.add(
+              http.MultipartFile.fromBytes(
+                entry.key,
+                await file.readAsBytes(),
+                filename: uploadFileName(file),
+                contentType: uploadContentType(file),
+              ),
+            );
           }
         }
         final streamed = await request.send().timeout(kUploadTimeout);
-        final response = await http.Response.fromStream(streamed)
-            .timeout(kUploadTimeout, onTimeout: () {
-          throw TimeoutException('upload response timeout');
-        });
+        final response = await http.Response.fromStream(streamed).timeout(
+          kUploadTimeout,
+          onTimeout: () {
+            throw TimeoutException('upload response timeout');
+          },
+        );
         return decodeResponse(response);
       } on ApiException catch (error) {
         if (error.isAuthExpired) {
@@ -902,10 +919,7 @@ class AppState extends ChangeNotifier {
         break;
       }
     }
-    throw networkApiException(
-      lastError,
-      prefix: '上传请求失败',
-    );
+    throw networkApiException(lastError, prefix: '上传请求失败');
   }
 
   dynamic decodeResponse(http.Response response) {
@@ -1367,8 +1381,11 @@ String dateTimeMinuteText(DateTime? value) {
 }
 
 DateTime mondayOf(DateTime value) {
-  return DateTime(value.year, value.month, value.day)
-      .subtract(Duration(days: value.weekday - 1));
+  return DateTime(
+    value.year,
+    value.month,
+    value.day,
+  ).subtract(Duration(days: value.weekday - 1));
 }
 
 DateTime addWeeks(DateTime value, int weeks) =>
@@ -1481,14 +1498,22 @@ List<int> renderFoodFocusBytes(Uint8List inputBytes) {
   final maxSide = math.max(source.width, source.height);
   if (maxSide > kFoodFocusMaxSide) {
     source = source.width >= source.height
-        ? img.copyResize(source,
-            width: kFoodFocusMaxSide, interpolation: img.Interpolation.cubic)
-        : img.copyResize(source,
-            height: kFoodFocusMaxSide, interpolation: img.Interpolation.cubic);
+        ? img.copyResize(
+            source,
+            width: kFoodFocusMaxSide,
+            interpolation: img.Interpolation.cubic,
+          )
+        : img.copyResize(
+            source,
+            height: kFoodFocusMaxSide,
+            interpolation: img.Interpolation.cubic,
+          );
   }
 
-  final blurRadius =
-      math.max(7, math.min(18, math.max(source.width, source.height) ~/ 95));
+  final blurRadius = math.max(
+    7,
+    math.min(18, math.max(source.width, source.height) ~/ 95),
+  );
   final blurred = img.gaussianBlur(source.clone(), radius: blurRadius);
   final output = img.Image.from(source, noAnimation: true);
   final width = source.width;
@@ -1512,26 +1537,32 @@ List<int> renderFoodFocusBytes(Uint8List inputBytes) {
       final mutedBackground = mutedFoodBackground(bg.r, bg.g, bg.b);
       final foreground = [
         clampColor(
-            fg.r * (1.04 + 0.05 * highlightWeight) + 5 * highlightWeight),
+          fg.r * (1.04 + 0.05 * highlightWeight) + 5 * highlightWeight,
+        ),
         clampColor(
-            fg.g * (1.03 + 0.04 * highlightWeight) + 4 * highlightWeight),
+          fg.g * (1.03 + 0.04 * highlightWeight) + 4 * highlightWeight,
+        ),
         clampColor(
-            fg.b * (1.02 + 0.03 * highlightWeight) + 2 * highlightWeight),
+          fg.b * (1.02 + 0.03 * highlightWeight) + 2 * highlightWeight,
+        ),
       ];
 
       final vignette = 1 - 0.10 * smoothStep(0.82, 1.45, distance);
       output.setPixelRgb(
         x,
         y,
-        clampColor(lerpDoubleValue(
-                foreground[0], mutedBackground[0], backgroundWeight) *
-            vignette),
-        clampColor(lerpDoubleValue(
-                foreground[1], mutedBackground[1], backgroundWeight) *
-            vignette),
-        clampColor(lerpDoubleValue(
-                foreground[2], mutedBackground[2], backgroundWeight) *
-            vignette),
+        clampColor(
+          lerpDoubleValue(foreground[0], mutedBackground[0], backgroundWeight) *
+              vignette,
+        ),
+        clampColor(
+          lerpDoubleValue(foreground[1], mutedBackground[1], backgroundWeight) *
+              vignette,
+        ),
+        clampColor(
+          lerpDoubleValue(foreground[2], mutedBackground[2], backgroundWeight) *
+              vignette,
+        ),
       );
     }
   }
@@ -1689,10 +1720,15 @@ class _LoginPageState extends State<LoginPage> {
     }
     setState(() => submitting = true);
     try {
-      await context.appRead
-          .login(usernameController.text.trim(), passwordController.text);
+      await context.appRead.login(
+        usernameController.text.trim(),
+        passwordController.text,
+      );
       await context.appRead.saveLogin(
-          usernameController.text.trim(), passwordController.text, remember);
+        usernameController.text.trim(),
+        passwordController.text,
+        remember,
+      );
     } catch (error) {
       if (mounted) {
         showMessage(context, errorText(error));
@@ -1746,9 +1782,7 @@ class _LoginPageState extends State<LoginPage> {
                                   ),
                         ),
                         const SizedBox(height: 22),
-                        const PartnerPresencePill(
-                          text: 'TA 正在等你一起决定今晚吃什么',
-                        ),
+                        const PartnerPresencePill(text: 'TA 正在等你一起决定今晚吃什么'),
                         if (context.app.sessionNotice != null &&
                             context.app.sessionNotice!.isNotEmpty) ...[
                           const SizedBox(height: 12),
@@ -1758,12 +1792,16 @@ class _LoginPageState extends State<LoginPage> {
                               color: kPeach.withValues(alpha: 0.16),
                               borderRadius: BorderRadius.circular(18),
                               border: Border.all(
-                                  color: kCoral.withValues(alpha: 0.28)),
+                                color: kCoral.withValues(alpha: 0.28),
+                              ),
                             ),
                             child: Row(
                               children: [
-                                const Icon(Icons.info_outline,
-                                    color: kCoral, size: 20),
+                                const Icon(
+                                  Icons.info_outline,
+                                  color: kCoral,
+                                  size: 20,
+                                ),
                                 const SizedBox(width: 8),
                                 Expanded(
                                   child: Text(
@@ -1811,8 +1849,9 @@ class _LoginPageState extends State<LoginPage> {
                           icon: submitting
                               ? const SizedBox.square(
                                   dimension: 18,
-                                  child:
-                                      CircularProgressIndicator(strokeWidth: 2),
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
                                 )
                               : const Icon(Icons.login),
                           label: const Text('登录'),
@@ -1907,7 +1946,9 @@ class _RegisterPageState extends State<RegisterPage> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   const SectionTitle(
-                      icon: Icons.favorite_border, title: '加入两个人的小家'),
+                    icon: Icons.favorite_border,
+                    title: '加入两个人的小家',
+                  ),
                   const SizedBox(height: 12),
                   const Text(
                     '没有邀请码会创建新的小家；填写 TA 的邀请码会加入同一个小家。',
@@ -1997,8 +2038,10 @@ class _HomeShellState extends State<HomeShell> {
             padding: const EdgeInsets.only(right: 14),
             child: Center(
               child: Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 7,
+                ),
                 decoration: BoxDecoration(
                   color: Colors.white.withValues(alpha: 0.72),
                   borderRadius: BorderRadius.circular(999),
@@ -2024,8 +2067,9 @@ class _HomeShellState extends State<HomeShell> {
           children: [
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 2, 16, 8),
-              child:
-                  PartnerPresencePill(text: partnerStatusText(titles[index])),
+              child: PartnerPresencePill(
+                text: partnerStatusText(titles[index]),
+              ),
             ),
             Expanded(
               child: AnimatedSwitcher(
@@ -2063,25 +2107,30 @@ class _HomeShellState extends State<HomeShell> {
                 onDestinationSelected: (value) => setState(() => index = value),
                 destinations: const [
                   NavigationDestination(
-                      icon: Icon(Icons.home_outlined),
-                      selectedIcon: Icon(Icons.home),
-                      label: '首页'),
+                    icon: Icon(Icons.home_outlined),
+                    selectedIcon: Icon(Icons.home),
+                    label: '首页',
+                  ),
                   NavigationDestination(
-                      icon: Icon(Icons.calendar_month_outlined),
-                      selectedIcon: Icon(Icons.calendar_month),
-                      label: '日历'),
+                    icon: Icon(Icons.calendar_month_outlined),
+                    selectedIcon: Icon(Icons.calendar_month),
+                    label: '日历',
+                  ),
                   NavigationDestination(
-                      icon: Icon(Icons.restaurant_menu),
-                      selectedIcon: Icon(Icons.restaurant),
-                      label: '菜谱'),
+                    icon: Icon(Icons.restaurant_menu),
+                    selectedIcon: Icon(Icons.restaurant),
+                    label: '菜谱',
+                  ),
                   NavigationDestination(
-                      icon: Icon(Icons.photo_album_outlined),
-                      selectedIcon: Icon(Icons.photo_album),
-                      label: '回忆'),
+                    icon: Icon(Icons.photo_album_outlined),
+                    selectedIcon: Icon(Icons.photo_album),
+                    label: '回忆',
+                  ),
                   NavigationDestination(
-                      icon: Icon(Icons.settings_outlined),
-                      selectedIcon: Icon(Icons.settings),
-                      label: '设置'),
+                    icon: Icon(Icons.settings_outlined),
+                    selectedIcon: Icon(Icons.settings),
+                    label: '设置',
+                  ),
                 ],
               ),
             ),
@@ -2126,9 +2175,7 @@ class _DashboardPageState extends State<DashboardPage> {
   Future<dynamic> load() async {
     final weekStart = dateString(mondayOf(DateTime.now()));
     final summary = asMap(
-      payload(
-        await loadPart(() => context.appRead.get('/dashboard/summary')),
-      ),
+      payload(await loadPart(() => context.appRead.get('/dashboard/summary'))),
     );
     final anniversaries = dashboardAnniversaryMenus(
       asMap({
@@ -2151,7 +2198,8 @@ class _DashboardPageState extends State<DashboardPage> {
     );
     final defaultStatus = asMap(
       payload(
-          await loadPart(() => context.appRead.get('/default-meals/status'))),
+        await loadPart(() => context.appRead.get('/default-meals/status')),
+      ),
     );
     final openImageIssues = imageIssues(
       payload(
@@ -2182,7 +2230,8 @@ class _DashboardPageState extends State<DashboardPage> {
     final today = DateTime.now();
     final results = await Future.wait<dynamic>([
       loadPart(
-          () => context.appRead.get('/schedules/day/${dateString(today)}')),
+        () => context.appRead.get('/schedules/day/${dateString(today)}'),
+      ),
       loadPart(() => context.appRead.get('/meals', query: {'limit': '1'})),
     ]);
     final meals = mealListFrom(results[1]);
@@ -2222,7 +2271,9 @@ class _DashboardPageState extends State<DashboardPage> {
           }
           if (snapshot.hasError) {
             return ErrorState(
-                message: errorText(snapshot.error!), onRetry: reload);
+              message: errorText(snapshot.error!),
+              onRetry: reload,
+            );
           }
           final data = asMap(payload(snapshot.data));
           final today = DateTime.now();
@@ -2317,6 +2368,12 @@ class _DashboardPageState extends State<DashboardPage> {
                           icon: const Icon(Icons.favorite_outline),
                           label: const Text('TA 想吃'),
                         ),
+                        OutlinedButton.icon(
+                          onPressed: () =>
+                              pushPage(context, const GuestOrderSessionsPage()),
+                          icon: const Icon(Icons.room_service_outlined),
+                          label: const Text('请客点菜'),
+                        ),
                       ],
                     ),
                   ],
@@ -2336,25 +2393,31 @@ class _DashboardPageState extends State<DashboardPage> {
                   DashboardTile(
                     icon: Icons.restaurant,
                     label: '菜品数量',
-                    value: countText(data['mealCount'] ??
-                        data['defaultMeals'] ??
-                        data['meals']),
+                    value: countText(
+                      data['mealCount'] ??
+                          data['defaultMeals'] ??
+                          data['meals'],
+                    ),
                     color: const Color(0xFFE09F67),
                   ),
                   DashboardTile(
                     icon: Icons.favorite,
                     label: '想吃提醒',
-                    value: countText(data['wishlist'] ??
-                        data['wishCount'] ??
-                        data['partnerWishlist']),
+                    value: countText(
+                      data['wishlist'] ??
+                          data['wishCount'] ??
+                          data['partnerWishlist'],
+                    ),
                     color: const Color(0xFFFF8D7E),
                   ),
                   DashboardTile(
                     icon: Icons.photo_library_outlined,
                     label: '最近回忆',
-                    value: countText(data['memories'] ??
-                        data['memoryCount'] ??
-                        data['recentPhotos']),
+                    value: countText(
+                      data['memories'] ??
+                          data['memoryCount'] ??
+                          data['recentPhotos'],
+                    ),
                     color: const Color(0xFF9E8B73),
                   ),
                   DashboardTile(
@@ -2379,7 +2442,9 @@ class _DashboardPageState extends State<DashboardPage> {
               ],
               if (partnerWishlist.isNotEmpty) ...[
                 DashboardWishlistCard(
-                    items: partnerWishlist, onChanged: reload),
+                  items: partnerWishlist,
+                  onChanged: reload,
+                ),
                 const SizedBox(height: 14),
               ],
               if (recentPhotos.isNotEmpty) ...[
@@ -2395,7 +2460,9 @@ class _DashboardPageState extends State<DashboardPage> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const SectionTitle(
-                        icon: Icons.favorite_border, title: '双人互动'),
+                      icon: Icons.favorite_border,
+                      title: '双人互动',
+                    ),
                     const SizedBox(height: 10),
                     const Text('TA 正在看你们的小家菜单，适合的菜可以一键安排进今天晚餐。'),
                     const SizedBox(height: 12),
@@ -2573,10 +2640,12 @@ int firstIntValue(Map<String, dynamic> data, List<String> keys) {
 }
 
 int defaultMealMissingCount(Map<String, dynamic> status) {
-  return firstIntValue(
-    status,
-    const ['missing', 'missingCount', 'notImported', 'notImportedCount'],
-  );
+  return firstIntValue(status, const [
+    'missing',
+    'missingCount',
+    'notImported',
+    'notImportedCount',
+  ]);
 }
 
 int defaultMealImportedCount(Map<String, dynamic> status) {
@@ -2603,10 +2672,14 @@ int dashboardImageIssueOpenCount(Map<String, dynamic> data) {
   if (listed.isNotEmpty) {
     return listed.length;
   }
-  return firstIntValue(
-    map,
-    const ['open', 'openCount', 'pending', 'pendingCount', 'count', 'total'],
-  );
+  return firstIntValue(map, const [
+    'open',
+    'openCount',
+    'pending',
+    'pendingCount',
+    'count',
+    'total',
+  ]);
 }
 
 bool dashboardNeedsMaintenance(Map<String, dynamic> data) {
@@ -2648,10 +2721,7 @@ class DashboardAnniversaryCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const SectionTitle(
-            icon: Icons.celebration_outlined,
-            title: '最近纪念日',
-          ),
+          const SectionTitle(icon: Icons.celebration_outlined, title: '最近纪念日'),
           const SizedBox(height: 10),
           Text(
             title,
@@ -2721,17 +2791,11 @@ class DashboardShoppingCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const SectionTitle(
-            icon: Icons.shopping_bag_outlined,
-            title: '本周买菜',
-          ),
+          const SectionTitle(icon: Icons.shopping_bag_outlined, title: '本周买菜'),
           const SizedBox(height: 10),
           Text(
             shoppingProgressText(items),
-            style: const TextStyle(
-              color: kCoffee,
-              fontWeight: FontWeight.w900,
-            ),
+            style: const TextStyle(color: kCoffee, fontWeight: FontWeight.w900),
           ),
           const SizedBox(height: 8),
           ClipRRect(
@@ -2810,14 +2874,20 @@ class DashboardMaintenanceCard extends StatelessWidget {
             runSpacing: 8,
             children: [
               if (missing > 0)
-                InfoChip('缺失默认菜 $missing 道',
-                    icon: Icons.restaurant_menu_outlined),
+                InfoChip(
+                  '缺失默认菜 $missing 道',
+                  icon: Icons.restaurant_menu_outlined,
+                ),
               if (openIssueCount > 0)
-                InfoChip('待修正图片 $openIssueCount 张',
-                    icon: Icons.report_outlined),
+                InfoChip(
+                  '待修正图片 $openIssueCount 张',
+                  icon: Icons.report_outlined,
+                ),
               if (total > 0)
-                InfoChip('已导入 $imported/$total',
-                    icon: Icons.check_circle_outline),
+                InfoChip(
+                  '已导入 $imported/$total',
+                  icon: Icons.check_circle_outline,
+                ),
             ],
           ),
           const SizedBox(height: 12),
@@ -2865,11 +2935,7 @@ Future<void> scheduleWishlistForTodayDinner(
     }
   }
 
-  await appendMealToTodayDinner(
-    context,
-    mealId: mealId,
-    mealName: mealName,
-  );
+  await appendMealToTodayDinner(context, mealId: mealId, mealName: mealName);
   if (wishlistId.isNotEmpty) {
     await context.appRead.patch(
       '/wishlist/$wishlistId/status',
@@ -2957,8 +3023,9 @@ class DashboardWishlistCard extends StatelessWidget {
             child: OutlinedButton.icon(
               onPressed: () => pushPage(context, const WishlistPage()),
               icon: const Icon(Icons.arrow_forward),
-              label:
-                  Text(items.length > 3 ? '查看全部 ${items.length} 项' : '查看想吃清单'),
+              label: Text(
+                items.length > 3 ? '查看全部 ${items.length} 项' : '查看想吃清单',
+              ),
             ),
           ),
         ],
@@ -2980,7 +3047,9 @@ class DashboardPhotoStrip extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const SectionTitle(
-              icon: Icons.photo_library_outlined, title: '最近饭桌照片'),
+            icon: Icons.photo_library_outlined,
+            title: '最近饭桌照片',
+          ),
           const SizedBox(height: 12),
           SizedBox(
             height: 148,
@@ -2990,8 +3059,9 @@ class DashboardPhotoStrip extends StatelessWidget {
               separatorBuilder: (_, __) => const SizedBox(width: 10),
               itemBuilder: (context, index) {
                 final photo = visiblePhotos[index];
-                final url =
-                    imageUrl(photo['photo'] ?? photo['url'] ?? photo['src']);
+                final url = imageUrl(
+                  photo['photo'] ?? photo['url'] ?? photo['src'],
+                );
                 return InkWell(
                   borderRadius: BorderRadius.circular(22),
                   onTap: () => pushPage(context, const PhotoAlbumPage()),
@@ -3136,10 +3206,9 @@ class TodayScheduleCard extends StatelessWidget {
                   children: [
                     Text(
                       '今日饭桌',
-                      style: Theme.of(context)
-                          .textTheme
-                          .titleLarge
-                          ?.copyWith(fontWeight: FontWeight.w900),
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                            fontWeight: FontWeight.w900,
+                          ),
                     ),
                     Text(
                       '${dateString(date)} · ${weekdayLabel(date.weekday)}',
@@ -3242,11 +3311,13 @@ class DashboardTile extends StatelessWidget {
               child: Icon(icon, color: color),
             ),
             const SizedBox(height: 14),
-            Text(value,
-                style: Theme.of(context)
-                    .textTheme
-                    .headlineSmall
-                    ?.copyWith(fontWeight: FontWeight.w900, color: kCoffee)),
+            Text(
+              value,
+              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                    fontWeight: FontWeight.w900,
+                    color: kCoffee,
+                  ),
+            ),
             Text(
               label,
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
@@ -3278,10 +3349,10 @@ class _CalendarPageState extends State<CalendarPage> {
     future = load();
   }
 
-  Future<dynamic> load() => context.appRead.get('/schedules', query: {
-        'year': month.year.toString(),
-        'month': month.month.toString(),
-      });
+  Future<dynamic> load() => context.appRead.get(
+        '/schedules',
+        query: {'year': month.year.toString(), 'month': month.month.toString()},
+      );
 
   void reload() => setState(() {
         future = load();
@@ -3304,7 +3375,9 @@ class _CalendarPageState extends State<CalendarPage> {
         }
         if (snapshot.hasError) {
           return ErrorState(
-              message: errorText(snapshot.error!), onRetry: reload);
+            message: errorText(snapshot.error!),
+            onRetry: reload,
+          );
         }
         final schedules = scheduleMap(payload(snapshot.data));
         final days = DateUtils.getDaysInMonth(month.year, month.month);
@@ -3325,21 +3398,22 @@ class _CalendarPageState extends State<CalendarPage> {
                 child: Row(
                   children: [
                     IconButton(
-                        onPressed: () => changeMonth(-1),
-                        icon: const Icon(Icons.chevron_left)),
+                      onPressed: () => changeMonth(-1),
+                      icon: const Icon(Icons.chevron_left),
+                    ),
                     Expanded(
                       child: Text(
                         '${month.year} 年 ${month.month} 月',
                         textAlign: TextAlign.center,
-                        style: Theme.of(context)
-                            .textTheme
-                            .titleLarge
-                            ?.copyWith(fontWeight: FontWeight.w900),
+                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                              fontWeight: FontWeight.w900,
+                            ),
                       ),
                     ),
                     IconButton(
-                        onPressed: () => changeMonth(1),
-                        icon: const Icon(Icons.chevron_right)),
+                      onPressed: () => changeMonth(1),
+                      icon: const Icon(Icons.chevron_right),
+                    ),
                   ],
                 ),
               ),
@@ -3581,24 +3655,29 @@ class CalendarMonthSummaryCard extends StatelessWidget {
             spacing: 8,
             runSpacing: 8,
             children: [
-              InfoChip('${summary.arrangedDays}/${summary.totalDays} 天',
-                  icon: Icons.calendar_month_outlined),
-              InfoChip('${summary.mealSlotCount} 餐',
-                  icon: Icons.restaurant_outlined),
-              InfoChip('${summary.mealCount} 道菜',
-                  icon: Icons.ramen_dining_outlined),
+              InfoChip(
+                '${summary.arrangedDays}/${summary.totalDays} 天',
+                icon: Icons.calendar_month_outlined,
+              ),
+              InfoChip(
+                '${summary.mealSlotCount} 餐',
+                icon: Icons.restaurant_outlined,
+              ),
+              InfoChip(
+                '${summary.mealCount} 道菜',
+                icon: Icons.ramen_dining_outlined,
+              ),
               if (summary.emptyDays > 0)
-                InfoChip('空白 ${summary.emptyDays} 天',
-                    icon: Icons.edit_note_outlined),
+                InfoChip(
+                  '空白 ${summary.emptyDays} 天',
+                  icon: Icons.edit_note_outlined,
+                ),
             ],
           ),
           const SizedBox(height: 10),
           Text(
             '${scheduleMonthEmptyDaysLabel(summary)} · ${scheduleMonthNudge(summary)}',
-            style: const TextStyle(
-              color: kCocoa,
-              fontWeight: FontWeight.w700,
-            ),
+            style: const TextStyle(color: kCocoa, fontWeight: FontWeight.w700),
           ),
           const SizedBox(height: 14),
           Wrap(
@@ -3658,8 +3737,9 @@ class DayCard extends StatelessWidget {
           color: today ? const Color(0xFFFFF1EA) : kPaper,
           borderRadius: BorderRadius.circular(28),
           border: Border.all(
-              color: today ? kCoral : Colors.white.withValues(alpha: 0.9),
-              width: today ? 1.8 : 1),
+            color: today ? kCoral : Colors.white.withValues(alpha: 0.9),
+            width: today ? 1.8 : 1,
+          ),
           boxShadow: [
             BoxShadow(
               color: kCaramel.withValues(alpha: today ? 0.20 : 0.12),
@@ -3686,10 +3766,10 @@ class DayCard extends StatelessWidget {
               children: [
                 Text(
                   '${date.day}',
-                  style: Theme.of(context)
-                      .textTheme
-                      .titleLarge
-                      ?.copyWith(fontWeight: FontWeight.w900, color: kCoffee),
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.w900,
+                        color: kCoffee,
+                      ),
                 ),
                 const SizedBox(width: 6),
                 Text(
@@ -3720,8 +3800,11 @@ class DayCard extends StatelessWidget {
             const Spacer(),
             const Align(
               alignment: Alignment.bottomRight,
-              child:
-                  Icon(Icons.edit_calendar_outlined, size: 18, color: kCaramel),
+              child: Icon(
+                Icons.edit_calendar_outlined,
+                size: 18,
+                color: kCaramel,
+              ),
             ),
           ],
         ),
@@ -3813,10 +3896,14 @@ List<String> mealNames(dynamic value) {
     } else {
       final map = asMap(item);
       final nestedMeal = asMap(map['meal']);
-      result.add(textOf(map['name'] ??
-          map['title'] ??
-          nestedMeal['name'] ??
-          nestedMeal['title']));
+      result.add(
+        textOf(
+          map['name'] ??
+              map['title'] ??
+              nestedMeal['name'] ??
+              nestedMeal['title'],
+        ),
+      );
     }
   }
   return result.where((item) => item.isNotEmpty).toList();
@@ -3881,8 +3968,16 @@ List<String> scheduleBalanceHints(Map<String, dynamic> schedule) {
       (tag) => textContainsAny(tag, const ['蔬菜', '青菜', '素', '清淡', '少油', '高纤']),
     );
     final hasProtein = tags.any(
-      (tag) => textContainsAny(
-          tag, const ['高蛋白', '肉', '鸡', '牛', '鱼', '蛋', '虾', '豆']),
+      (tag) => textContainsAny(tag, const [
+        '高蛋白',
+        '肉',
+        '鸡',
+        '牛',
+        '鱼',
+        '蛋',
+        '虾',
+        '豆',
+      ]),
     );
     final heavyCount = tags
         .where(
@@ -3924,9 +4019,7 @@ Future<void> appendMealToTodayDinner(
   if (!dinnerIds.contains(mealId)) {
     dinnerIds.add(mealId);
   }
-  await app.put('/schedules/$today/dinner', body: {
-    'mealIds': dinnerIds,
-  });
+  await app.put('/schedules/$today/dinner', body: {'mealIds': dinnerIds});
   if (context.mounted) {
     final name = mealName.trim();
     showMessage(context, name.isEmpty ? '已安排到今天晚餐' : '今晚就吃「$name」');
@@ -3947,11 +4040,7 @@ List<Map<String, String>> shoppingItemsFromIngredients(dynamic ingredients) {
     final key = _shoppingItemKey(name, category);
     final current = merged[key];
     if (current == null) {
-      merged[key] = {
-        'name': name,
-        'amount': amount,
-        'category': category,
-      };
+      merged[key] = {'name': name, 'amount': amount, 'category': category};
       continue;
     }
     if (amount.isNotEmpty) {
@@ -3992,8 +4081,20 @@ String shoppingCategoryFor(String value) {
     return 'other';
   }
   bool containsAny(List<String> words) => words.any(name.contains);
-  if (containsAny(
-      ['米', '面粉', '面条', '饼', '馒头', '包子', '粥', '年糕', '粉丝', '粉条', '玉米', '红薯'])) {
+  if (containsAny([
+    '米',
+    '面粉',
+    '面条',
+    '饼',
+    '馒头',
+    '包子',
+    '粥',
+    '年糕',
+    '粉丝',
+    '粉条',
+    '玉米',
+    '红薯',
+  ])) {
     return 'staple';
   }
   if (containsAny([
@@ -4016,7 +4117,7 @@ String shoppingCategoryFor(String value) {
     '鸡精',
     '味精',
     '胡椒',
-    '淀粉'
+    '淀粉',
   ])) {
     return 'seasoning';
   }
@@ -4035,7 +4136,7 @@ String shoppingCategoryFor(String value) {
     '火腿',
     '培根',
     '丸',
-    '肠'
+    '肠',
   ])) {
     return 'meat_egg';
   }
@@ -4060,7 +4161,7 @@ String shoppingCategoryFor(String value) {
     '藕',
     '土豆',
     '洋葱',
-    '豆腐'
+    '豆腐',
   ])) {
     return 'vegetable';
   }
@@ -4078,11 +4179,15 @@ Future<void> addMealIngredientsToShoppingList(
   }
   final app = context.appRead;
   final weekStart = dateString(mondayOf(DateTime.now()));
-  final existingResponse =
-      await app.get('/shopping-list', query: {'weekStart': weekStart});
+  final existingResponse = await app.get(
+    '/shopping-list',
+    query: {'weekStart': weekStart},
+  );
   final existingKeys = shoppingItems(existingResponse)
-      .map((item) =>
-          _shoppingItemKey(textOf(item['name']), textOf(item['category'])))
+      .map(
+        (item) =>
+            _shoppingItemKey(textOf(item['name']), textOf(item['category'])),
+      )
       .toSet();
 
   var added = 0;
@@ -4093,21 +4198,21 @@ Future<void> addMealIngredientsToShoppingList(
     if (existingKeys.contains(key)) {
       continue;
     }
-    await app.post('/shopping-list/items', body: {
-      'weekStart': weekStart,
-      'name': name,
-      'amount': item['amount'] ?? '',
-      'category': category,
-    });
+    await app.post(
+      '/shopping-list/items',
+      body: {
+        'weekStart': weekStart,
+        'name': name,
+        'amount': item['amount'] ?? '',
+        'category': category,
+      },
+    );
     existingKeys.add(key);
     added += 1;
   }
 
   if (context.mounted) {
-    showMessage(
-      context,
-      added == 0 ? '这些食材已经在本周购物清单里' : '已加入本周购物清单（$added 项）',
-    );
+    showMessage(context, added == 0 ? '这些食材已经在本周购物清单里' : '已加入本周购物清单（$added 项）');
   }
 }
 
@@ -4126,10 +4231,7 @@ List<Map<String, dynamic>> scheduleMealObjects(Map<String, dynamic> schedule) {
       if (id.isEmpty) {
         continue;
       }
-      mealsById[id] = {
-        ...meal,
-        if (idOf(meal).isEmpty) '_id': id,
-      };
+      mealsById[id] = {...meal, if (idOf(meal).isEmpty) '_id': id};
     }
   }
   return mealsById.values.toList();
@@ -4152,11 +4254,15 @@ Future<void> addScheduleIngredientsToShoppingList(
 
   final app = context.appRead;
   final weekStart = dateString(mondayOf(DateTime.now()));
-  final existingResponse =
-      await app.get('/shopping-list', query: {'weekStart': weekStart});
+  final existingResponse = await app.get(
+    '/shopping-list',
+    query: {'weekStart': weekStart},
+  );
   final existingKeys = shoppingItems(existingResponse)
-      .map((item) =>
-          _shoppingItemKey(textOf(item['name']), textOf(item['category'])))
+      .map(
+        (item) =>
+            _shoppingItemKey(textOf(item['name']), textOf(item['category'])),
+      )
       .toSet();
   final mealsById = {
     for (final meal in scheduledMeals)
@@ -4184,12 +4290,15 @@ Future<void> addScheduleIngredientsToShoppingList(
       if (existingKeys.contains(key)) {
         continue;
       }
-      await app.post('/shopping-list/items', body: {
-        'weekStart': weekStart,
-        'name': name,
-        'amount': item['amount'] ?? '',
-        'category': category,
-      });
+      await app.post(
+        '/shopping-list/items',
+        body: {
+          'weekStart': weekStart,
+          'name': name,
+          'amount': item['amount'] ?? '',
+          'category': category,
+        },
+      );
       existingKeys.add(key);
       added += 1;
     }
@@ -4225,11 +4334,7 @@ String _shoppingItemKey(String name, String category) =>
     '${category.trim()}|${name.trim().toLowerCase()}';
 
 class ScheduleSheet extends StatefulWidget {
-  const ScheduleSheet({
-    super.key,
-    required this.date,
-    required this.schedule,
-  });
+  const ScheduleSheet({super.key, required this.date, required this.schedule});
 
   final DateTime date;
   final Map<String, dynamic> schedule;
@@ -4317,10 +4422,10 @@ class _ScheduleSheetState extends State<ScheduleSheet> {
 
   Future<dynamic> loadMeals() {
     final query = searchController.text.trim();
-    return context.appRead.get('/meals', query: {
-      'limit': '200',
-      if (query.isNotEmpty) 'search': query,
-    });
+    return context.appRead.get(
+      '/meals',
+      query: {'limit': '200', if (query.isNotEmpty) 'search': query},
+    );
   }
 
   void reloadMeals() {
@@ -4332,10 +4437,10 @@ class _ScheduleSheetState extends State<ScheduleSheet> {
   Future<void> save() async {
     setState(() => saving = true);
     try {
-      await context.appRead
-          .put('/schedules/${dateString(widget.date)}/$mealType', body: {
-        'mealIds': selected.toList(),
-      });
+      await context.appRead.put(
+        '/schedules/${dateString(widget.date)}/$mealType',
+        body: {'mealIds': selected.toList()},
+      );
       if (mounted) {
         Navigator.pop(context, true);
       }
@@ -4383,26 +4488,28 @@ class _ScheduleSheetState extends State<ScheduleSheet> {
                 children: [
                   Text(
                     '${dateString(widget.date)} 安排一餐',
-                    style: Theme.of(context)
-                        .textTheme
-                        .titleLarge
-                        ?.copyWith(fontWeight: FontWeight.w900),
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.w900,
+                        ),
                   ),
                   const SizedBox(height: 12),
                   SegmentedButton<String>(
                     segments: const [
                       ButtonSegment(
-                          value: 'breakfast',
-                          label: Text('早餐'),
-                          icon: Icon(Icons.wb_twilight)),
+                        value: 'breakfast',
+                        label: Text('早餐'),
+                        icon: Icon(Icons.wb_twilight),
+                      ),
                       ButtonSegment(
-                          value: 'lunch',
-                          label: Text('午餐'),
-                          icon: Icon(Icons.wb_sunny_outlined)),
+                        value: 'lunch',
+                        label: Text('午餐'),
+                        icon: Icon(Icons.wb_sunny_outlined),
+                      ),
                       ButtonSegment(
-                          value: 'dinner',
-                          label: Text('晚餐'),
-                          icon: Icon(Icons.nightlight_outlined)),
+                        value: 'dinner',
+                        label: Text('晚餐'),
+                        icon: Icon(Icons.nightlight_outlined),
+                      ),
                     ],
                     selected: {mealType},
                     onSelectionChanged: (value) => setState(() {
@@ -4478,9 +4585,7 @@ class _ScheduleSheetState extends State<ScheduleSheet> {
                   const SizedBox(height: 8),
                   if (isLoading)
                     const Expanded(
-                      child: Center(
-                        child: CircularProgressIndicator(),
-                      ),
+                      child: Center(child: CircularProgressIndicator()),
                     )
                   else if (hasError)
                     Expanded(
@@ -4566,10 +4671,10 @@ class _MealListPageState extends State<MealListPage> {
     super.dispose();
   }
 
-  Future<dynamic> load() => context.appRead.get('/meals', query: {
-        'search': searchController.text,
-        'limit': '200',
-      });
+  Future<dynamic> load() => context.appRead.get(
+        '/meals',
+        query: {'search': searchController.text, 'limit': '200'},
+      );
 
   void reload() => setState(() {
         future = load();
@@ -4638,7 +4743,9 @@ class _MealListPageState extends State<MealListPage> {
                 }
                 if (snapshot.hasError) {
                   return ErrorState(
-                      message: errorText(snapshot.error!), onRetry: reload);
+                    message: errorText(snapshot.error!),
+                    onRetry: reload,
+                  );
                 }
                 final rawMeals = mealListFrom(snapshot.data);
                 final meals = incompleteFirst
@@ -4649,8 +4756,10 @@ class _MealListPageState extends State<MealListPage> {
                     title: '还没有菜品',
                     action: '新增第一道菜',
                     onPressed: () async {
-                      final changed =
-                          await pushPage(context, const MealEditPage());
+                      final changed = await pushPage(
+                        context,
+                        const MealEditPage(),
+                      );
                       if (changed == true) {
                         reload();
                       }
@@ -4701,7 +4810,8 @@ List<dynamic> mealListFrom(dynamic response) {
   final data = payload(response);
   if (data is Map) {
     return asList(
-        data['meals'] ?? data['items'] ?? data['list'] ?? data['data']);
+      data['meals'] ?? data['items'] ?? data['list'] ?? data['data'],
+    );
   }
   return asList(data);
 }
@@ -4714,10 +4824,7 @@ Map<String, String> mealFavoriteUpdateFields(
   Map<String, dynamic> meal, {
   required bool favorite,
 }) =>
-    {
-      'name': textOf(meal['name']),
-      'favorite': favorite.toString(),
-    };
+    {'name': textOf(meal['name']), 'favorite': favorite.toString()};
 
 double mealRatingValue(dynamic value, {double fallback = 0}) {
   final parsed = double.tryParse(textOf(value));
@@ -4773,14 +4880,16 @@ MealCompleteness mealCompleteness(Map<String, dynamic> meal) {
 }
 
 bool mealHasDisplayPhoto(Map<String, dynamic> meal) {
-  if (imageUrl(meal['image'] ?? meal['coverImage'] ?? meal['imageUrl'])
-      .isNotEmpty) {
+  if (imageUrl(
+    meal['image'] ?? meal['coverImage'] ?? meal['imageUrl'],
+  ).isNotEmpty) {
     return true;
   }
   return asList(meal['photos']).any((item) {
     final photo = asMap(item);
-    return imageUrl(photo['url'] ?? photo['photo'] ?? photo['src'] ?? item)
-        .isNotEmpty;
+    return imageUrl(
+      photo['url'] ?? photo['photo'] ?? photo['src'] ?? item,
+    ).isNotEmpty;
   });
 }
 
@@ -5004,11 +5113,7 @@ Future<double?> mealRatingDialog(
 }
 
 class MealCard extends StatelessWidget {
-  const MealCard({
-    super.key,
-    required this.meal,
-    required this.onChanged,
-  });
+  const MealCard({super.key, required this.meal, required this.onChanged});
 
   final Map<String, dynamic> meal;
   final VoidCallback onChanged;
@@ -5018,18 +5123,15 @@ class MealCard extends StatelessWidget {
     final id = idOf(meal);
     final favorite = mealIsFavorite(meal);
     final completeness = mealCompleteness(meal);
-    final image =
-        imageUrl(meal['image'] ?? meal['coverImage'] ?? meal['imageUrl']);
-    final tags = asList(meal['tags'])
-        .map(textOf)
-        .where((item) => item.isNotEmpty)
-        .take(3)
-        .toList();
-    final health = asList(meal['healthTags'])
-        .map(textOf)
-        .where((item) => item.isNotEmpty)
-        .take(2)
-        .toList();
+    final image = imageUrl(
+      meal['image'] ?? meal['coverImage'] ?? meal['imageUrl'],
+    );
+    final tags = asList(
+      meal['tags'],
+    ).map(textOf).where((item) => item.isNotEmpty).take(3).toList();
+    final health = asList(
+      meal['healthTags'],
+    ).map(textOf).where((item) => item.isNotEmpty).take(2).toList();
     return InkWell(
       borderRadius: BorderRadius.circular(28),
       onTap: () async {
@@ -5045,8 +5147,9 @@ class MealCard extends StatelessWidget {
               Stack(
                 children: [
                   ClipRRect(
-                    borderRadius:
-                        const BorderRadius.vertical(top: Radius.circular(30)),
+                    borderRadius: const BorderRadius.vertical(
+                      top: Radius.circular(30),
+                    ),
                     child: SizedBox(
                       height:
                           MediaQuery.sizeOf(context).width > 760 ? 178 : 230,
@@ -5059,7 +5162,9 @@ class MealCard extends StatelessWidget {
                     top: 14,
                     child: Container(
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 10, vertical: 7),
+                        horizontal: 10,
+                        vertical: 7,
+                      ),
                       decoration: BoxDecoration(
                         color: kCoffee.withValues(alpha: 0.70),
                         borderRadius: BorderRadius.circular(999),
@@ -5141,7 +5246,9 @@ class MealCard extends StatelessWidget {
                           color: kCoral,
                           onPressed: () async {
                             final changed = await pushPage(
-                                context, MealEditPage(mealId: id));
+                              context,
+                              MealEditPage(mealId: id),
+                            );
                             if (changed == true) {
                               onChanged();
                             }
@@ -5186,7 +5293,8 @@ class MealCard extends StatelessWidget {
                         ),
                         ...tags.map(InfoChip.new),
                         ...health.map(
-                            (item) => InfoChip(item, icon: Icons.eco_outlined)),
+                          (item) => InfoChip(item, icon: Icons.eco_outlined),
+                        ),
                       ],
                     ),
                   ],
@@ -5279,7 +5387,8 @@ class MealCompletenessStrip extends StatelessWidget {
                 runSpacing: 8,
                 children: completeness.missing
                     .map(
-                        (item) => InfoChip(item, icon: Icons.add_task_outlined))
+                      (item) => InfoChip(item, icon: Icons.add_task_outlined),
+                    )
                     .toList(),
               ),
             ],
@@ -5300,11 +5409,14 @@ Future<void> reportImageIssue(BuildContext context, String mealId) async {
     return;
   }
   try {
-    await context.appRead.post('/meal-image-issues', body: {
-      'mealId': mealId,
-      'issueType': issue['issueType'] ?? 'mismatch',
-      'note': issue['note'] ?? '',
-    });
+    await context.appRead.post(
+      '/meal-image-issues',
+      body: {
+        'mealId': mealId,
+        'issueType': issue['issueType'] ?? 'mismatch',
+        'note': issue['note'] ?? '',
+      },
+    );
     if (context.mounted) {
       showMessage(context, '已记录图片纠错');
     }
@@ -5387,10 +5499,7 @@ String imageIssueFixPriorityText(List<Map<String, dynamic>> issues) {
   return '按数量最多的问题类型优先处理：${imageIssueTypeLabel(top.key)}。';
 }
 
-String imageIssueDraftNote({
-  required String issueType,
-  String note = '',
-}) {
+String imageIssueDraftNote({required String issueType, String note = ''}) {
   final label = imageIssueTypeLabel(issueType);
   final content = note.trim();
   return content.isEmpty ? label : '$label：$content';
@@ -5542,7 +5651,9 @@ class _MealDetailPageState extends State<MealDetailPage> {
       );
       if (mounted) {
         showMessage(
-            context, '已更新评分 ${mealRatingValue(rating).toStringAsFixed(1)} 分');
+          context,
+          '已更新评分 ${mealRatingValue(rating).toStringAsFixed(1)} 分',
+        );
         reload();
       }
     } catch (error) {
@@ -5589,17 +5700,19 @@ class _MealDetailPageState extends State<MealDetailPage> {
             }
             if (snapshot.hasError) {
               return ErrorState(
-                  message: errorText(snapshot.error!), onRetry: reload);
+                message: errorText(snapshot.error!),
+                onRetry: reload,
+              );
             }
             final meal = asMap(payload(snapshot.data));
             final favorite = mealIsFavorite(meal);
             final completeness = mealCompleteness(meal);
             final image = imageUrl(
-                meal['image'] ?? meal['coverImage'] ?? meal['imageUrl']);
-            final photos = asList(meal['photos'])
-                .map(imageUrl)
-                .where((item) => item.isNotEmpty)
-                .toList();
+              meal['image'] ?? meal['coverImage'] ?? meal['imageUrl'],
+            );
+            final photos = asList(
+              meal['photos'],
+            ).map(imageUrl).where((item) => item.isNotEmpty).toList();
             return ListView(
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
               children: [
@@ -5635,7 +5748,9 @@ class _MealDetailPageState extends State<MealDetailPage> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               const TapedLabel(
-                                  text: '今晚可以投喂给 TA', icon: Icons.favorite),
+                                text: '今晚可以投喂给 TA',
+                                icon: Icons.favorite,
+                              ),
                               const SizedBox(height: 10),
                               Text(
                                 textOf(meal['name']).isEmpty
@@ -5664,26 +5779,33 @@ class _MealDetailPageState extends State<MealDetailPage> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(textOf(meal['description']).isEmpty
-                          ? '还没有简介。'
-                          : textOf(meal['description'])),
+                      Text(
+                        textOf(meal['description']).isEmpty
+                            ? '还没有简介。'
+                            : textOf(meal['description']),
+                      ),
                       const SizedBox(height: 14),
                       Wrap(
                         spacing: 8,
                         runSpacing: 8,
                         children: [
                           InfoChip(
-                              '${textOf(meal['prepTime']).isEmpty ? '0' : textOf(meal['prepTime'])} 分钟准备'),
+                            '${textOf(meal['prepTime']).isEmpty ? '0' : textOf(meal['prepTime'])} 分钟准备',
+                          ),
                           InfoChip(
-                              '${textOf(meal['cookTime']).isEmpty ? '30' : textOf(meal['cookTime'])} 分钟烹饪'),
+                            '${textOf(meal['cookTime']).isEmpty ? '30' : textOf(meal['cookTime'])} 分钟烹饪',
+                          ),
                           InfoChip(difficultyLabel(meal['difficulty'])),
                           InfoChip(
-                              '${textOf(meal['rating']).isEmpty ? '0' : textOf(meal['rating'])} 分'),
+                            '${textOf(meal['rating']).isEmpty ? '0' : textOf(meal['rating'])} 分',
+                          ),
                           ...asList(meal['healthTags'])
                               .map(textOf)
                               .where((item) => item.isNotEmpty)
-                              .map((item) =>
-                                  InfoChip(item, icon: Icons.eco_outlined)),
+                              .map(
+                                (item) =>
+                                    InfoChip(item, icon: Icons.eco_outlined),
+                              ),
                         ],
                       ),
                       const SizedBox(height: 16),
@@ -5723,9 +5845,11 @@ class _MealDetailPageState extends State<MealDetailPage> {
                               meal,
                               onChanged: reload,
                             ),
-                            icon: Icon(favorite
-                                ? Icons.favorite
-                                : Icons.favorite_border_outlined),
+                            icon: Icon(
+                              favorite
+                                  ? Icons.favorite
+                                  : Icons.favorite_border_outlined,
+                            ),
                             label: Text(favorite ? '取消收藏' : '收藏'),
                           ),
                           OutlinedButton.icon(
@@ -5758,7 +5882,9 @@ class _MealDetailPageState extends State<MealDetailPage> {
                           OutlinedButton.icon(
                             onPressed: () async {
                               final changed = await pushPage(
-                                  context, MealEditPage(mealId: widget.mealId));
+                                context,
+                                MealEditPage(mealId: widget.mealId),
+                              );
                               if (changed == true) {
                                 reload();
                               }
@@ -5784,13 +5910,15 @@ class _MealDetailPageState extends State<MealDetailPage> {
                 ),
                 const SizedBox(height: 12),
                 DetailSection(
-                    title: '主要食材',
-                    icon: Icons.local_dining,
-                    children: ingredientWidgets(meal['ingredients'])),
+                  title: '主要食材',
+                  icon: Icons.local_dining,
+                  children: ingredientWidgets(meal['ingredients']),
+                ),
                 DetailSection(
-                    title: '做法步骤',
-                    icon: Icons.menu_book_outlined,
-                    children: stepWidgets(meal['steps'])),
+                  title: '做法步骤',
+                  icon: Icons.menu_book_outlined,
+                  children: stepWidgets(meal['steps']),
+                ),
                 if (textOf(meal['tips']).isNotEmpty)
                   DetailSection(
                     title: '小技巧',
@@ -5803,7 +5931,9 @@ class _MealDetailPageState extends State<MealDetailPage> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         const SectionTitle(
-                            icon: Icons.photo_library_outlined, title: '照片墙'),
+                          icon: Icons.photo_library_outlined,
+                          title: '照片墙',
+                        ),
                         const SizedBox(height: 12),
                         GridView.builder(
                           shrinkWrap: true,
@@ -5854,13 +5984,17 @@ class MealRelatedMemoriesSection extends StatelessWidget {
         future: future,
         builder: (context, snapshot) {
           const title = SectionTitle(
-              icon: Icons.auto_stories_outlined, title: '这道菜的饭后回忆');
+            icon: Icons.auto_stories_outlined,
+            title: '这道菜的饭后回忆',
+          );
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 SectionTitle(
-                    icon: Icons.auto_stories_outlined, title: '这道菜的饭后回忆'),
+                  icon: Icons.auto_stories_outlined,
+                  title: '这道菜的饭后回忆',
+                ),
                 SizedBox(height: 12),
                 LinearProgressIndicator(minHeight: 3),
               ],
@@ -5902,12 +6036,13 @@ class MealRelatedMemoriesSection extends StatelessWidget {
   }
 }
 
-List<Map<String, dynamic>> mealRelatedMemoryItems(dynamic response,
-    {int limit = 3}) {
-  final items = memoryListFrom(response)
-      .map(asMap)
-      .where((item) => item.isNotEmpty)
-      .toList();
+List<Map<String, dynamic>> mealRelatedMemoryItems(
+  dynamic response, {
+  int limit = 3,
+}) {
+  final items = memoryListFrom(
+    response,
+  ).map(asMap).where((item) => item.isNotEmpty).toList();
   if (limit <= 0) {
     return items;
   }
@@ -5947,13 +6082,15 @@ List<Widget> stepWidgets(dynamic value) {
             CircleAvatar(
               radius: 14,
               backgroundColor: const Color(0xFFFFE1D8),
-              child: Text('${i + 1}',
-                  style: const TextStyle(fontWeight: FontWeight.w900)),
+              child: Text(
+                '${i + 1}',
+                style: const TextStyle(fontWeight: FontWeight.w900),
+              ),
             ),
             const SizedBox(width: 10),
             Expanded(
-                child:
-                    Text(textOf(asMap(items[i])['description'] ?? items[i]))),
+              child: Text(textOf(asMap(items[i])['description'] ?? items[i])),
+            ),
           ],
         ),
       ),
@@ -6038,8 +6175,9 @@ class _MealEditPageState extends State<MealEditPage> {
     if (ingredientsController.text.trim().isNotEmpty) {
       return;
     }
-    ingredientsController.text =
-        mealIngredientTemplate(categoryController.text);
+    ingredientsController.text = mealIngredientTemplate(
+      categoryController.text,
+    );
     showMessage(context, '已填入食材模板，可按实际情况修改');
   }
 
@@ -6054,8 +6192,9 @@ class _MealEditPageState extends State<MealEditPage> {
   Future<void> loadMeal() async {
     setState(() => initialLoading = true);
     try {
-      final data =
-          asMap(payload(await context.appRead.get('/meals/${widget.mealId}')));
+      final data = asMap(
+        payload(await context.appRead.get('/meals/${widget.mealId}')),
+      );
       nameController.text = textOf(data['name']);
       descriptionController.text = textOf(data['description']);
       categoryController.text = textOf(data['category']);
@@ -6064,9 +6203,9 @@ class _MealEditPageState extends State<MealEditPage> {
         final map = asMap(item);
         return '${textOf(map['name'] ?? item)} ${textOf(map['amount'])}'.trim();
       }).join('\n');
-      stepsController.text = asList(data['steps'])
-          .map((item) => textOf(asMap(item)['description'] ?? item))
-          .join('\n');
+      stepsController.text = asList(
+        data['steps'],
+      ).map((item) => textOf(asMap(item)['description'] ?? item)).join('\n');
       tipsController.text = textOf(data['tips']);
       cookTimeController.text =
           textOf(data['cookTime']).isEmpty ? '30' : textOf(data['cookTime']);
@@ -6076,8 +6215,9 @@ class _MealEditPageState extends State<MealEditPage> {
           : textOf(data['difficulty']);
       rating = double.tryParse(textOf(data['rating'])) ?? 4.5;
       favorite = data['favorite'] == true;
-      existingImage =
-          imageUrl(data['image'] ?? data['coverImage'] ?? data['imageUrl']);
+      existingImage = imageUrl(
+        data['image'] ?? data['coverImage'] ?? data['imageUrl'],
+      );
     } catch (error) {
       if (mounted) {
         showMessage(context, errorText(error));
@@ -6191,13 +6331,16 @@ class _MealEditPageState extends State<MealEditPage> {
                             child: AspectRatio(
                               aspectRatio: 16 / 9,
                               child: image != null
-                                  ? Image.file(io.File(image!.path),
-                                      fit: BoxFit.cover)
+                                  ? Image.file(
+                                      io.File(image!.path),
+                                      fit: BoxFit.cover,
+                                    )
                                   : RemoteImage(
                                       url: existingImage,
                                       placeholder: const Icon(
-                                          Icons.add_photo_alternate_outlined,
-                                          size: 48),
+                                        Icons.add_photo_alternate_outlined,
+                                        size: 48,
+                                      ),
                                     ),
                             ),
                           ),
@@ -6209,8 +6352,9 @@ class _MealEditPageState extends State<MealEditPage> {
                         ),
                         const SizedBox(height: 14),
                         TextField(
-                            controller: nameController,
-                            decoration: const InputDecoration(labelText: '菜名')),
+                          controller: nameController,
+                          decoration: const InputDecoration(labelText: '菜名'),
+                        ),
                         const SizedBox(height: 12),
                         TextField(
                           controller: descriptionController,
@@ -6220,18 +6364,23 @@ class _MealEditPageState extends State<MealEditPage> {
                         ),
                         const SizedBox(height: 12),
                         TextField(
-                            controller: categoryController,
-                            decoration: const InputDecoration(labelText: '分类')),
+                          controller: categoryController,
+                          decoration: const InputDecoration(labelText: '分类'),
+                        ),
                         const SizedBox(height: 12),
                         TextField(
-                            controller: tagsController,
-                            decoration:
-                                const InputDecoration(labelText: '标签，用逗号分隔')),
+                          controller: tagsController,
+                          decoration: const InputDecoration(
+                            labelText: '标签，用逗号分隔',
+                          ),
+                        ),
                         const SizedBox(height: 12),
                         TextField(
-                            controller: healthController,
-                            decoration:
-                                const InputDecoration(labelText: '健康/均衡标签')),
+                          controller: healthController,
+                          decoration: const InputDecoration(
+                            labelText: '健康/均衡标签',
+                          ),
+                        ),
                         const SizedBox(height: 12),
                         TextField(
                           controller: ingredientsController,
@@ -6274,23 +6423,28 @@ class _MealEditPageState extends State<MealEditPage> {
                         ),
                         const SizedBox(height: 12),
                         TextField(
-                            controller: tipsController,
-                            decoration:
-                                const InputDecoration(labelText: '小技巧')),
+                          controller: tipsController,
+                          decoration: const InputDecoration(labelText: '小技巧'),
+                        ),
                         const SizedBox(height: 12),
                         TextField(
                           controller: cookTimeController,
                           keyboardType: TextInputType.number,
-                          decoration:
-                              const InputDecoration(labelText: '烹饪时间（分钟）'),
+                          decoration: const InputDecoration(
+                            labelText: '烹饪时间（分钟）',
+                          ),
                         ),
                         const SizedBox(height: 12),
                         DropdownButtonFormField<String>(
                           value: difficulty,
                           decoration: const InputDecoration(labelText: '难度'),
                           items: const ['简单', '中等', '进阶']
-                              .map((item) => DropdownMenuItem(
-                                  value: item, child: Text(item)))
+                              .map(
+                                (item) => DropdownMenuItem(
+                                  value: item,
+                                  child: Text(item),
+                                ),
+                              )
                               .toList(),
                           onChanged: (value) =>
                               setState(() => difficulty = value ?? '简单'),
@@ -6377,7 +6531,9 @@ class _MemoriesPageState extends State<MemoriesPage> {
           }
           if (snapshot.hasError) {
             return ErrorState(
-                message: errorText(snapshot.error!), onRetry: reload);
+              message: errorText(snapshot.error!),
+              onRetry: reload,
+            );
           }
           final items = memoryListFrom(snapshot.data);
           return RefreshIndicator(
@@ -6389,8 +6545,9 @@ class _MemoriesPageState extends State<MemoriesPage> {
                   child: Row(
                     children: [
                       IconButton(
-                          onPressed: () => changeMonth(-1),
-                          icon: const Icon(Icons.chevron_left)),
+                        onPressed: () => changeMonth(-1),
+                        icon: const Icon(Icons.chevron_left),
+                      ),
                       Expanded(
                         child: Text(
                           '${month.year} 年 ${month.month} 月饭后回忆',
@@ -6402,8 +6559,9 @@ class _MemoriesPageState extends State<MemoriesPage> {
                         ),
                       ),
                       IconButton(
-                          onPressed: () => changeMonth(1),
-                          icon: const Icon(Icons.chevron_right)),
+                        onPressed: () => changeMonth(1),
+                        icon: const Icon(Icons.chevron_right),
+                      ),
                     ],
                   ),
                 ),
@@ -6413,8 +6571,10 @@ class _MemoriesPageState extends State<MemoriesPage> {
                     title: '这个月还没有回忆',
                     action: '记录一顿饭',
                     onPressed: () async {
-                      final changed =
-                          await pushPage(context, const MemoryEditPage());
+                      final changed = await pushPage(
+                        context,
+                        const MemoryEditPage(),
+                      );
                       if (changed == true) {
                         reload();
                       }
@@ -6422,8 +6582,10 @@ class _MemoriesPageState extends State<MemoriesPage> {
                   )
                 else
                   ...items
-                      .map((item) =>
-                          MemoryCard(memory: asMap(item), onChanged: reload))
+                      .map(
+                        (item) =>
+                            MemoryCard(memory: asMap(item), onChanged: reload),
+                      )
                       .toList(),
               ],
             ),
@@ -6501,21 +6663,23 @@ class MemoryCard extends StatelessWidget {
               ClipRRect(
                 borderRadius: BorderRadius.circular(22),
                 child: AspectRatio(
-                    aspectRatio: 16 / 9, child: RemoteImage(url: photos.first)),
+                  aspectRatio: 16 / 9,
+                  child: RemoteImage(url: photos.first),
+                ),
               ),
             const SizedBox(height: 10),
             Text(
               textOf(memory['title']).isEmpty
                   ? '一顿饭的回忆'
                   : textOf(memory['title']),
-              style: Theme.of(context)
-                  .textTheme
-                  .titleMedium
-                  ?.copyWith(fontWeight: FontWeight.w900),
+              style: Theme.of(
+                context,
+              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w900),
             ),
             const SizedBox(height: 4),
             Text(
-                '${textOf(memory['date']).split('T').first} · ${mealTypeLabel(textOf(memory['mealType']))} · ${textOf(memory['mood'])}'),
+              '${textOf(memory['date']).split('T').first} · ${mealTypeLabel(textOf(memory['mealType']))} · ${textOf(memory['mood'])}',
+            ),
             const SizedBox(height: 8),
             Wrap(
               spacing: 8,
@@ -6524,9 +6688,9 @@ class MemoryCard extends StatelessWidget {
                 if (rating.isNotEmpty) InfoChip('$rating 分'),
                 if (actualCookTime.isNotEmpty && actualCookTime != '0')
                   InfoChip('$actualCookTime 分钟'),
-                ...meals.take(3).map(
-                      (item) => InfoChip(item, icon: Icons.restaurant_menu),
-                    ),
+                ...meals
+                    .take(3)
+                    .map((item) => InfoChip(item, icon: Icons.restaurant_menu)),
               ],
             ),
             if (hasChips) const SizedBox(height: 8),
@@ -6877,8 +7041,10 @@ class _MemoryEditPageState extends State<MemoryEditPage> {
                   color: kPeach.withValues(alpha: 0.22),
                   borderRadius: BorderRadius.circular(16),
                 ),
-                child:
-                    const Icon(Icons.photo_camera_back_outlined, color: kCoral),
+                child: const Icon(
+                  Icons.photo_camera_back_outlined,
+                  color: kCoral,
+                ),
               ),
               const SizedBox(width: 10),
               Expanded(
@@ -6891,10 +7057,7 @@ class _MemoryEditPageState extends State<MemoryEditPage> {
                             fontWeight: FontWeight.w900,
                           ),
                     ),
-                    Text(
-                      hint,
-                      style: const TextStyle(color: kCocoa),
-                    ),
+                    Text(hint, style: const TextStyle(color: kCocoa)),
                   ],
                 ),
               ),
@@ -7047,9 +7210,11 @@ class _MemoryEditPageState extends State<MemoryEditPage> {
           'nextImprovement': nextImprovementController.text.trim(),
           'mealIds': jsonEncode(selectedMealIds.toList()),
           'existingPhotos': jsonEncode(existingPhotos),
-          'participants': jsonEncode(context.appRead.userId.isEmpty
-              ? const []
-              : [context.appRead.userId]),
+          'participants': jsonEncode(
+            context.appRead.userId.isEmpty
+                ? const []
+                : [context.appRead.userId],
+          ),
         },
         multiFiles: {'photos': photos},
       );
@@ -7091,9 +7256,11 @@ class _MemoryEditPageState extends State<MemoryEditPage> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   TextField(
-                      controller: dateController,
-                      decoration:
-                          const InputDecoration(labelText: '日期 YYYY-MM-DD')),
+                    controller: dateController,
+                    decoration: const InputDecoration(
+                      labelText: '日期 YYYY-MM-DD',
+                    ),
+                  ),
                   const SizedBox(height: 12),
                   SegmentedButton<String>(
                     segments: const [
@@ -7107,12 +7274,14 @@ class _MemoryEditPageState extends State<MemoryEditPage> {
                   ),
                   const SizedBox(height: 12),
                   TextField(
-                      controller: titleController,
-                      decoration: const InputDecoration(labelText: '标题')),
+                    controller: titleController,
+                    decoration: const InputDecoration(labelText: '标题'),
+                  ),
                   const SizedBox(height: 12),
                   TextField(
-                      controller: moodController,
-                      decoration: const InputDecoration(labelText: '心情')),
+                    controller: moodController,
+                    decoration: const InputDecoration(labelText: '心情'),
+                  ),
                   const SizedBox(height: 12),
                   TextField(
                     controller: noteController,
@@ -7339,8 +7508,10 @@ class _WeeklyPlanPageState extends State<WeeklyPlanPage> {
     future = load();
   }
 
-  Future<dynamic> load() => context.appRead
-      .get('/weekly-plans', query: {'weekStart': dateString(weekStart)});
+  Future<dynamic> load() => context.appRead.get(
+        '/weekly-plans',
+        query: {'weekStart': dateString(weekStart)},
+      );
   void reload() => setState(() {
         future = load();
       });
@@ -7376,20 +7547,17 @@ class _WeeklyPlanPageState extends State<WeeklyPlanPage> {
       return;
     }
     setState(() {
-      draft = addMealToWeeklyDraft(
-        current,
-        date: date,
-        type: type,
-        meal: meal,
-      );
+      draft = addMealToWeeklyDraft(current, date: date, type: type, meal: meal);
     });
   }
 
   Future<void> generate() async {
     setState(() => busy = true);
     try {
-      final response = await context.appRead.post('/weekly-plans/generate',
-          body: {'weekStart': dateString(weekStart)});
+      final response = await context.appRead.post(
+        '/weekly-plans/generate',
+        body: {'weekStart': dateString(weekStart)},
+      );
       setState(() => draft = asMap(payload(response)));
     } catch (error) {
       if (mounted) {
@@ -7423,9 +7591,10 @@ class _WeeklyPlanPageState extends State<WeeklyPlanPage> {
     }
     setState(() => busy = true);
     try {
-      await context.appRead.post('/weekly-plans/apply', body: {
-        'days': draft!['days'] ?? draft!['plan'] ?? draft,
-      });
+      await context.appRead.post(
+        '/weekly-plans/apply',
+        body: {'days': draft!['days'] ?? draft!['plan'] ?? draft},
+      );
       if (mounted) {
         showMessage(context, '已应用到日历');
         reload();
@@ -7455,7 +7624,9 @@ class _WeeklyPlanPageState extends State<WeeklyPlanPage> {
             }
             if (snapshot.hasError) {
               return ErrorState(
-                  message: errorText(snapshot.error!), onRetry: reload);
+                message: errorText(snapshot.error!),
+                onRetry: reload,
+              );
             }
             final data = asMap(payload(snapshot.data));
             return ListView(
@@ -7467,10 +7638,9 @@ class _WeeklyPlanPageState extends State<WeeklyPlanPage> {
                     children: [
                       Text(
                         '${weekRelativeLabel(weekStart)}饭桌计划',
-                        style: Theme.of(context)
-                            .textTheme
-                            .titleLarge
-                            ?.copyWith(fontWeight: FontWeight.w900),
+                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                              fontWeight: FontWeight.w900,
+                            ),
                       ),
                       const SizedBox(height: 10),
                       WeekSwitcher(
@@ -7549,7 +7719,8 @@ class PlanBlock extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final days = asList(
-        data['preview'] ?? data['days'] ?? data['plan'] ?? data['items']);
+      data['preview'] ?? data['days'] ?? data['plan'] ?? data['items'],
+    );
     return SoftCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -7567,8 +7738,10 @@ class PlanBlock extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(textOf(day['date']),
-                        style: const TextStyle(fontWeight: FontWeight.w900)),
+                    Text(
+                      textOf(day['date']),
+                      style: const TextStyle(fontWeight: FontWeight.w900),
+                    ),
                     if (editable) ...[
                       PlanMealEditorRow(
                         title: '早',
@@ -7596,11 +7769,17 @@ class PlanBlock extends StatelessWidget {
                       ),
                     ] else ...[
                       MealBadges(
-                          title: '早', value: planMealValue(day, 'breakfast')),
+                        title: '早',
+                        value: planMealValue(day, 'breakfast'),
+                      ),
                       MealBadges(
-                          title: '午', value: planMealValue(day, 'lunch')),
+                        title: '午',
+                        value: planMealValue(day, 'lunch'),
+                      ),
                       MealBadges(
-                          title: '晚', value: planMealValue(day, 'dinner')),
+                        title: '晚',
+                        value: planMealValue(day, 'dinner'),
+                      ),
                     ],
                     if (hints.isNotEmpty) ...[
                       const SizedBox(height: 4),
@@ -7608,8 +7787,10 @@ class PlanBlock extends StatelessWidget {
                         spacing: 6,
                         runSpacing: 6,
                         children: hints
-                            .map((item) =>
-                                InfoChip(item, icon: Icons.eco_outlined))
+                            .map(
+                              (item) =>
+                                  InfoChip(item, icon: Icons.eco_outlined),
+                            )
                             .toList(),
                       ),
                     ],
@@ -7777,10 +7958,10 @@ Future<Map<String, dynamic>?> pickMealForWeeklyDraft(
   final searchController = TextEditingController();
   Future<dynamic> loadMeals() {
     final search = searchController.text.trim();
-    return app.get('/meals', query: {
-      'limit': '200',
-      if (search.isNotEmpty) 'search': search,
-    });
+    return app.get(
+      '/meals',
+      query: {'limit': '200', if (search.isNotEmpty) 'search': search},
+    );
   }
 
   try {
@@ -7877,15 +8058,13 @@ Future<Map<String, dynamic>?> pickMealForWeeklyDraft(
                                     ),
                                   ),
                                   subtitle: Text(
-                                    [
-                                      textOf(meal['category']),
-                                      '$cookTime 分钟',
-                                    ]
+                                    [textOf(meal['category']), '$cookTime 分钟']
                                         .where((item) => item.isNotEmpty)
                                         .join(' · '),
                                   ),
-                                  trailing:
-                                      const Icon(Icons.add_circle_outline),
+                                  trailing: const Icon(
+                                    Icons.add_circle_outline,
+                                  ),
                                   onTap: () =>
                                       Navigator.pop(sheetContext, meal),
                                 );
@@ -7916,13 +8095,12 @@ List<Map<String, String>> planMealEntries(dynamic value) {
       .map((item) {
         final id = planItemMealId(item);
         final name = planItemMealName(item);
-        return {
-          'id': id,
-          'name': name.isEmpty ? id : name,
-        };
+        return {'id': id, 'name': name.isEmpty ? id : name};
       })
-      .where((item) =>
-          (item['id'] ?? '').isNotEmpty || (item['name'] ?? '').isNotEmpty)
+      .where(
+        (item) =>
+            (item['id'] ?? '').isNotEmpty || (item['name'] ?? '').isNotEmpty,
+      )
       .toList();
 }
 
@@ -7949,11 +8127,13 @@ String planItemMealName(dynamic item) {
   }
   final map = asMap(item);
   final nestedMeal = asMap(map['meal']);
-  return textOf(map['name'] ??
-      map['title'] ??
-      nestedMeal['name'] ??
-      nestedMeal['title'] ??
-      item);
+  return textOf(
+    map['name'] ??
+        map['title'] ??
+        nestedMeal['name'] ??
+        nestedMeal['title'] ??
+        item,
+  );
 }
 
 Map<String, dynamic> addMealToWeeklyDraft(
@@ -8043,8 +8223,10 @@ class _ShoppingListPageState extends State<ShoppingListPage> {
     future = load();
   }
 
-  Future<dynamic> load() => context.appRead
-      .get('/shopping-list', query: {'weekStart': dateString(weekStart)});
+  Future<dynamic> load() => context.appRead.get(
+        '/shopping-list',
+        query: {'weekStart': dateString(weekStart)},
+      );
   void reload() => setState(() {
         future = load();
       });
@@ -8056,8 +8238,10 @@ class _ShoppingListPageState extends State<ShoppingListPage> {
 
   Future<void> generate() async {
     try {
-      await context.appRead.post('/shopping-list/generate',
-          body: {'weekStart': dateString(weekStart)});
+      await context.appRead.post(
+        '/shopping-list/generate',
+        body: {'weekStart': dateString(weekStart)},
+      );
       reload();
     } catch (error) {
       if (mounted) {
@@ -8076,10 +8260,10 @@ class _ShoppingListPageState extends State<ShoppingListPage> {
       return;
     }
     try {
-      await context.appRead.post('/shopping-list/items', body: {
-        'weekStart': dateString(weekStart),
-        ...draft,
-      });
+      await context.appRead.post(
+        '/shopping-list/items',
+        body: {'weekStart': dateString(weekStart), ...draft},
+      );
       reload();
     } catch (error) {
       if (mounted) {
@@ -8090,8 +8274,10 @@ class _ShoppingListPageState extends State<ShoppingListPage> {
 
   Future<void> clearPurchased() async {
     try {
-      await context.appRead.delete('/shopping-list/purchased',
-          query: {'weekStart': dateString(weekStart)});
+      await context.appRead.delete(
+        '/shopping-list/purchased',
+        query: {'weekStart': dateString(weekStart)},
+      );
       reload();
     } catch (error) {
       if (mounted) {
@@ -8114,7 +8300,9 @@ class _ShoppingListPageState extends State<ShoppingListPage> {
             }
             if (snapshot.hasError) {
               return ErrorState(
-                  message: errorText(snapshot.error!), onRetry: reload);
+                message: errorText(snapshot.error!),
+                onRetry: reload,
+              );
             }
             final allItems = shoppingItems(snapshot.data);
             final items =
@@ -8124,7 +8312,9 @@ class _ShoppingListPageState extends State<ShoppingListPage> {
             for (final item in items) {
               grouped
                   .putIfAbsent(
-                      shoppingCategoryLabel(item['category']), () => [])
+                    shoppingCategoryLabel(item['category']),
+                    () => [],
+                  )
                   .add(item);
             }
             return ListView(
@@ -8136,10 +8326,9 @@ class _ShoppingListPageState extends State<ShoppingListPage> {
                     children: [
                       Text(
                         '${weekRelativeLabel(weekStart)}购物清单',
-                        style: Theme.of(context)
-                            .textTheme
-                            .titleLarge
-                            ?.copyWith(fontWeight: FontWeight.w900),
+                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                              fontWeight: FontWeight.w900,
+                            ),
                       ),
                       const SizedBox(height: 10),
                       WeekSwitcher(
@@ -8151,9 +8340,8 @@ class _ShoppingListPageState extends State<ShoppingListPage> {
                         ShoppingProgressPanel(
                           items: allItems,
                           showOnlyRemaining: showOnlyRemaining,
-                          onFilterChanged: (value) => setState(
-                            () => showOnlyRemaining = value,
-                          ),
+                          onFilterChanged: (value) =>
+                              setState(() => showOnlyRemaining = value),
                         ),
                       const SizedBox(height: 12),
                       Wrap(
@@ -8187,12 +8375,14 @@ class _ShoppingListPageState extends State<ShoppingListPage> {
                 else if (items.isEmpty)
                   const EmptyState(title: '已购项都收好啦')
                 else
-                  ...grouped.entries.map((entry) => ShoppingGroup(
-                        title: entry.key,
-                        items: entry.value,
-                        weekStart: weekStart,
-                        onChanged: reload,
-                      )),
+                  ...grouped.entries.map(
+                    (entry) => ShoppingGroup(
+                      title: entry.key,
+                      items: entry.value,
+                      weekStart: weekStart,
+                      onChanged: reload,
+                    ),
+                  ),
               ],
             );
           },
@@ -8219,7 +8409,8 @@ int shoppingPurchasedCount(List<Map<String, dynamic>> items) {
 }
 
 List<Map<String, dynamic>> shoppingRemainingItems(
-    List<Map<String, dynamic>> items) {
+  List<Map<String, dynamic>> items,
+) {
   return items.where((item) => !shoppingItemChecked(item)).toList();
 }
 
@@ -8365,10 +8556,12 @@ Future<Map<String, String>?> shoppingItemDialog(
                 value: category,
                 decoration: const InputDecoration(labelText: '分类'),
                 items: kShoppingCategoryValues
-                    .map((item) => DropdownMenuItem(
-                          value: item,
-                          child: Text(shoppingCategoryLabel(item)),
-                        ))
+                    .map(
+                      (item) => DropdownMenuItem(
+                        value: item,
+                        child: Text(shoppingCategoryLabel(item)),
+                      ),
+                    )
                     .toList(),
                 onChanged: (value) => setState(
                   () => category = normalizedShoppingCategory(value),
@@ -8462,10 +8655,7 @@ class ShoppingProgressPanel extends StatelessWidget {
           const SizedBox(height: 10),
           Text(
             shoppingRemainingCategorySummary(items),
-            style: TextStyle(
-              color: palette.muted,
-              fontWeight: FontWeight.w700,
-            ),
+            style: TextStyle(color: palette.muted, fontWeight: FontWeight.w700),
           ),
           if (remainingCategoryCounts.isNotEmpty) ...[
             const SizedBox(height: 8),
@@ -8554,11 +8744,13 @@ class ShoppingGroup extends StatelessWidget {
                           return;
                         }
                         try {
-                          await context.appRead
-                              .patch('/shopping-list/items/$id', body: {
-                            'weekStart': dateString(weekStart),
-                            ...draft,
-                          });
+                          await context.appRead.patch(
+                            '/shopping-list/items/$id',
+                            body: {
+                              'weekStart': dateString(weekStart),
+                              ...draft,
+                            },
+                          );
                           onChanged();
                         } catch (error) {
                           if (context.mounted) {
@@ -8572,10 +8764,10 @@ class ShoppingGroup extends StatelessWidget {
                       icon: const Icon(Icons.delete_outline),
                       onPressed: () async {
                         try {
-                          await context.appRead
-                              .delete('/shopping-list/items/$id', query: {
-                            'weekStart': dateString(weekStart),
-                          });
+                          await context.appRead.delete(
+                            '/shopping-list/items/$id',
+                            query: {'weekStart': dateString(weekStart)},
+                          );
                           onChanged();
                         } catch (error) {
                           if (context.mounted) {
@@ -8588,11 +8780,13 @@ class ShoppingGroup extends StatelessWidget {
                 ),
                 onChanged: (value) async {
                   try {
-                    await context.appRead
-                        .patch('/shopping-list/items/$id', body: {
-                      'weekStart': dateString(weekStart),
-                      'checked': value ?? false,
-                    });
+                    await context.appRead.patch(
+                      '/shopping-list/items/$id',
+                      body: {
+                        'weekStart': dateString(weekStart),
+                        'checked': value ?? false,
+                      },
+                    );
                     onChanged();
                   } catch (error) {
                     if (context.mounted) {
@@ -8665,7 +8859,9 @@ class _WishlistPageState extends State<WishlistPage> {
             }
             if (snapshot.hasError) {
               return ErrorState(
-                  message: errorText(snapshot.error!), onRetry: reload);
+                message: errorText(snapshot.error!),
+                onRetry: reload,
+              );
             }
             final allItems = sortWishlistItems(wishlistItems(snapshot.data));
             final items = wishlistFilteredItems(allItems, statusFilter);
@@ -8720,7 +8916,8 @@ class _WishlistPageState extends State<WishlistPage> {
                   )
                 else
                   ...items.map(
-                      (item) => WishlistCard(item: item, onChanged: reload)),
+                    (item) => WishlistCard(item: item, onChanged: reload),
+                  ),
               ],
             );
           },
@@ -8819,16 +9016,14 @@ String wishlistDisplayTitle(Map<String, dynamic> item) {
   return title.isEmpty ? '小家想吃' : title;
 }
 
-List<Map<String, dynamic>> sortWishlistItems(
-  List<Map<String, dynamic>> items,
-) {
+List<Map<String, dynamic>> sortWishlistItems(List<Map<String, dynamic>> items) {
   final sorted = [...items];
   sorted.sort((a, b) {
     final comparisons = [
       wishlistStatusRank(a).compareTo(wishlistStatusRank(b)),
-      wishlistPriorityRank(a['priority']).compareTo(
-        wishlistPriorityRank(b['priority']),
-      ),
+      wishlistPriorityRank(
+        a['priority'],
+      ).compareTo(wishlistPriorityRank(b['priority'])),
       wishlistSignalRank(a).compareTo(wishlistSignalRank(b)),
       wishlistVoteCount(b).compareTo(wishlistVoteCount(a)),
       (wishlistCreatedTime(b)?.millisecondsSinceEpoch ?? 0).compareTo(
@@ -8852,9 +9047,7 @@ Map<String, int> wishlistStatusCounts(List<Map<String, dynamic>> items) {
   return counts;
 }
 
-Map<String, dynamic>? wishlistTopCandidate(
-  List<Map<String, dynamic>> items,
-) {
+Map<String, dynamic>? wishlistTopCandidate(List<Map<String, dynamic>> items) {
   final openItems = sortWishlistItems(
     items.where((item) => wishlistStatusOf(item) == 'open').toList(),
   );
@@ -8948,9 +9141,8 @@ Future<Map<String, String>?> wishlistDraftDialog(BuildContext context) async {
                     DropdownMenuItem(value: 'normal', child: Text('普通想吃')),
                     DropdownMenuItem(value: 'low', child: Text('随缘想吃')),
                   ],
-                  onChanged: (value) => setState(
-                    () => priority = value ?? 'normal',
-                  ),
+                  onChanged: (value) =>
+                      setState(() => priority = value ?? 'normal'),
                 ),
               ],
             ),
@@ -9099,7 +9291,8 @@ Future<String> createMealFromWishlist(
   final mealId = idOf(payload(response));
   if (mealId.isEmpty) {
     throw const ApiException(
-        '\u83dc\u8c31\u521b\u5efa\u6210\u529f\u4f46\u6ca1\u6709\u8fd4\u56de\u83dc\u54c1 ID');
+      '\u83dc\u8c31\u521b\u5efa\u6210\u529f\u4f46\u6ca1\u6709\u8fd4\u56de\u83dc\u54c1 ID',
+    );
   }
   return mealId;
 }
@@ -9127,10 +9320,7 @@ class WishlistSummaryCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const SectionTitle(
-            icon: Icons.favorite_border,
-            title: '今天想吃优先级',
-          ),
+          const SectionTitle(icon: Icons.favorite_border, title: '今天想吃优先级'),
           const SizedBox(height: 10),
           Text(
             wishlistSummaryText(items),
@@ -9144,12 +9334,18 @@ class WishlistSummaryCard extends StatelessWidget {
             spacing: 8,
             runSpacing: 8,
             children: [
-              InfoChip('待安排 ${counts['open'] ?? 0}',
-                  icon: Icons.favorite_border),
-              InfoChip('已安排 ${counts['planned'] ?? 0}',
-                  icon: Icons.event_available_outlined),
-              InfoChip('已完成 ${counts['done'] ?? 0}',
-                  icon: Icons.check_circle_outline),
+              InfoChip(
+                '待安排 ${counts['open'] ?? 0}',
+                icon: Icons.favorite_border,
+              ),
+              InfoChip(
+                '已安排 ${counts['planned'] ?? 0}',
+                icon: Icons.event_available_outlined,
+              ),
+              InfoChip(
+                '已完成 ${counts['done'] ?? 0}',
+                icon: Icons.check_circle_outline,
+              ),
             ],
           ),
           if (top != null) ...[
@@ -9219,11 +9415,12 @@ class WishlistCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(title,
-                style: Theme.of(context)
-                    .textTheme
-                    .titleMedium
-                    ?.copyWith(fontWeight: FontWeight.w900)),
+            Text(
+              title,
+              style: Theme.of(
+                context,
+              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w900),
+            ),
             const SizedBox(height: 8),
             Wrap(
               spacing: 8,
@@ -9237,10 +9434,7 @@ class WishlistCard extends StatelessWidget {
                           ? Icons.event_available_outlined
                           : Icons.favorite_border,
                 ),
-                InfoChip(
-                  wishlistPriorityLabel(priority),
-                  icon: priorityIcon,
-                ),
+                InfoChip(wishlistPriorityLabel(priority), icon: priorityIcon),
                 ...signalLabels.map(
                   (label) => InfoChip(
                     label,
@@ -9348,7 +9542,8 @@ class _PhotoAlbumPageState extends State<PhotoAlbumPage> {
       });
 
   Future<Map<String, dynamic>> loadAlbumMemory(
-      Map<String, dynamic> photo) async {
+    Map<String, dynamic> photo,
+  ) async {
     final memoryId = albumPhotoMemoryId(photo);
     if (memoryId.isEmpty) {
       throw const ApiException('这张照片还没有关联饭后回忆');
@@ -9462,10 +9657,12 @@ class _PhotoAlbumPageState extends State<PhotoAlbumPage> {
                                 InfoChip(date, icon: Icons.calendar_today),
                               if (mood.isNotEmpty)
                                 InfoChip(mood, icon: Icons.favorite_outline),
-                              ...meals.take(3).map((item) => InfoChip(
-                                    item,
-                                    icon: Icons.restaurant_menu,
-                                  )),
+                              ...meals.take(3).map(
+                                    (item) => InfoChip(
+                                      item,
+                                      icon: Icons.restaurant_menu,
+                                    ),
+                                  ),
                             ],
                           ),
                           if (note.isNotEmpty) ...[
@@ -9535,7 +9732,9 @@ class _PhotoAlbumPageState extends State<PhotoAlbumPage> {
             }
             if (snapshot.hasError) {
               return ErrorState(
-                  message: errorText(snapshot.error!), onRetry: reload);
+                message: errorText(snapshot.error!),
+                onRetry: reload,
+              );
             }
             final photos = photoItems(snapshot.data);
             return RefreshIndicator(
@@ -9589,9 +9788,12 @@ class _PhotoAlbumPageState extends State<PhotoAlbumPage> {
                                   ),
                                 ),
                                 child: RemoteImage(
-                                    url: imageUrl(photo['url'] ??
+                                  url: imageUrl(
+                                    photo['url'] ??
                                         photo['photo'] ??
-                                        photo['src'])),
+                                        photo['src'],
+                                  ),
+                                ),
                               ),
                             ),
                           ),
@@ -9623,11 +9825,13 @@ List<Map<String, dynamic>> photoItems(dynamic response) {
 
 String albumPhotoMemoryId(Map<String, dynamic> photo) {
   final nestedMemory = asMap(photo['memory']);
-  return textOf(photo['memoryId'] ??
-      photo['memory_id'] ??
-      photo['memoryID'] ??
-      nestedMemory['_id'] ??
-      nestedMemory['id']);
+  return textOf(
+    photo['memoryId'] ??
+        photo['memory_id'] ??
+        photo['memoryID'] ??
+        nestedMemory['_id'] ??
+        nestedMemory['id'],
+  );
 }
 
 String albumPhotoDate(Map<String, dynamic> photo) =>
@@ -9651,9 +9855,7 @@ Map<String, dynamic> albumPhotoMemoryFallback(Map<String, dynamic> photo) {
 }
 
 List<String> photoMealNames(Map<String, dynamic> photo) {
-  final names = <String>[
-    ...mealNames(photo['meals'] ?? photo['mealIds']),
-  ];
+  final names = <String>[...mealNames(photo['meals'] ?? photo['mealIds'])];
   final singleMeal = asMap(photo['meal']);
   final singleName = textOf(singleMeal['name'] ?? singleMeal['title']);
   if (singleName.isNotEmpty) {
@@ -9715,11 +9917,15 @@ class _TableReviewPageState extends State<TableReviewPage> {
 
   Future<dynamic> load() {
     if (scope == ReviewScope.year) {
-      return context.appRead
-          .get('/review/yearly', query: {'year': anchor.year.toString()});
+      return context.appRead.get(
+        '/review/yearly',
+        query: {'year': anchor.year.toString()},
+      );
     }
-    return context.appRead
-        .get('/review/monthly', query: {'month': monthString(anchor)});
+    return context.appRead.get(
+      '/review/monthly',
+      query: {'month': monthString(anchor)},
+    );
   }
 
   void reload() => setState(() {
@@ -9762,7 +9968,9 @@ class _TableReviewPageState extends State<TableReviewPage> {
             }
             if (snapshot.hasError) {
               return ErrorState(
-                  message: errorText(snapshot.error!), onRetry: reload);
+                message: errorText(snapshot.error!),
+                onRetry: reload,
+              );
             }
             final data = asMap(payload(snapshot.data));
             final summary = asMap(data['summary']);
@@ -9896,13 +10104,18 @@ class _TableReviewPageState extends State<TableReviewPage> {
                     icon: Icons.local_offer_outlined,
                     groups: [
                       ReviewChipGroup(
-                          label: '心情', items: asList(data['moodStats'])),
+                        label: '心情',
+                        items: asList(data['moodStats']),
+                      ),
                       ReviewChipGroup(
-                          label: '分类', items: asList(data['categoryStats'])),
+                        label: '分类',
+                        items: asList(data['categoryStats']),
+                      ),
                       ReviewChipGroup(
-                          label: '均衡',
-                          items: asList(data['healthTagStats']),
-                          nameKey: 'tag'),
+                        label: '均衡',
+                        items: asList(data['healthTagStats']),
+                        nameKey: 'tag',
+                      ),
                     ],
                   ),
                   if (bestMemory.isNotEmpty) ...[
@@ -9937,10 +10150,7 @@ class ReviewNextStepsCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const SectionTitle(
-            icon: Icons.flag_outlined,
-            title: '下个饭桌小目标',
-          ),
+          const SectionTitle(icon: Icons.flag_outlined, title: '下个饭桌小目标'),
           const SizedBox(height: 10),
           ...hints.map(
             (hint) => Padding(
@@ -9948,8 +10158,11 @@ class ReviewNextStepsCard extends StatelessWidget {
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Icon(Icons.check_circle_outline,
-                      size: 18, color: kCoral),
+                  const Icon(
+                    Icons.check_circle_outline,
+                    size: 18,
+                    color: kCoral,
+                  ),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
@@ -10078,13 +10291,16 @@ class ReviewChipsCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final visibleGroups = groups
-        .map((group) => ReviewChipGroup(
+        .map(
+          (group) => ReviewChipGroup(
             label: group.label,
             nameKey: group.nameKey,
             items: group.items.map(asMap).where((item) {
               final name = textOf(item[group.nameKey] ?? item['category']);
               return name.isNotEmpty;
-            }).toList()))
+            }).toList(),
+          ),
+        )
         .where((group) => group.items.isNotEmpty)
         .toList();
     return SoftCard(
@@ -10096,28 +10312,34 @@ class ReviewChipsCard extends StatelessWidget {
           if (visibleGroups.isEmpty)
             const Text('还没有形成明显关键词，多记录几顿饭后会更有意思。')
           else
-            ...visibleGroups.map((group) => Padding(
-                  padding: const EdgeInsets.only(bottom: 10),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(group.label,
-                          style: const TextStyle(fontWeight: FontWeight.w900)),
-                      const SizedBox(height: 6),
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
-                        children: group.items.take(8).map((raw) {
-                          final item = asMap(raw);
-                          final name = textOf(item[group.nameKey] ??
+            ...visibleGroups.map(
+              (group) => Padding(
+                padding: const EdgeInsets.only(bottom: 10),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      group.label,
+                      style: const TextStyle(fontWeight: FontWeight.w900),
+                    ),
+                    const SizedBox(height: 6),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: group.items.take(8).map((raw) {
+                        final item = asMap(raw);
+                        final name = textOf(
+                          item[group.nameKey] ??
                               item['category'] ??
-                              item['tag']);
-                          return InfoChip('$name ${countText(item['count'])}');
-                        }).toList(),
-                      ),
-                    ],
-                  ),
-                )),
+                              item['tag'],
+                        );
+                        return InfoChip('$name ${countText(item['count'])}');
+                      }).toList(),
+                    ),
+                  ],
+                ),
+              ),
+            ),
         ],
       ),
     );
@@ -10142,10 +10364,9 @@ class ReviewBestMemoryCard extends StatelessWidget {
             textOf(memory['title']).isEmpty
                 ? '一顿值得记住的饭'
                 : textOf(memory['title']),
-            style: Theme.of(context)
-                .textTheme
-                .titleMedium
-                ?.copyWith(fontWeight: FontWeight.w900),
+            style: Theme.of(
+              context,
+            ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w900),
           ),
           const SizedBox(height: 6),
           Text(
@@ -10184,7 +10405,9 @@ class ReviewPhotoWall extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const SectionTitle(
-              icon: Icons.photo_library_outlined, title: '饭桌照片墙'),
+            icon: Icons.photo_library_outlined,
+            title: '饭桌照片墙',
+          ),
           const SizedBox(height: 10),
           if (photos.isEmpty)
             const Text('这个周期还没有照片，下一顿饭可以拍一张留给以后。')
@@ -10203,7 +10426,8 @@ class ReviewPhotoWall extends StatelessWidget {
                 return ClipRRect(
                   borderRadius: BorderRadius.circular(18),
                   child: RemoteImage(
-                      url: imageUrl(photo['photo'] ?? photo['url'])),
+                    url: imageUrl(photo['photo'] ?? photo['url']),
+                  ),
                 );
               },
             ),
@@ -10276,17 +10500,20 @@ class _AnniversaryPageState extends State<AnniversaryPage> {
         }
         return;
       }
-      await context.appRead.post('/anniversaries', body: {
-        'title': textOf(template['title']).isEmpty
-            ? '周末小家宴'
-            : textOf(template['title']),
-        'date': dateText,
-        'description': anniversaryTemplateDescription(template),
-        'theme': textOf(template['theme']).isEmpty
-            ? '温馨小家'
-            : textOf(template['theme']),
-        'meals': {'breakfast': [], 'lunch': [], 'dinner': []},
-      });
+      await context.appRead.post(
+        '/anniversaries',
+        body: {
+          'title': textOf(template['title']).isEmpty
+              ? '周末小家宴'
+              : textOf(template['title']),
+          'date': dateText,
+          'description': anniversaryTemplateDescription(template),
+          'theme': textOf(template['theme']).isEmpty
+              ? '温馨小家'
+              : textOf(template['theme']),
+          'meals': {'breakfast': [], 'lunch': [], 'dinner': []},
+        },
+      );
       reload();
       if (mounted) {
         showMessage(context, '已创建纪念日菜单');
@@ -10312,7 +10539,9 @@ class _AnniversaryPageState extends State<AnniversaryPage> {
             }
             if (snapshot.hasError) {
               return ErrorState(
-                  message: errorText(snapshot.error!), onRetry: reload);
+                message: errorText(snapshot.error!),
+                onRetry: reload,
+              );
             }
             final items = anniversarySortedMenus(
               (snapshot.data ?? const []).map(asMap).toList(),
@@ -10349,10 +10578,10 @@ class _AnniversaryPageState extends State<AnniversaryPage> {
                 if (items.isEmpty)
                   const EmptyState(title: '还没有纪念日菜单')
                 else
-                  ...items.map((item) => AnniversaryMenuCard(
-                        item: item,
-                        onChanged: reload,
-                      )),
+                  ...items.map(
+                    (item) =>
+                        AnniversaryMenuCard(item: item, onChanged: reload),
+                  ),
               ],
             );
           },
@@ -10366,16 +10595,16 @@ List<Map<String, dynamic>> anniversaryTemplates(dynamic response) {
   final data = payload(response);
   final items = data is Map
       ? asList(
-          data['templates'] ?? data['items'] ?? data['list'] ?? data['value'])
+          data['templates'] ?? data['items'] ?? data['list'] ?? data['value'],
+        )
       : asList(data);
   return items.map(asMap).where((item) => item.isNotEmpty).toList();
 }
 
 List<String> anniversaryTemplateStructure(Map<String, dynamic> template) {
-  return asList(template['structure'])
-      .map(textOf)
-      .where((item) => item.trim().isNotEmpty)
-      .toList();
+  return asList(
+    template['structure'],
+  ).map(textOf).where((item) => item.trim().isNotEmpty).toList();
 }
 
 String anniversaryTemplateDescription(Map<String, dynamic> template) {
@@ -10407,10 +10636,7 @@ DateTime? anniversaryLocalDate(dynamic value) {
   }
 }
 
-int? anniversaryDaysUntil(
-  Map<String, dynamic> item, {
-  DateTime? today,
-}) {
+int? anniversaryDaysUntil(Map<String, dynamic> item, {DateTime? today}) {
   final date = anniversaryLocalDate(item['date']);
   if (date == null) {
     return null;
@@ -10420,10 +10646,7 @@ int? anniversaryDaysUntil(
   return date.difference(localToday).inDays;
 }
 
-String anniversaryCountdownLabel(
-  Map<String, dynamic> item, {
-  DateTime? today,
-}) {
+String anniversaryCountdownLabel(Map<String, dynamic> item, {DateTime? today}) {
   final days = anniversaryDaysUntil(item, today: today);
   if (days == null) {
     return '日期待定';
@@ -10559,10 +10782,12 @@ class AnniversaryTemplatePicker extends StatelessWidget {
                                 spacing: 8,
                                 runSpacing: 8,
                                 children: structure
-                                    .map((item) => InfoChip(
-                                          item,
-                                          icon: Icons.restaurant_menu,
-                                        ))
+                                    .map(
+                                      (item) => InfoChip(
+                                        item,
+                                        icon: Icons.restaurant_menu,
+                                      ),
+                                    )
                                     .toList(),
                               ),
                             ],
@@ -10661,9 +10886,7 @@ class AnniversaryMenuCard extends StatelessWidget {
                 textOf(item['title']).isEmpty ? '纪念日菜单' : textOf(item['title']),
                 style: const TextStyle(fontWeight: FontWeight.w900),
               ),
-              subtitle: Text(
-                textOf(item['date']).split('T').first,
-              ),
+              subtitle: Text(textOf(item['date']).split('T').first),
             ),
             Wrap(
               spacing: 8,
@@ -10671,8 +10894,10 @@ class AnniversaryMenuCard extends StatelessWidget {
               children: [
                 InfoChip(countdown, icon: Icons.event_available_outlined),
                 if (textOf(item['theme']).isNotEmpty)
-                  InfoChip(textOf(item['theme']),
-                      icon: Icons.local_florist_outlined),
+                  InfoChip(
+                    textOf(item['theme']),
+                    icon: Icons.local_florist_outlined,
+                  ),
               ],
             ),
             if (textOf(item['description']).isNotEmpty) ...[
@@ -10686,10 +10911,7 @@ class AnniversaryMenuCard extends StatelessWidget {
                 runSpacing: 8,
                 children: meals
                     .take(6)
-                    .map((item) => InfoChip(
-                          item,
-                          icon: Icons.restaurant_menu,
-                        ))
+                    .map((item) => InfoChip(item, icon: Icons.restaurant_menu))
                     .toList(),
               ),
             ],
@@ -10754,12 +10976,15 @@ class _AnniversaryMenuEditPageState extends State<AnniversaryMenuEditPage> {
     super.initState();
     titleController = TextEditingController(text: textOf(widget.item['title']));
     dateController = TextEditingController(
-        text: textOf(widget.item['date']).split('T').first);
+      text: textOf(widget.item['date']).split('T').first,
+    );
     themeController = TextEditingController(text: textOf(widget.item['theme']));
-    descriptionController =
-        TextEditingController(text: textOf(widget.item['description']));
-    selectedMeals = anniversaryMenuMealIds(widget.item)
-        .map((key, value) => MapEntry(key, value.toSet()));
+    descriptionController = TextEditingController(
+      text: textOf(widget.item['description']),
+    );
+    selectedMeals = anniversaryMenuMealIds(
+      widget.item,
+    ).map((key, value) => MapEntry(key, value.toSet()));
     mealsFuture = context.appRead.get('/meals', query: {'limit': '200'});
   }
 
@@ -10792,17 +11017,20 @@ class _AnniversaryMenuEditPageState extends State<AnniversaryMenuEditPage> {
     }
     setState(() => saving = true);
     try {
-      await context.appRead.put('/anniversaries/${idOf(widget.item)}', body: {
-        'title': title,
-        'date': date,
-        'theme': themeController.text.trim(),
-        'description': descriptionController.text.trim(),
-        'meals': {
-          for (final type in mealTypes)
-            type: (selectedMeals[type] ?? <String>{}).toList(),
+      await context.appRead.put(
+        '/anniversaries/${idOf(widget.item)}',
+        body: {
+          'title': title,
+          'date': date,
+          'theme': themeController.text.trim(),
+          'description': descriptionController.text.trim(),
+          'meals': {
+            for (final type in mealTypes)
+              type: (selectedMeals[type] ?? <String>{}).toList(),
+          },
+          'existingPhotos': asList(widget.item['photos']),
         },
-        'existingPhotos': asList(widget.item['photos']),
-      });
+      );
       if (mounted) {
         Navigator.pop(context, true);
       }
@@ -10847,8 +11075,9 @@ class _AnniversaryMenuEditPageState extends State<AnniversaryMenuEditPage> {
                   const SizedBox(height: 12),
                   TextField(
                     controller: dateController,
-                    decoration:
-                        const InputDecoration(labelText: '日期 YYYY-MM-DD'),
+                    decoration: const InputDecoration(
+                      labelText: '日期 YYYY-MM-DD',
+                    ),
                   ),
                   const SizedBox(height: 12),
                   TextField(
@@ -10876,15 +11105,16 @@ class _AnniversaryMenuEditPageState extends State<AnniversaryMenuEditPage> {
                   return ErrorState(
                     message: errorText(snapshot.error!),
                     onRetry: () => setState(() {
-                      mealsFuture = context.appRead
-                          .get('/meals', query: {'limit': '200'});
+                      mealsFuture = context.appRead.get(
+                        '/meals',
+                        query: {'limit': '200'},
+                      );
                     }),
                   );
                 }
-                final meals = mealListFrom(snapshot.data)
-                    .map(asMap)
-                    .where((meal) => idOf(meal).isNotEmpty)
-                    .toList();
+                final meals = mealListFrom(
+                  snapshot.data,
+                ).map(asMap).where((meal) => idOf(meal).isNotEmpty).toList();
                 return SoftCard(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -10894,23 +11124,25 @@ class _AnniversaryMenuEditPageState extends State<AnniversaryMenuEditPage> {
                         title: '选择菜单菜品',
                       ),
                       const SizedBox(height: 8),
-                      ...mealTypes.map((type) => ExpansionTile(
-                            tilePadding: EdgeInsets.zero,
-                            initiallyExpanded: type == 'dinner',
-                            title: Text(
-                              '${mealTypeLabel(type)} ${(selectedMeals[type] ?? <String>{}).length} 道',
-                            ),
-                            children: meals.map((meal) {
-                              final id = idOf(meal);
-                              return CheckboxListTile(
-                                value: (selectedMeals[type] ?? <String>{})
-                                    .contains(id),
-                                title: Text(textOf(meal['name'])),
-                                subtitle: Text(textOf(meal['category'])),
-                                onChanged: (_) => toggleMeal(type, id),
-                              );
-                            }).toList(),
-                          )),
+                      ...mealTypes.map(
+                        (type) => ExpansionTile(
+                          tilePadding: EdgeInsets.zero,
+                          initiallyExpanded: type == 'dinner',
+                          title: Text(
+                            '${mealTypeLabel(type)} ${(selectedMeals[type] ?? <String>{}).length} 道',
+                          ),
+                          children: meals.map((meal) {
+                            final id = idOf(meal);
+                            return CheckboxListTile(
+                              value: (selectedMeals[type] ?? <String>{})
+                                  .contains(id),
+                              title: Text(textOf(meal['name'])),
+                              subtitle: Text(textOf(meal['category'])),
+                              onChanged: (_) => toggleMeal(type, id),
+                            );
+                          }).toList(),
+                        ),
+                      ),
                     ],
                   ),
                 );
@@ -10950,10 +11182,9 @@ String normalizeInviteCode(String value) {
 }
 
 List<Map<String, dynamic>> householdMembers(Map<String, dynamic> household) {
-  return asList(household['members'])
-      .map(asMap)
-      .where((member) => member.isNotEmpty)
-      .toList();
+  return asList(
+    household['members'],
+  ).map(asMap).where((member) => member.isNotEmpty).toList();
 }
 
 String householdMemberName(Map<String, dynamic> member) {
@@ -10967,6 +11198,925 @@ String householdMemberName(Map<String, dynamic> member) {
   }
   final id = idOf(member);
   return id.isEmpty ? '小家成员' : id;
+}
+
+List<Map<String, dynamic>> guestOrderSessions(dynamic response) {
+  final data = asMap(payload(response));
+  return asList(
+    data['sessions'] ?? data['items'] ?? data['data'],
+  ).map(asMap).where((item) => idOf(item).isNotEmpty).toList();
+}
+
+Map<String, dynamic> guestOrderSession(dynamic response) {
+  final data = asMap(payload(response));
+  return asMap(data['session'] ?? data['data'] ?? data);
+}
+
+String guestOrderStatusLabel(dynamic value) {
+  return switch (textOf(value)) {
+    'open' => '开放点菜',
+    'locked' => '已锁单',
+    'completed' => '已完成',
+    'cancelled' => '已取消',
+    'expired' => '已过期',
+    _ => '状态未知',
+  };
+}
+
+IconData guestOrderStatusIcon(dynamic value) {
+  return switch (textOf(value)) {
+    'open' => Icons.ramen_dining_outlined,
+    'locked' => Icons.lock_outline,
+    'completed' => Icons.task_alt,
+    'cancelled' => Icons.cancel_outlined,
+    'expired' => Icons.timer_off_outlined,
+    _ => Icons.help_outline,
+  };
+}
+
+Color guestOrderStatusColor(dynamic value) {
+  return switch (textOf(value)) {
+    'open' => kSage,
+    'locked' => kCaramel,
+    'completed' => const Color(0xFF5C8C73),
+    'cancelled' || 'expired' => kCoral,
+    _ => kCocoa,
+  };
+}
+
+int guestOrderNumber(dynamic value) {
+  if (value is num) {
+    return value.toInt();
+  }
+  return int.tryParse(textOf(value)) ?? 0;
+}
+
+List<Map<String, dynamic>> guestOrderList(dynamic value) =>
+    asList(value).map(asMap).where((item) => item.isNotEmpty).toList();
+
+Map<String, dynamic> guestOrderSummary(Map<String, dynamic> session) {
+  final summary = asMap(session['summary']);
+  return summary.isEmpty ? session : summary;
+}
+
+String guestOrderExpiryText(dynamic value) {
+  final parsed = DateTime.tryParse(textOf(value));
+  return parsed == null ? '未设置失效时间' : '${dateTimeMinuteText(parsed)} 失效';
+}
+
+class GuestOrderSessionsPage extends StatefulWidget {
+  const GuestOrderSessionsPage({super.key});
+
+  @override
+  State<GuestOrderSessionsPage> createState() => _GuestOrderSessionsPageState();
+}
+
+class _GuestOrderSessionsPageState extends State<GuestOrderSessionsPage> {
+  late Future<dynamic> future;
+
+  @override
+  void initState() {
+    super.initState();
+    future = context.appRead.get('/guest-orders');
+  }
+
+  void reload() {
+    setState(() {
+      future = context.appRead.get('/guest-orders');
+    });
+  }
+
+  Future<Map<String, dynamic>?> createDraft() async {
+    final controller = TextEditingController(text: '来家里吃饭');
+    var hours = 72;
+    return showDialog<Map<String, dynamic>>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('新建客人点菜'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                '创建后会生成免登录分享链接，客人可直接浏览当前菜谱并提交点菜单。',
+                style: TextStyle(color: kCocoa, fontWeight: FontWeight.w700),
+              ),
+              const SizedBox(height: 14),
+              TextField(
+                controller: controller,
+                autofocus: true,
+                maxLength: 80,
+                decoration: const InputDecoration(
+                  labelText: '宴请名称',
+                  hintText: '例如：周六晚餐、生日家宴',
+                ),
+              ),
+              const SizedBox(height: 10),
+              DropdownButtonFormField<int>(
+                value: hours,
+                decoration: const InputDecoration(labelText: '链接有效期'),
+                items: const [
+                  DropdownMenuItem(value: 24, child: Text('24 小时')),
+                  DropdownMenuItem(value: 72, child: Text('3 天（推荐）')),
+                  DropdownMenuItem(value: 168, child: Text('7 天')),
+                ],
+                onChanged: (value) => setDialogState(() => hours = value ?? 72),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('取消'),
+            ),
+            FilledButton.icon(
+              onPressed: () {
+                final title = controller.text.trim();
+                if (title.isEmpty) {
+                  showMessage(context, '请填写宴请名称');
+                  return;
+                }
+                Navigator.pop(dialogContext, {
+                  'title': title,
+                  'expiresAt': DateTime.now()
+                      .add(Duration(hours: hours))
+                      .toUtc()
+                      .toIso8601String(),
+                });
+              },
+              icon: const Icon(Icons.link),
+              label: const Text('创建链接'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> createSession() async {
+    final draft = await createDraft();
+    if (draft == null) {
+      return;
+    }
+    try {
+      final response = await context.appRead.post('/guest-orders', body: draft);
+      final session = guestOrderSession(response);
+      if (!mounted) {
+        return;
+      }
+      await pushPage(
+        context,
+        GuestOrderSessionPage(
+          sessionId: idOf(session),
+          initialSession: session,
+        ),
+      );
+      reload();
+    } catch (error) {
+      if (mounted) {
+        showMessage(context, errorText(error));
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('宴请点菜')),
+      body: AppBackdrop(
+        child: FutureBuilder<dynamic>(
+          future: future,
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const LoadingList();
+            }
+            if (snapshot.hasError) {
+              return ErrorState(
+                message: errorText(snapshot.error!),
+                onRetry: reload,
+              );
+            }
+            final sessions = guestOrderSessions(snapshot.data);
+            return RefreshIndicator(
+              onRefresh: () async => reload(),
+              child: ListView(
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 110),
+                children: [
+                  SoftCard(
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFFFFF3E9), Color(0xFFFFD9C8)],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const SectionTitle(
+                          icon: Icons.room_service_outlined,
+                          title: '把家里的菜谱变成点菜单',
+                        ),
+                        const SizedBox(height: 10),
+                        const Text(
+                          '客人打开链接即可免登录点菜；你会像看餐厅桌单一样看到人数、菜品份数和每位客人的备注。',
+                          style: TextStyle(
+                            color: kCocoa,
+                            height: 1.55,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        const SizedBox(height: 14),
+                        FilledButton.icon(
+                          onPressed: createSession,
+                          icon: const Icon(Icons.add_link),
+                          label: const Text('创建新的点菜链接'),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  if (sessions.isEmpty)
+                    EmptyState(
+                      title: '还没有宴请点菜单',
+                      action: '创建第一场宴请',
+                      onPressed: createSession,
+                    )
+                  else
+                    ...sessions.map(
+                      (session) => Padding(
+                        padding: const EdgeInsets.only(bottom: 12),
+                        child: GuestOrderSessionCard(
+                          session: session,
+                          onTap: () async {
+                            await pushPage(
+                              context,
+                              GuestOrderSessionPage(
+                                sessionId: idOf(session),
+                                initialSession: session,
+                              ),
+                            );
+                            reload();
+                          },
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            );
+          },
+        ),
+      ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: createSession,
+        icon: const Icon(Icons.add),
+        label: const Text('新宴请'),
+      ),
+    );
+  }
+}
+
+class GuestOrderSessionCard extends StatelessWidget {
+  const GuestOrderSessionCard({
+    super.key,
+    required this.session,
+    required this.onTap,
+  });
+
+  final Map<String, dynamic> session;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final status = textOf(session['status']);
+    final statusColor = guestOrderStatusColor(status);
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(30),
+      child: SoftCard(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  width: 46,
+                  height: 46,
+                  decoration: BoxDecoration(
+                    color: statusColor.withValues(alpha: 0.14),
+                    borderRadius: BorderRadius.circular(17),
+                  ),
+                  child: Icon(guestOrderStatusIcon(status), color: statusColor),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        friendlyText(session['title']).isEmpty
+                            ? '来家里吃饭'
+                            : friendlyText(session['title']),
+                        style: Theme.of(context)
+                            .textTheme
+                            .titleMedium
+                            ?.copyWith(fontWeight: FontWeight.w900),
+                      ),
+                      const SizedBox(height: 3),
+                      Text(
+                        guestOrderExpiryText(session['expiresAt']),
+                        style: const TextStyle(
+                          color: kCocoa,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const Icon(Icons.chevron_right),
+              ],
+            ),
+            const SizedBox(height: 13),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                InfoChip(
+                  guestOrderStatusLabel(status),
+                  icon: guestOrderStatusIcon(status),
+                ),
+                InfoChip(
+                  '${guestOrderNumber(session['guestCount'])} 位客人',
+                  icon: Icons.groups_outlined,
+                ),
+                InfoChip(
+                  '${guestOrderNumber(session['totalQuantity'])} 份菜',
+                  icon: Icons.restaurant_menu,
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class GuestOrderSessionPage extends StatefulWidget {
+  const GuestOrderSessionPage({
+    super.key,
+    required this.sessionId,
+    this.initialSession = const {},
+  });
+
+  final String sessionId;
+  final Map<String, dynamic> initialSession;
+
+  @override
+  State<GuestOrderSessionPage> createState() => _GuestOrderSessionPageState();
+}
+
+class _GuestOrderSessionPageState extends State<GuestOrderSessionPage> {
+  Map<String, dynamic> session = const {};
+  Object? loadError;
+  bool loading = true;
+  bool refreshing = false;
+  Timer? refreshTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    session = widget.initialSession;
+    loading = session.isEmpty;
+    unawaited(load());
+    refreshTimer = Timer.periodic(
+      const Duration(seconds: 5),
+      (_) => unawaited(load(silent: true)),
+    );
+  }
+
+  @override
+  void dispose() {
+    refreshTimer?.cancel();
+    super.dispose();
+  }
+
+  Future<void> load({bool silent = false}) async {
+    if (refreshing || widget.sessionId.isEmpty) {
+      return;
+    }
+    refreshing = true;
+    try {
+      final response = await context.appRead.get(
+        '/guest-orders/${widget.sessionId}',
+      );
+      if (mounted) {
+        setState(() {
+          session = guestOrderSession(response);
+          loading = false;
+          loadError = null;
+        });
+      }
+    } catch (error) {
+      if (mounted && (!silent || session.isEmpty)) {
+        setState(() {
+          loadError = error;
+          loading = false;
+        });
+      }
+    } finally {
+      refreshing = false;
+    }
+  }
+
+  Future<void> copyShareLink() async {
+    final link = friendlyText(session['shareUrl']);
+    if (link.isEmpty) {
+      showMessage(context, '分享链接还没有生成');
+      return;
+    }
+    await Clipboard.setData(ClipboardData(text: link));
+    if (mounted) {
+      showMessage(context, '点菜链接已复制，可以发给客人了');
+    }
+  }
+
+  Future<void> rotateShareLink() async {
+    final confirmed = await confirmDialog(
+      context,
+      title: '刷新分享链接',
+      message: '旧链接会立即失效，已经提交的点菜单不会丢失。确认继续吗？',
+      confirmText: '刷新链接',
+    );
+    if (!confirmed) {
+      return;
+    }
+    try {
+      final response = await context.appRead.post(
+        '/guest-orders/${widget.sessionId}/rotate-link',
+      );
+      if (mounted) {
+        setState(() => session = {...session, ...guestOrderSession(response)});
+        await copyShareLink();
+      }
+    } catch (error) {
+      if (mounted) {
+        showMessage(context, errorText(error));
+      }
+    }
+  }
+
+  Future<void> setStatus(String status) async {
+    final statusLabel = guestOrderStatusLabel(status);
+    if (['completed', 'cancelled'].contains(status)) {
+      final confirmed = await confirmDialog(
+        context,
+        title: statusLabel,
+        message: status == 'completed'
+            ? '完成后会保留桌单记录，但不能再次开放点菜。确认完成吗？'
+            : '取消后客人链接不能再点菜，且不能恢复。确认取消吗？',
+        confirmText: statusLabel,
+      );
+      if (!confirmed) {
+        return;
+      }
+    }
+    try {
+      final response = await context.appRead.patch(
+        '/guest-orders/${widget.sessionId}',
+        body: {'status': status},
+      );
+      if (mounted) {
+        setState(() => session = guestOrderSession(response));
+        showMessage(context, '宴请状态已更新为$statusLabel');
+      }
+    } catch (error) {
+      if (mounted) {
+        showMessage(context, errorText(error));
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (loading && session.isEmpty) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('宴请桌单')),
+        body: const AppBackdrop(child: LoadingList()),
+      );
+    }
+    if (loadError != null && session.isEmpty) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('宴请桌单')),
+        body: AppBackdrop(
+          child: ErrorState(message: errorText(loadError!), onRetry: load),
+        ),
+      );
+    }
+
+    final status = textOf(session['status']);
+    final summary = guestOrderSummary(session);
+    final dishes = guestOrderList(summary['dishes']);
+    final orders = guestOrderList(session['orders']);
+    final shareLink = friendlyText(session['shareUrl']);
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('宴请桌单'),
+        actions: [
+          IconButton(
+            tooltip: '刷新',
+            onPressed: load,
+            icon: const Icon(Icons.refresh),
+          ),
+        ],
+      ),
+      body: AppBackdrop(
+        child: RefreshIndicator(
+          onRefresh: load,
+          child: ListView(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 110),
+            children: [
+              SoftCard(
+                gradient: const LinearGradient(
+                  colors: [Color(0xFFFFF3E9), Color(0xFFFFD5C4)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            friendlyText(session['title']).isEmpty
+                                ? '来家里吃饭'
+                                : friendlyText(session['title']),
+                            style: Theme.of(context)
+                                .textTheme
+                                .headlineSmall
+                                ?.copyWith(fontWeight: FontWeight.w900),
+                          ),
+                        ),
+                        InfoChip(
+                          guestOrderStatusLabel(status),
+                          icon: guestOrderStatusIcon(status),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      guestOrderExpiryText(session['expiresAt']),
+                      style: const TextStyle(
+                        color: kCocoa,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 13),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        InfoChip(
+                          '${guestOrderNumber(summary['guestCount'])} 位客人',
+                          icon: Icons.groups_outlined,
+                        ),
+                        InfoChip(
+                          '${guestOrderNumber(summary['dishCount'])} 道菜',
+                          icon: Icons.restaurant_menu,
+                        ),
+                        InfoChip(
+                          '${guestOrderNumber(summary['totalQuantity'])} 份',
+                          icon: Icons.format_list_numbered,
+                        ),
+                        const InfoChip('每 5 秒刷新', icon: Icons.sync),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    if (shareLink.isNotEmpty)
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.72),
+                          borderRadius: BorderRadius.circular(17),
+                          border: Border.all(color: kLine),
+                        ),
+                        child: Text(
+                          shareLink,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: kCocoa,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                    const SizedBox(height: 12),
+                    Wrap(
+                      spacing: 9,
+                      runSpacing: 9,
+                      children: [
+                        FilledButton.icon(
+                          onPressed: shareLink.isEmpty ? null : copyShareLink,
+                          icon: const Icon(Icons.ios_share),
+                          label: const Text('复制分享链接'),
+                        ),
+                        if (status == 'open')
+                          OutlinedButton.icon(
+                            onPressed: () => setStatus('locked'),
+                            icon: const Icon(Icons.lock_outline),
+                            label: const Text('锁单'),
+                          ),
+                        if (status == 'locked')
+                          OutlinedButton.icon(
+                            onPressed: () => setStatus('open'),
+                            icon: const Icon(Icons.lock_open_outlined),
+                            label: const Text('重新开放'),
+                          ),
+                        if (status == 'open' || status == 'locked')
+                          OutlinedButton.icon(
+                            onPressed: rotateShareLink,
+                            icon: const Icon(Icons.refresh),
+                            label: const Text('刷新链接'),
+                          ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 14),
+              DetailSection(
+                title: '菜品汇总',
+                icon: Icons.receipt_long_outlined,
+                children: [
+                  if (dishes.isEmpty)
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 12),
+                      child: Text(
+                        '还没有客人提交点菜单。把链接发出去后，这里会自动出现菜品和份数。',
+                        style: TextStyle(
+                          color: kCocoa,
+                          height: 1.5,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    )
+                  else
+                    ...dishes.map((dish) => GuestOrderDishRow(dish: dish)),
+                ],
+              ),
+              DetailSection(
+                title: '客人桌单 ${orders.length}',
+                icon: Icons.groups_2_outlined,
+                children: [
+                  if (orders.isEmpty)
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 12),
+                      child: Text(
+                        '暂无客人订单。客人提交后会按人展示菜品和备注。',
+                        style: TextStyle(
+                          color: kCocoa,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    )
+                  else
+                    ...orders.map((order) => GuestOrderGuestCard(order: order)),
+                ],
+              ),
+              if (status == 'open' || status == 'locked') ...[
+                SoftCard(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const SectionTitle(
+                        icon: Icons.flag_outlined,
+                        title: '宴请收尾',
+                      ),
+                      const SizedBox(height: 10),
+                      const Text(
+                        '建议先锁单，再按汇总备菜；用餐结束后标记完成。取消属于不可恢复操作。',
+                        style: TextStyle(
+                          color: kCocoa,
+                          height: 1.5,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      Wrap(
+                        spacing: 10,
+                        runSpacing: 10,
+                        children: [
+                          FilledButton.icon(
+                            onPressed: () => setStatus('completed'),
+                            icon: const Icon(Icons.task_alt),
+                            label: const Text('完成宴请'),
+                          ),
+                          TextButton.icon(
+                            onPressed: () => setStatus('cancelled'),
+                            icon: const Icon(Icons.cancel_outlined),
+                            label: const Text('取消宴请'),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class GuestOrderDishRow extends StatelessWidget {
+  const GuestOrderDishRow({super.key, required this.dish});
+
+  final Map<String, dynamic> dish;
+
+  @override
+  Widget build(BuildContext context) {
+    final notes = asList(
+      dish['notes'],
+    ).map(textOf).where((item) => item.isNotEmpty).toList();
+    final guests = asList(
+      dish['guestNames'],
+    ).map(textOf).where((item) => item.isNotEmpty).toList();
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Container(
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(
+          color: context.app.themePalette.secondary.withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: context.app.themePalette.line),
+        ),
+        child: Row(
+          children: [
+            ClipRRect(
+              borderRadius: BorderRadius.circular(14),
+              child: SizedBox(
+                width: 68,
+                height: 58,
+                child: RemoteImage(url: imageUrl(dish['imageUrl'])),
+              ),
+            ),
+            const SizedBox(width: 11),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    friendlyText(dish['name']).isEmpty
+                        ? '未命名菜品'
+                        : friendlyText(dish['name']),
+                    style: const TextStyle(fontWeight: FontWeight.w900),
+                  ),
+                  if (guests.isNotEmpty)
+                    Text(
+                      guests.join('、'),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: kCocoa,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  if (notes.isNotEmpty)
+                    Text(
+                      notes.join('；'),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: kCoral,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            Container(
+              constraints: const BoxConstraints(minWidth: 46),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+              decoration: BoxDecoration(
+                color: context.app.themePalette.primary.withValues(alpha: 0.14),
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: Text(
+                '×${guestOrderNumber(dish['quantity'])}',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: context.app.themePalette.primary,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class GuestOrderGuestCard extends StatelessWidget {
+  const GuestOrderGuestCard({super.key, required this.order});
+
+  final Map<String, dynamic> order;
+
+  @override
+  Widget build(BuildContext context) {
+    final items = guestOrderList(order['items']);
+    final note = friendlyText(order['note']);
+    final quantity = items.fold<int>(
+      0,
+      (sum, item) => sum + guestOrderNumber(item['quantity']),
+    );
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Container(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: context.app.themePalette.line),
+        ),
+        child: ExpansionTile(
+          shape: const Border(),
+          collapsedShape: const Border(),
+          leading: CircleAvatar(
+            backgroundColor: context.app.themePalette.secondary.withValues(
+              alpha: 0.22,
+            ),
+            child: Icon(
+              Icons.person_outline,
+              color: context.app.themePalette.primary,
+            ),
+          ),
+          title: Text(
+            friendlyText(order['guestName']).isEmpty
+                ? '客人'
+                : friendlyText(order['guestName']),
+            style: const TextStyle(fontWeight: FontWeight.w900),
+          ),
+          subtitle: Text('${items.length} 道菜 · $quantity 份'),
+          childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
+          children: [
+            if (note.isNotEmpty)
+              Container(
+                width: double.infinity,
+                margin: const EdgeInsets.only(bottom: 9),
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFFF1E9),
+                  borderRadius: BorderRadius.circular(13),
+                ),
+                child: Text(
+                  '整单备注：$note',
+                  style: const TextStyle(
+                    color: kCocoa,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ...items.map(
+              (item) => Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        friendlyText(item['name']).isEmpty
+                            ? '未命名菜品'
+                            : friendlyText(item['name']),
+                        style: const TextStyle(fontWeight: FontWeight.w700),
+                      ),
+                    ),
+                    if (friendlyText(item['note']).isNotEmpty)
+                      Flexible(
+                        child: Text(
+                          friendlyText(item['note']),
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(color: kCoral, fontSize: 12),
+                        ),
+                      ),
+                    const SizedBox(width: 8),
+                    Text(
+                      '×${guestOrderNumber(item['quantity'])}',
+                      style: const TextStyle(fontWeight: FontWeight.w900),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 class SettingsPage extends StatefulWidget {
@@ -10985,16 +12135,20 @@ class _SettingsPageState extends State<SettingsPage> {
   void initState() {
     super.initState();
     defaultStatusFuture = context.appRead.get('/default-meals/status');
-    issuesFuture =
-        context.appRead.get('/meal-image-issues', query: {'status': 'open'});
+    issuesFuture = context.appRead.get(
+      '/meal-image-issues',
+      query: {'status': 'open'},
+    );
     apiStatusFuture = context.appRead.checkApiEndpoints();
   }
 
   void reload() {
     setState(() {
       defaultStatusFuture = context.appRead.get('/default-meals/status');
-      issuesFuture =
-          context.appRead.get('/meal-image-issues', query: {'status': 'open'});
+      issuesFuture = context.appRead.get(
+        '/meal-image-issues',
+        query: {'status': 'open'},
+      );
     });
   }
 
@@ -11073,8 +12227,11 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 
   Future<void> updateHousehold() async {
-    final name = await textDialog(context,
-        title: '修改小家名称', initial: context.appRead.householdName);
+    final name = await textDialog(
+      context,
+      title: '修改小家名称',
+      initial: context.appRead.householdName,
+    );
     if (name == null || name.trim().isEmpty) {
       return;
     }
@@ -11092,14 +12249,19 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 
   Future<void> updateProfile() async {
-    final name = await textDialog(context,
-        title: '修改昵称', initial: context.appRead.displayName);
+    final name = await textDialog(
+      context,
+      title: '修改昵称',
+      initial: context.appRead.displayName,
+    );
     if (name == null || name.trim().isEmpty) {
       return;
     }
     try {
-      await context.appRead
-          .put('/auth/profile', body: {'displayName': name.trim()});
+      await context.appRead.put(
+        '/auth/profile',
+        body: {'displayName': name.trim()},
+      );
       await context.appRead.refreshMe();
       if (mounted) {
         showMessage(context, '已更新昵称');
@@ -11152,20 +12314,25 @@ class _SettingsPageState extends State<SettingsPage> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               SectionTitle(
-                  icon: Icons.home_outlined, title: context.app.householdName),
+                icon: Icons.home_outlined,
+                title: context.app.householdName,
+              ),
               const SizedBox(height: 12),
               Container(
                 padding: const EdgeInsets.all(14),
                 decoration: BoxDecoration(
-                  color: context.app.themePalette.secondary
-                      .withValues(alpha: 0.18),
+                  color: context.app.themePalette.secondary.withValues(
+                    alpha: 0.18,
+                  ),
                   borderRadius: BorderRadius.circular(22),
                   border: Border.all(color: context.app.themePalette.line),
                 ),
                 child: Row(
                   children: [
-                    Icon(Icons.key_outlined,
-                        color: context.app.themePalette.primary),
+                    Icon(
+                      Icons.key_outlined,
+                      color: context.app.themePalette.primary,
+                    ),
                     const SizedBox(width: 10),
                     Expanded(
                       child: Column(
@@ -11291,9 +12458,9 @@ class _SettingsPageState extends State<SettingsPage> {
                   if (checking && statuses.isEmpty)
                     const LinearProgressIndicator(minHeight: 4)
                   else
-                    ...statuses.map((status) => ApiEndpointStatusTile(
-                          status: status,
-                        )),
+                    ...statuses.map(
+                      (status) => ApiEndpointStatusTile(status: status),
+                    ),
                   const SizedBox(height: 10),
                   OutlinedButton.icon(
                     onPressed: checking ? null : reloadApiStatus,
@@ -11317,7 +12484,9 @@ class _SettingsPageState extends State<SettingsPage> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const SectionTitle(
-                  icon: Icons.verified_user_outlined, title: '登录管理'),
+                icon: Icons.verified_user_outlined,
+                title: '登录管理',
+              ),
               const SizedBox(height: 8),
               Text(
                 context.app.isAuthed ? '已开启免登录，下次打开会直接进入小家。' : '当前未登录。',
@@ -11374,28 +12543,35 @@ class _SettingsPageState extends State<SettingsPage> {
                 runSpacing: 10,
                 children: [
                   OutlinedButton(
-                      onPressed: () =>
-                          pushPage(context, const WeeklyPlanPage()),
-                      child: const Text('本周计划')),
+                    onPressed: () => pushPage(context, const WeeklyPlanPage()),
+                    child: const Text('本周计划'),
+                  ),
                   OutlinedButton(
-                      onPressed: () =>
-                          pushPage(context, const ShoppingListPage()),
-                      child: const Text('购物清单')),
+                    onPressed: () =>
+                        pushPage(context, const ShoppingListPage()),
+                    child: const Text('购物清单'),
+                  ),
                   OutlinedButton(
-                      onPressed: () => pushPage(context, const WishlistPage()),
-                      child: const Text('想吃清单')),
+                    onPressed: () => pushPage(context, const WishlistPage()),
+                    child: const Text('想吃清单'),
+                  ),
                   OutlinedButton(
-                      onPressed: () =>
-                          pushPage(context, const PhotoAlbumPage()),
-                      child: const Text('饭桌相册')),
+                    onPressed: () => pushPage(context, const PhotoAlbumPage()),
+                    child: const Text('饭桌相册'),
+                  ),
                   OutlinedButton(
-                      onPressed: () =>
-                          pushPage(context, const TableReviewPage()),
-                      child: const Text('饭桌回顾')),
+                    onPressed: () => pushPage(context, const TableReviewPage()),
+                    child: const Text('饭桌回顾'),
+                  ),
                   OutlinedButton(
-                      onPressed: () =>
-                          pushPage(context, const AnniversaryPage()),
-                      child: const Text('纪念日菜单')),
+                    onPressed: () => pushPage(context, const AnniversaryPage()),
+                    child: const Text('纪念日菜单'),
+                  ),
+                  OutlinedButton(
+                    onPressed: () =>
+                        pushPage(context, const GuestOrderSessionsPage()),
+                    child: const Text('宴请点菜'),
+                  ),
                 ],
               ),
             ],
@@ -11413,10 +12589,13 @@ class _SettingsPageState extends State<SettingsPage> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const SectionTitle(
-                      icon: Icons.restaurant_menu, title: '默认菜品管理'),
+                    icon: Icons.restaurant_menu,
+                    title: '默认菜品管理',
+                  ),
                   const SizedBox(height: 8),
                   Text(
-                      '总数：${countText(data['total'] ?? data['defaultTotal'])}  已导入：${countText(data['imported'] ?? data['importedCount'])}  缺失：${countText(data['missing'] ?? data['missingCount'])}'),
+                    '总数：${countText(data['total'] ?? data['defaultTotal'])}  已导入：${countText(data['imported'] ?? data['importedCount'])}  缺失：${countText(data['missing'] ?? data['missingCount'])}',
+                  ),
                   const SizedBox(height: 10),
                   Wrap(
                     spacing: 10,
@@ -11451,8 +12630,9 @@ class _SettingsPageState extends State<SettingsPage> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   SectionTitle(
-                      icon: Icons.report_outlined,
-                      title: '待修正图片 ${issues.length}'),
+                    icon: Icons.report_outlined,
+                    title: '待修正图片 ${issues.length}',
+                  ),
                   const SizedBox(height: 8),
                   if (issues.isEmpty)
                     const Text('当前没有待修正图片。')
@@ -11476,10 +12656,8 @@ class _SettingsPageState extends State<SettingsPage> {
                     ),
                     const SizedBox(height: 12),
                     ...issues.map(
-                      (issue) => ImageIssueTile(
-                        issue: issue,
-                        onChanged: reload,
-                      ),
+                      (issue) =>
+                          ImageIssueTile(issue: issue, onChanged: reload),
                     ),
                   ],
                 ],
@@ -11621,10 +12799,7 @@ class ApiEndpointStatusTile extends StatelessWidget {
                     status.message,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      color: palette.muted,
-                      fontSize: 12,
-                    ),
+                    style: TextStyle(color: palette.muted, fontSize: 12),
                   ),
                 ],
               ],
@@ -11763,8 +12938,11 @@ class _ThemeTablePreview extends StatelessWidget {
                 ],
               ),
               child: Center(
-                child:
-                    Icon(Icons.ramen_dining, color: palette.accent, size: 24),
+                child: Icon(
+                  Icons.ramen_dining,
+                  color: palette.accent,
+                  size: 24,
+                ),
               ),
             ),
           ),
@@ -11912,8 +13090,10 @@ class ImageIssueTile extends StatelessWidget {
       return;
     }
     try {
-      await context.appRead
-          .patch('/meal-image-issues/$issueId', body: {'status': 'fixed'});
+      await context.appRead.patch(
+        '/meal-image-issues/$issueId',
+        body: {'status': 'fixed'},
+      );
       onChanged();
     } catch (error) {
       if (context.mounted) {
@@ -11962,15 +13142,9 @@ class ImageIssueTile extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              mealName,
-              style: const TextStyle(fontWeight: FontWeight.w900),
-            ),
+            Text(mealName, style: const TextStyle(fontWeight: FontWeight.w900)),
             const SizedBox(height: 4),
-            Text(
-              note,
-              style: TextStyle(color: context.app.themePalette.muted),
-            ),
+            Text(note, style: TextStyle(color: context.app.themePalette.muted)),
             const SizedBox(height: 10),
             Wrap(
               spacing: 8,
@@ -12042,14 +13216,20 @@ class AppBackdrop extends StatelessWidget {
           Positioned(
             left: 22,
             top: 74,
-            child: Icon(Icons.ramen_dining_outlined,
-                size: 72, color: palette.primary.withValues(alpha: 0.07)),
+            child: Icon(
+              Icons.ramen_dining_outlined,
+              size: 72,
+              color: palette.primary.withValues(alpha: 0.07),
+            ),
           ),
           Positioned(
             right: 28,
             bottom: 36,
-            child: Icon(Icons.favorite,
-                size: 58, color: palette.accent.withValues(alpha: 0.06)),
+            child: Icon(
+              Icons.favorite,
+              size: 58,
+              color: palette.accent.withValues(alpha: 0.06),
+            ),
           ),
           Align(alignment: alignment, child: child),
         ],
@@ -12069,10 +13249,7 @@ class _BackdropCircle extends StatelessWidget {
     return Container(
       width: size,
       height: size,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        color: color,
-      ),
+      decoration: BoxDecoration(shape: BoxShape.circle, color: color),
     );
   }
 }
@@ -12120,14 +13297,20 @@ class BrandMark extends StatelessWidget {
           Positioned(
             left: size * 0.19,
             bottom: size * 0.22,
-            child: Icon(Icons.rice_bowl_outlined,
-                color: palette.primary, size: bowlSize),
+            child: Icon(
+              Icons.rice_bowl_outlined,
+              color: palette.primary,
+              size: bowlSize,
+            ),
           ),
           Positioned(
             right: size * 0.17,
             bottom: size * 0.20,
-            child: Icon(Icons.soup_kitchen_outlined,
-                color: palette.accent, size: bowlSize),
+            child: Icon(
+              Icons.soup_kitchen_outlined,
+              color: palette.accent,
+              size: bowlSize,
+            ),
           ),
           Positioned(
             bottom: size * 0.12,
@@ -12371,10 +13554,10 @@ class SectionTitle extends StatelessWidget {
         Expanded(
           child: Text(
             title,
-            style: Theme.of(context)
-                .textTheme
-                .titleMedium
-                ?.copyWith(fontWeight: FontWeight.w900, color: palette.text),
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w900,
+                  color: palette.text,
+                ),
           ),
         ),
       ],
@@ -12435,12 +13618,14 @@ class InfoChip extends StatelessWidget {
             Icon(icon, size: 14, color: palette.primary),
             const SizedBox(width: 4),
           ],
-          Text(label,
-              style: TextStyle(
-                fontSize: 12,
-                color: palette.muted,
-                fontWeight: FontWeight.w800,
-              )),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 12,
+              color: palette.muted,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
         ],
       ),
     );
@@ -12448,11 +13633,7 @@ class InfoChip extends StatelessWidget {
 }
 
 class RemoteImage extends StatelessWidget {
-  const RemoteImage({
-    super.key,
-    required this.url,
-    this.placeholder,
-  });
+  const RemoteImage({super.key, required this.url, this.placeholder});
 
   final String url;
   final Widget? placeholder;
@@ -12517,8 +13698,11 @@ class ImagePlaceholder extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             placeholder ??
-                const Icon(Icons.ramen_dining_outlined,
-                    size: 44, color: kCaramel),
+                const Icon(
+                  Icons.ramen_dining_outlined,
+                  size: 44,
+                  color: kCaramel,
+                ),
             if (message != null) ...[
               const SizedBox(height: 8),
               Padding(
@@ -12608,11 +13792,12 @@ class EmptyState extends StatelessWidget {
         children: [
           const BrandMark(size: 62, compact: true),
           const SizedBox(height: 12),
-          Text(title,
-              style: Theme.of(context)
-                  .textTheme
-                  .titleMedium
-                  ?.copyWith(fontWeight: FontWeight.w900)),
+          Text(
+            title,
+            style: Theme.of(
+              context,
+            ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w900),
+          ),
           if (action != null) ...[
             const SizedBox(height: 12),
             FilledButton(onPressed: onPressed, child: Text(action!)),
@@ -12670,10 +13855,13 @@ Future<String?> textDialog(
       ),
       actions: [
         TextButton(
-            onPressed: () => Navigator.pop(context), child: const Text('取消')),
+          onPressed: () => Navigator.pop(context),
+          child: const Text('取消'),
+        ),
         FilledButton(
-            onPressed: () => Navigator.pop(context, controller.text),
-            child: const Text('确认')),
+          onPressed: () => Navigator.pop(context, controller.text),
+          child: const Text('确认'),
+        ),
       ],
     ),
   );

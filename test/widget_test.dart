@@ -21,15 +21,15 @@ void main() {
     expect(find.text('申请账号 / 加入小家'), findsOneWidget);
   });
 
-  testWidgets('appRead can be used during initState without subscribing',
-      (tester) async {
+  testWidgets('appRead can be used during initState without subscribing', (
+    tester,
+  ) async {
     final appState = AppState();
     addTearDown(appState.dispose);
 
-    await tester.pumpWidget(AppScope(
-      appState: appState,
-      child: const _InitReadProbe(),
-    ));
+    await tester.pumpWidget(
+      AppScope(appState: appState, child: const _InitReadProbe()),
+    );
 
     expect(find.text('not authed'), findsOneWidget);
   });
@@ -39,10 +39,12 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
-        home: Builder(builder: (context) {
-          probeContext = context;
-          return const SizedBox();
-        }),
+        home: Builder(
+          builder: (context) {
+            probeContext = context;
+            return const SizedBox();
+          },
+        ),
       ),
     );
 
@@ -69,49 +71,54 @@ void main() {
     expect(await confirmFuture, isTrue);
   });
 
-  test('init keeps valid cached session when profile refresh is offline',
-      () async {
-    final token = fakeJwt(DateTime.now().add(const Duration(hours: 2)));
-    SharedPreferences.setMockInitialValues({
-      'eatwhat.accessToken': token,
-      'eatwhat.cachedUser': jsonEncode({
-        'id': 'u1',
-        'displayName': 'Codex Test',
-      }),
-      'eatwhat.cachedHousehold': jsonEncode({'name': 'QA Home'}),
-    });
+  test(
+    'init keeps valid cached session when profile refresh is offline',
+    () async {
+      final token = fakeJwt(DateTime.now().add(const Duration(hours: 2)));
+      SharedPreferences.setMockInitialValues({
+        'eatwhat.accessToken': token,
+        'eatwhat.cachedUser': jsonEncode({
+          'id': 'u1',
+          'displayName': 'Codex Test',
+        }),
+        'eatwhat.cachedHousehold': jsonEncode({'name': 'QA Home'}),
+      });
 
-    final appState = _FakeAppState((method, uri, headers, body) {
-      throw const io.SocketException('offline');
-    });
-    addTearDown(appState.dispose);
+      final appState = _FakeAppState((method, uri, headers, body) {
+        throw const io.SocketException('offline');
+      });
+      addTearDown(appState.dispose);
 
-    await appState.init();
+      await appState.init();
 
-    expect(appState.loading, isFalse);
-    expect(appState.isAuthed, isTrue);
-    expect(appState.displayName, 'Codex Test');
-    expect(appState.householdName, 'QA Home');
-  });
+      expect(appState.loading, isFalse);
+      expect(appState.isAuthed, isTrue);
+      expect(appState.displayName, 'Codex Test');
+      expect(appState.householdName, 'QA Home');
+    },
+  );
 
-  test('init clears expired saved token and asks user to log in again',
-      () async {
-    SharedPreferences.setMockInitialValues({
-      'eatwhat.accessToken':
-          fakeJwt(DateTime.now().subtract(const Duration(minutes: 2))),
-      'eatwhat.cachedUser': jsonEncode({'id': 'u1'}),
-      'eatwhat.cachedHousehold': jsonEncode({'name': 'QA Home'}),
-    });
+  test(
+    'init clears expired saved token and asks user to log in again',
+    () async {
+      SharedPreferences.setMockInitialValues({
+        'eatwhat.accessToken': fakeJwt(
+          DateTime.now().subtract(const Duration(minutes: 2)),
+        ),
+        'eatwhat.cachedUser': jsonEncode({'id': 'u1'}),
+        'eatwhat.cachedHousehold': jsonEncode({'name': 'QA Home'}),
+      });
 
-    final appState = AppState();
-    addTearDown(appState.dispose);
-    await appState.init();
-    final prefs = await SharedPreferences.getInstance();
+      final appState = AppState();
+      addTearDown(appState.dispose);
+      await appState.init();
+      final prefs = await SharedPreferences.getInstance();
 
-    expect(appState.isAuthed, isFalse);
-    expect(appState.sessionNotice, contains('登录已过期'));
-    expect(prefs.getString('eatwhat.accessToken'), isNull);
-  });
+      expect(appState.isAuthed, isFalse);
+      expect(appState.sessionNotice, contains('登录已过期'));
+      expect(prefs.getString('eatwhat.accessToken'), isNull);
+    },
+  );
 
   test('401 from authenticated request clears local session', () async {
     final token = fakeJwt(DateTime.now().add(const Duration(hours: 2)));
@@ -135,38 +142,44 @@ void main() {
     expect(prefs.getString('eatwhat.accessToken'), isNull);
   });
 
-  test('write requests fall back to secondary API base on network failure',
-      () async {
-    final requestedUris = <String>[];
-    final appState = _FakeAppState((method, uri, headers, body) async {
-      requestedUris.add(uri.toString());
-      if (uri.toString().startsWith(kPrimaryApiBase)) {
-        throw const io.SocketException('primary port is offline');
-      }
-      return http.Response.bytes(
-        utf8.encode(jsonEncode({
-          'ok': true,
-          'method': method,
-          'body': jsonDecode(body ?? '{}'),
-        })),
-        200,
+  test(
+    'write requests fall back to secondary API base on network failure',
+    () async {
+      final requestedUris = <String>[];
+      final appState = _FakeAppState((method, uri, headers, body) async {
+        requestedUris.add(uri.toString());
+        if (uri.toString().startsWith(kPrimaryApiBase)) {
+          throw const io.SocketException('primary port is offline');
+        }
+        return http.Response.bytes(
+          utf8.encode(
+            jsonEncode({
+              'ok': true,
+              'method': method,
+              'body': jsonDecode(body ?? '{}'),
+            }),
+          ),
+          200,
+        );
+      });
+      addTearDown(appState.dispose);
+
+      final response = asMap(
+        await appState.post(
+          '/auth/login',
+          body: {'username': 'lsy', 'password': 'secret'},
+          auth: false,
+        ),
       );
-    });
-    addTearDown(appState.dispose);
 
-    final response = asMap(await appState.post(
-      '/auth/login',
-      body: {'username': 'lsy', 'password': 'secret'},
-      auth: false,
-    ));
-
-    expect(response['ok'], isTrue);
-    expect(response['method'], 'POST');
-    expect(asMap(response['body'])['username'], 'lsy');
-    expect(requestedUris, hasLength(2));
-    expect(requestedUris.first, startsWith(kPrimaryApiBase));
-    expect(requestedUris.last, startsWith(kFallbackApiBase));
-  });
+      expect(response['ok'], isTrue);
+      expect(response['method'], 'POST');
+      expect(asMap(response['body'])['username'], 'lsy');
+      expect(requestedUris, hasLength(2));
+      expect(requestedUris.first, startsWith(kPrimaryApiBase));
+      expect(requestedUris.last, startsWith(kFallbackApiBase));
+    },
+  );
 
   test('api health helpers build readable diagnostics', () {
     expect(
@@ -204,21 +217,23 @@ void main() {
     ]);
   });
 
-  test('saveLogin always keeps username and only stores remembered password',
-      () async {
-    SharedPreferences.setMockInitialValues({});
-    final appState = AppState();
-    addTearDown(appState.dispose);
+  test(
+    'saveLogin always keeps username and only stores remembered password',
+    () async {
+      SharedPreferences.setMockInitialValues({});
+      final appState = AppState();
+      addTearDown(appState.dispose);
 
-    await appState.saveLogin('alice', 'secret', false);
-    final prefs = await SharedPreferences.getInstance();
-    expect(prefs.getString('eatwhat.savedUsername'), 'alice');
-    expect(prefs.getString('eatwhat.savedPassword'), isNull);
+      await appState.saveLogin('alice', 'secret', false);
+      final prefs = await SharedPreferences.getInstance();
+      expect(prefs.getString('eatwhat.savedUsername'), 'alice');
+      expect(prefs.getString('eatwhat.savedPassword'), isNull);
 
-    await appState.saveLogin('alice', 'secret', true);
-    expect(prefs.getString('eatwhat.savedUsername'), 'alice');
-    expect(prefs.getString('eatwhat.savedPassword'), 'secret');
-  });
+      await appState.saveLogin('alice', 'secret', true);
+      expect(prefs.getString('eatwhat.savedUsername'), 'alice');
+      expect(prefs.getString('eatwhat.savedPassword'), 'secret');
+    },
+  );
 
   test('theme selection is saved and restored on next launch', () async {
     SharedPreferences.setMockInitialValues({});
@@ -240,16 +255,20 @@ void main() {
 
     expect(kThemePalettes.length, greaterThanOrEqualTo(8));
     expect(keys.length, kThemePalettes.length);
-    expect(kThemePalettes.map((palette) => palette.label),
-        containsAll(['晚餐烛光', '春日野餐', '烟火早市']));
+    expect(
+      kThemePalettes.map((palette) => palette.label),
+      containsAll(['晚餐烛光', '春日野餐', '烟火早市']),
+    );
     expect(paletteForKey('missing').key, kThemeCreamPeach);
   });
 
   test('android branding uses themed app name resource', () {
-    final manifest =
-        io.File('android/app/src/main/AndroidManifest.xml').readAsStringSync();
-    final strings = io.File('android/app/src/main/res/values/strings.xml')
-        .readAsStringSync();
+    final manifest = io.File(
+      'android/app/src/main/AndroidManifest.xml',
+    ).readAsStringSync();
+    final strings = io.File(
+      'android/app/src/main/res/values/strings.xml',
+    ).readAsStringSync();
 
     expect(manifest, contains('android:label="@string/app_name"'));
     expect(strings, contains('<string name="app_name">小家饭桌</string>'));
@@ -273,15 +292,15 @@ void main() {
   test('mealIdsFromPlanValue extracts ids from schedule meal structures', () {
     final ids = mealIdsFromPlanValue([
       {
-        'meal': {'_id': 'meal-a', 'name': '番茄牛腩'}
+        'meal': {'_id': 'meal-a', 'name': '番茄牛腩'},
       },
       {
-        'meal': {'id': 'meal-b', 'name': '酸菜饺子'}
+        'meal': {'id': 'meal-b', 'name': '酸菜饺子'},
       },
       {'mealId': 'meal-c'},
       'meal-d',
       {
-        'meal': {'_id': 'meal-a'}
+        'meal': {'_id': 'meal-a'},
       },
     ]);
 
@@ -293,14 +312,14 @@ void main() {
       'meals': {
         'breakfast': [
           {
-            'meal': {'_id': 'meal-a', 'name': '小米粥'}
-          }
+            'meal': {'_id': 'meal-a', 'name': '小米粥'},
+          },
         ],
         'lunch': [
-          {'mealId': 'meal-b'}
+          {'mealId': 'meal-b'},
         ],
         'dinner': ['meal-c'],
-      }
+      },
     };
 
     expect(scheduleMealIdsFor(schedule, 'breakfast'), ['meal-a']);
@@ -308,14 +327,16 @@ void main() {
     expect(scheduleMealIdsFor(schedule, 'dinner'), ['meal-c']);
     expect(scheduleMealIdsFor(schedule, 'snack'), isEmpty);
     expect(scheduleMealIds(schedule), ['meal-a', 'meal-b', 'meal-c']);
-    expect(
-      scheduleMealObjects(schedule).map((meal) => meal['_id']).toList(),
-      ['meal-a', 'meal-b', 'meal-c'],
-    );
-    expect(
-      scheduleMealTypesWithMeals(schedule),
-      ['breakfast', 'lunch', 'dinner'],
-    );
+    expect(scheduleMealObjects(schedule).map((meal) => meal['_id']).toList(), [
+      'meal-a',
+      'meal-b',
+      'meal-c',
+    ]);
+    expect(scheduleMealTypesWithMeals(schedule), [
+      'breakfast',
+      'lunch',
+      'dinner',
+    ]);
     expect(normalizedMealType('snack'), 'dinner');
     expect(scheduleMemoryTitle('lunch'), '午餐饭后回忆');
   });
@@ -331,8 +352,8 @@ void main() {
               'name': '油条',
               'healthTags': ['重口', '下饭'],
               'category': '面食主食',
-            }
-          }
+            },
+          },
         ],
         'lunch': [
           {
@@ -341,10 +362,10 @@ void main() {
               'name': '炸酱面',
               'tags': ['重口'],
               'category': '面食主食',
-            }
-          }
+            },
+          },
         ],
-      }
+      },
     };
 
     final hints = scheduleBalanceHints(schedule);
@@ -361,19 +382,19 @@ void main() {
         '2026-07-01': {
           'meals': {
             'breakfast': [
-              {'name': '小米粥'}
+              {'name': '小米粥'},
             ],
             'lunch': [],
             'dinner': [
               {
-                'meal': {'_id': 'meal-a', 'name': '番茄牛腩'}
-              }
+                'meal': {'_id': 'meal-a', 'name': '番茄牛腩'},
+              },
             ],
-          }
+          },
         },
         '2026-07-02': {
           'lunch': [
-            {'mealId': 'meal-b', 'name': '牛肉面'}
+            {'mealId': 'meal-b', 'name': '牛肉面'},
           ],
         },
       },
@@ -406,7 +427,7 @@ void main() {
         if (day != 27 && day != 28)
           dateString(DateTime(2026, 2, day)): {
             'dinner': [
-              {'name': '家常晚餐'}
+              {'name': '家常晚餐'},
             ],
           },
     };
@@ -432,10 +453,10 @@ void main() {
     expect(mealIsFavorite(meal), isTrue);
     expect(mealIsFavorite(stringFavorite), isTrue);
     expect(mealIsFavorite({'favorite': false}), isFalse);
-    expect(
-      mealFavoriteUpdateFields(meal, favorite: false),
-      {'name': '番茄牛腩', 'favorite': 'false'},
-    );
+    expect(mealFavoriteUpdateFields(meal, favorite: false), {
+      'name': '番茄牛腩',
+      'favorite': 'false',
+    });
   });
 
   test('meal rating helpers clamp and build safe update fields', () {
@@ -445,10 +466,10 @@ void main() {
     expect(mealRatingValue('-1'), 0);
     expect(mealRatingValue('9'), 5);
     expect(mealRatingValue('', fallback: 3.5), 3.5);
-    expect(
-      mealRatingUpdateFields(meal, rating: 4.25),
-      {'name': '番茄牛腩', 'rating': '4.3'},
-    );
+    expect(mealRatingUpdateFields(meal, rating: 4.25), {
+      'name': '番茄牛腩',
+      'rating': '4.3',
+    });
   });
 
   test('meal completeness helpers find missing recipe details', () {
@@ -456,16 +477,16 @@ void main() {
       'image': '/uploads/beef.jpg',
       'description': '牛肉软烂，番茄汤汁浓。',
       'ingredients': [
-        {'name': '牛肉', 'amount': '500g'}
+        {'name': '牛肉', 'amount': '500g'},
       ],
       'steps': [
-        {'description': '牛肉焯水后和番茄一起炖煮'}
+        {'description': '牛肉焯水后和番茄一起炖煮'},
       ],
       'tips': '最后加盐，汤味更清亮。',
     });
     final incomplete = mealCompleteness({
       'photos': [
-        {'url': '/uploads/noodle.jpg'}
+        {'url': '/uploads/noodle.jpg'},
       ],
       'ingredients': ['面条 1把'],
       'steps': [],
@@ -480,10 +501,11 @@ void main() {
     expect(mealCompletenessLabel(incomplete), '资料 2/5');
     expect(mealCompletenessHint(incomplete), contains('简介、做法步骤、小技巧'));
     expect(
-        mealHasNonEmptyList([
-          {'name': '', 'amount': ''}
-        ]),
-        isFalse);
+      mealHasNonEmptyList([
+        {'name': '', 'amount': ''},
+      ]),
+      isFalse,
+    );
   });
 
   test('meal completeness sorting puts incomplete recipes first', () {
@@ -504,10 +526,7 @@ void main() {
         'steps': [],
         'tips': '',
       },
-      {
-        'name': '空菜',
-        'ingredients': [],
-      },
+      {'name': '空菜', 'ingredients': []},
     ];
 
     final sorted = sortMealsByCompleteness(meals).map(asMap).toList();
@@ -545,14 +564,8 @@ void main() {
   });
 
   test('meal delete confirm message names the target safely', () {
-    expect(
-      mealDeleteConfirmMessage({'name': '番茄牛腩'}),
-      contains('「番茄牛腩」'),
-    );
-    expect(
-      mealDeleteConfirmMessage({}),
-      contains('这道菜'),
-    );
+    expect(mealDeleteConfirmMessage({'name': '番茄牛腩'}), contains('「番茄牛腩」'));
+    expect(mealDeleteConfirmMessage({}), contains('这道菜'));
   });
 
   test('weekly draft helpers remove meal from ids and preview', () {
@@ -563,9 +576,9 @@ void main() {
           'meals': {
             'breakfast': ['meal-a', 'meal-b'],
             'lunch': ['meal-c'],
-            'dinner': []
-          }
-        }
+            'dinner': [],
+          },
+        },
       ],
       'preview': [
         {
@@ -573,19 +586,20 @@ void main() {
           'meals': {
             'breakfast': [
               {'_id': 'meal-a', 'name': '番茄牛腩'},
-              {'_id': 'meal-b', 'name': '鸡蛋灌饼'}
+              {'_id': 'meal-b', 'name': '鸡蛋灌饼'},
             ],
             'lunch': [
-              {'_id': 'meal-c', 'name': '大盘鸡'}
+              {'_id': 'meal-c', 'name': '大盘鸡'},
             ],
-            'dinner': []
-          }
-        }
+            'dinner': [],
+          },
+        },
       ],
     };
 
     final initialEntries = planMealEntries(
-        asMap(asList(draft['preview']).first)['meals']['breakfast']);
+      asMap(asList(draft['preview']).first)['meals']['breakfast'],
+    );
     expect(initialEntries.first['id'], 'meal-a');
     expect(initialEntries.first['name'], '番茄牛腩');
 
@@ -603,54 +617,58 @@ void main() {
       ['meal-b'],
     );
     expect(
-      planMealEntries(asMap(updatedPreview.first['meals'])['breakfast'])
-          .map((item) => item['id']),
+      planMealEntries(
+        asMap(updatedPreview.first['meals'])['breakfast'],
+      ).map((item) => item['id']),
       ['meal-b'],
     );
   });
 
-  test('weekly draft helpers add meal to ids and preview without duplicates',
-      () {
-    final draft = {
-      'days': [
-        {
-          'date': '2026-07-06',
-          'meals': {'breakfast': [], 'lunch': [], 'dinner': []}
-        }
-      ],
-      'preview': [
-        {
-          'date': '2026-07-06',
-          'meals': {'breakfast': [], 'lunch': [], 'dinner': []}
-        }
-      ],
-    };
-    final meal = {'_id': 'meal-x', 'name': '牛肉面'};
+  test(
+    'weekly draft helpers add meal to ids and preview without duplicates',
+    () {
+      final draft = {
+        'days': [
+          {
+            'date': '2026-07-06',
+            'meals': {'breakfast': [], 'lunch': [], 'dinner': []},
+          },
+        ],
+        'preview': [
+          {
+            'date': '2026-07-06',
+            'meals': {'breakfast': [], 'lunch': [], 'dinner': []},
+          },
+        ],
+      };
+      final meal = {'_id': 'meal-x', 'name': '牛肉面'};
 
-    final updated = addMealToWeeklyDraft(
-      draft,
-      date: '2026-07-06',
-      type: 'dinner',
-      meal: meal,
-    );
-    final duplicated = addMealToWeeklyDraft(
-      updated,
-      date: '2026-07-06',
-      type: 'dinner',
-      meal: meal,
-    );
-    final updatedDays = asList(duplicated['days']).map(asMap).toList();
-    final updatedPreview = asList(duplicated['preview']).map(asMap).toList();
+      final updated = addMealToWeeklyDraft(
+        draft,
+        date: '2026-07-06',
+        type: 'dinner',
+        meal: meal,
+      );
+      final duplicated = addMealToWeeklyDraft(
+        updated,
+        date: '2026-07-06',
+        type: 'dinner',
+        meal: meal,
+      );
+      final updatedDays = asList(duplicated['days']).map(asMap).toList();
+      final updatedPreview = asList(duplicated['preview']).map(asMap).toList();
 
-    expect(
-      mealIdsFromPlanValue(asMap(updatedDays.first['meals'])['dinner']),
-      ['meal-x'],
-    );
-    final previewEntry =
-        planMealEntries(asMap(updatedPreview.first['meals'])['dinner']).first;
-    expect(previewEntry['id'], 'meal-x');
-    expect(previewEntry['name'], '牛肉面');
-  });
+      expect(
+        mealIdsFromPlanValue(asMap(updatedDays.first['meals'])['dinner']),
+        ['meal-x'],
+      );
+      final previewEntry = planMealEntries(
+        asMap(updatedPreview.first['meals'])['dinner'],
+      ).first;
+      expect(previewEntry['id'], 'meal-x');
+      expect(previewEntry['name'], '牛肉面');
+    },
+  );
 
   test('planHints reads and deduplicates balance hints', () {
     expect(
@@ -678,11 +696,11 @@ void main() {
             'lunch': [
               {'_id': 'meal-b', 'name': '牛肉面'},
               {
-                'meal': {'_id': 'meal-c', 'name': '拌黄瓜'}
-              }
+                'meal': {'_id': 'meal-c', 'name': '拌黄瓜'},
+              },
             ],
             'dinner': [],
-          }
+          },
         },
         {
           'date': '2026-07-07',
@@ -690,13 +708,13 @@ void main() {
             'breakfast': [],
             'lunch': [],
             'dinner': [
-              {'name': '手写菜名'}
+              {'name': '手写菜名'},
             ],
-          }
+          },
         },
         {
           'date': '2026-07-08',
-          'meals': {'breakfast': [], 'lunch': [], 'dinner': []}
+          'meals': {'breakfast': [], 'lunch': [], 'dinner': []},
         },
       ],
     });
@@ -705,18 +723,15 @@ void main() {
     expect(summary.mealSlotCount, 3);
     expect(summary.mealCount, 4);
     expect(weeklyDraftApplySummaryText(summary), '草稿包含 2 天、3 餐、4 道菜');
-    expect(
-      weeklyDraftApplyConfirmMessage(summary),
-      contains('确认写入日历吗'),
-    );
+    expect(weeklyDraftApplyConfirmMessage(summary), contains('确认写入日历吗'));
     expect(
       weeklyDraftApplySummaryText(
         weeklyDraftApplySummary({
           'preview': [
             {
               'date': '2026-07-09',
-              'meals': {'breakfast': [], 'lunch': [], 'dinner': []}
-            }
+              'meals': {'breakfast': [], 'lunch': [], 'dinner': []},
+            },
           ],
         }),
       ),
@@ -744,13 +759,9 @@ void main() {
           'memoryCount': 0,
           'photoCount': 0,
           'wishlistOpen': 2,
-        }
+        },
       }),
-      [
-        '先安排一顿这个周期最想吃的饭',
-        '吃完后补一条饭后回忆，留下今天的味道',
-        '下次开饭前拍一张饭桌照片',
-      ],
+      ['先安排一顿这个周期最想吃的饭', '吃完后补一条饭后回忆，留下今天的味道', '下次开饭前拍一张饭桌照片'],
     );
     expect(
       reviewNextStepHints({
@@ -773,7 +784,7 @@ void main() {
           'wishlistOpen': 0,
         },
         'topMeals': [
-          {'name': '番茄牛腩'}
+          {'name': '番茄牛腩'},
         ],
       }),
       ['给最喜欢的一道菜补充做法、照片或小技巧'],
@@ -781,14 +792,8 @@ void main() {
   });
 
   test('review top meal helpers read identity and image fields', () {
-    expect(
-      reviewTopMealId({'_id': 'meal-a', 'name': '番茄牛腩'}),
-      'meal-a',
-    );
-    expect(
-      reviewTopMealId({'mealId': 'meal-b', 'name': '牛肉面'}),
-      'meal-b',
-    );
+    expect(reviewTopMealId({'_id': 'meal-a', 'name': '番茄牛腩'}), 'meal-a');
+    expect(reviewTopMealId({'mealId': 'meal-b', 'name': '牛肉面'}), 'meal-b');
     expect(
       reviewTopMealImage({'coverImage': '/uploads/cover.jpg'}),
       '$kAssetBase/uploads/cover.jpg',
@@ -811,8 +816,8 @@ void main() {
     final photos = photoItems({
       'photos': [
         'http://113.44.50.108:3002/uploads/one.jpg',
-        {'photo': '/api/uploads/two.jpg', 'title': '周末晚餐'}
-      ]
+        {'photo': '/api/uploads/two.jpg', 'title': '周末晚餐'},
+      ],
     });
 
     expect(photos, hasLength(2));
@@ -828,17 +833,20 @@ void main() {
         {'_id': 'memory-b', 'title': 'second'},
         {'_id': 'memory-c', 'title': 'third'},
         {'_id': 'memory-d', 'title': 'fourth'},
-      ]
+      ],
     });
 
-    expect(memories.map((item) => item['_id']),
-        ['memory-a', 'memory-b', 'memory-c']);
+    expect(memories.map((item) => item['_id']), [
+      'memory-a',
+      'memory-b',
+      'memory-c',
+    ]);
     expect(
       mealRelatedMemoryItems({
         'memories': [
           {'_id': 'memory-a'},
           {'_id': 'memory-b'},
-        ]
+        ],
       }, limit: 0)
           .map((item) => item['_id']),
       ['memory-a', 'memory-b'],
@@ -850,9 +858,7 @@ void main() {
       'mealIds': [
         {'_id': 'meal-a', 'name': 'first'},
         'meal-b',
-        {
-          'id': 'meal-c',
-        },
+        {'id': 'meal-c'},
         {'_id': 'meal-a'},
       ],
       'photos': ['/api/uploads/one.jpg', 'http://cdn.example.com/two.jpg', ''],
@@ -873,10 +879,10 @@ void main() {
     final names = photoMealNames({
       'meals': [
         {
-          'meal': {'name': '酸菜猪肉饺子'}
-        }
+          'meal': {'name': '酸菜猪肉饺子'},
+        },
       ],
-      'meal': {'name': '番茄牛腩'}
+      'meal': {'name': '番茄牛腩'},
     });
 
     expect(names, ['酸菜猪肉饺子', '番茄牛腩']);
@@ -893,7 +899,7 @@ void main() {
       'rating': 5,
       'photo': '/api/uploads/dinner.jpg',
       'meals': [
-        {'_id': 'meal-a', 'name': '番茄牛腩'}
+        {'_id': 'meal-a', 'name': '番茄牛腩'},
       ],
     };
     final nested = {
@@ -917,9 +923,9 @@ void main() {
           'title': '恋爱纪念日',
           'theme': '纪念日',
           'description': '选两道共同喜欢的菜。',
-          'structure': ['共同喜欢', '甜品']
-        }
-      ]
+          'structure': ['共同喜欢', '甜品'],
+        },
+      ],
     });
 
     expect(templates, hasLength(1));
@@ -935,24 +941,21 @@ void main() {
       DateTime(2026, 7, 9),
     );
     expect(
-      anniversaryCountdownLabel(
-        {'date': '2026-07-10'},
-        today: DateTime(2026, 7, 10, 18),
-      ),
+      anniversaryCountdownLabel({
+        'date': '2026-07-10',
+      }, today: DateTime(2026, 7, 10, 18)),
       '\u4eca\u5929\u5c31\u662f\u7eaa\u5ff5\u65e5',
     );
     expect(
-      anniversaryCountdownLabel(
-        {'date': '2026-07-13'},
-        today: DateTime(2026, 7, 10),
-      ),
+      anniversaryCountdownLabel({
+        'date': '2026-07-13',
+      }, today: DateTime(2026, 7, 10)),
       '\u8fd8\u6709 3 \u5929',
     );
     expect(
-      anniversaryCountdownLabel(
-        {'date': '2026-07-08'},
-        today: DateTime(2026, 7, 10),
-      ),
+      anniversaryCountdownLabel({
+        'date': '2026-07-08',
+      }, today: DateTime(2026, 7, 10)),
       '\u5df2\u8fc7 2 \u5929',
     );
     expect(anniversaryCountdownLabel({'date': ''}), '\u65e5\u671f\u5f85\u5b9a');
@@ -966,8 +969,12 @@ void main() {
       {'title': 'today', 'date': '2026-07-10'},
     ], today: DateTime(2026, 7, 10));
 
-    expect(sorted.map((item) => item['title']),
-        ['today', 'future', 'past', 'unknown']);
+    expect(sorted.map((item) => item['title']), [
+      'today',
+      'future',
+      'past',
+      'unknown',
+    ]);
   });
 
   test('anniversaryMenuMealNames reads populated menu meals', () {
@@ -975,14 +982,14 @@ void main() {
       'meals': {
         'breakfast': [
           {
-            'meal': {'name': '小米粥'}
-          }
+            'meal': {'name': '小米粥'},
+          },
         ],
         'dinner': [
           {'name': '番茄牛腩'},
-          {'name': '番茄牛腩'}
+          {'name': '番茄牛腩'},
         ],
-      }
+      },
     });
 
     expect(names, ['小米粥', '番茄牛腩']);
@@ -992,18 +999,18 @@ void main() {
     final menu = {
       'meals': {
         'breakfast': [
-          {'_id': 'meal-a', 'name': '小米粥'}
+          {'_id': 'meal-a', 'name': '小米粥'},
         ],
         'lunch': ['meal-b'],
         'dinner': [
           {
-            'meal': {'_id': 'meal-c', 'name': '番茄牛腩'}
+            'meal': {'_id': 'meal-c', 'name': '番茄牛腩'},
           },
           {
-            'meal': {'_id': 'meal-c'}
+            'meal': {'_id': 'meal-c'},
           },
         ],
-      }
+      },
     };
     final ids = anniversaryMenuMealIds(menu);
 
@@ -1011,24 +1018,25 @@ void main() {
     expect(ids['lunch'], ['meal-b']);
     expect(ids['dinner'], ['meal-c']);
     expect(scheduleMealIds(menu), ['meal-a', 'meal-b', 'meal-c']);
-    expect(
-      scheduleMealObjects(menu).map((meal) => meal['_id']).toList(),
-      ['meal-a', 'meal-b', 'meal-c'],
-    );
+    expect(scheduleMealObjects(menu).map((meal) => meal['_id']).toList(), [
+      'meal-a',
+      'meal-b',
+      'meal-c',
+    ]);
   });
 
   test('wishlist meal helpers accept populated object and string id', () {
     expect(
       wishlistMealId({
         'title': '想吃番茄牛腩',
-        'mealId': {'_id': 'meal-a', 'name': '番茄牛腩'}
+        'mealId': {'_id': 'meal-a', 'name': '番茄牛腩'},
       }),
       'meal-a',
     );
     expect(
       wishlistMealName({
         'title': '想吃番茄牛腩',
-        'mealId': {'_id': 'meal-a', 'name': '番茄牛腩'}
+        'mealId': {'_id': 'meal-a', 'name': '番茄牛腩'},
       }),
       '番茄牛腩',
     );
@@ -1042,10 +1050,14 @@ void main() {
     expect(wishlistStatusLabel('done'), '\u5df2\u5b8c\u6210');
     expect(wishlistStatusLabel('all'), '\u5168\u90e8');
     expect(wishlistStatusLabel('unknown'), '\u60f3\u5403');
-    expect(wishlistStatusBadgeLabel({'title': '\u624b\u5199\u613f\u671b'}),
-        '\u60f3\u5403\u4e2d');
     expect(
-        wishlistStatusBadgeLabel({'status': 'planned'}), '\u5df2\u5b89\u6392');
+      wishlistStatusBadgeLabel({'title': '\u624b\u5199\u613f\u671b'}),
+      '\u60f3\u5403\u4e2d',
+    );
+    expect(
+      wishlistStatusBadgeLabel({'status': 'planned'}),
+      '\u5df2\u5b89\u6392',
+    );
     expect(wishlistIsDone({'status': 'done'}), isTrue);
     expect(wishlistIsDone({'status': 'open'}), isFalse);
     expect(wishlistPriorityLabel('high'), '\u4f18\u5148\u60f3\u5403');
@@ -1061,17 +1073,21 @@ void main() {
       ['TA \u521b\u5efa', 'TA \u4e5f\u6295\u4e86', '\u6211\u5df2\u6295'],
     );
     expect(wishlistSignalLabels({'partnerSignal': true}), ['TA \u60f3\u5403']);
-    expect(wishlistDashboardNote({'priority': 'high'}),
-        '\u4f18\u5148\u60f3\u5403');
+    expect(
+      wishlistDashboardNote({'priority': 'high'}),
+      '\u4f18\u5148\u60f3\u5403',
+    );
     expect(
       wishlistDashboardNote({'note': '\u60f3\u52a0\u4e00\u70b9\u9999\u83dc'}),
       '\u60f3\u52a0\u4e00\u70b9\u9999\u83dc',
     );
-    expect(wishlistDashboardActionLabel({'title': '\u624b\u5199\u613f\u671b'}),
-        '\u5efa\u8c31\u5e76\u5b89\u6392');
+    expect(
+      wishlistDashboardActionLabel({'title': '\u624b\u5199\u613f\u671b'}),
+      '\u5efa\u8c31\u5e76\u5b89\u6392',
+    );
     expect(
       wishlistDashboardActionLabel({
-        'mealId': {'_id': 'meal-a', 'name': '\u9178\u83dc\u9c7c'}
+        'mealId': {'_id': 'meal-a', 'name': '\u9178\u83dc\u9c7c'},
       }),
       '\u4eca\u665a\u5403',
     );
@@ -1079,16 +1095,8 @@ void main() {
 
   test('wishlist sorting summarizes the best dinner candidate', () {
     final sorted = sortWishlistItems([
-      {
-        'title': '已安排牛肉面',
-        'status': 'planned',
-        'priority': 'high',
-      },
-      {
-        'title': '完成的饺子',
-        'status': 'done',
-        'priority': 'high',
-      },
+      {'title': '已安排牛肉面', 'status': 'planned', 'priority': 'high'},
+      {'title': '完成的饺子', 'status': 'done', 'priority': 'high'},
       {
         'title': '普通炒菜',
         'status': 'open',
@@ -1113,21 +1121,18 @@ void main() {
       },
     ]);
 
-    expect(
-      sorted.map((item) => item['title']),
-      ['TA 的酸菜鱼', '我想吃饺子', '普通炒菜', '已安排牛肉面', '完成的饺子'],
-    );
+    expect(sorted.map((item) => item['title']), [
+      'TA 的酸菜鱼',
+      '我想吃饺子',
+      '普通炒菜',
+      '已安排牛肉面',
+      '完成的饺子',
+    ]);
     expect(wishlistFilteredItems(sorted, 'open'), hasLength(3));
     expect(wishlistStatusCounts(sorted), {'open': 3, 'planned': 1, 'done': 1});
     expect(wishlistTopCandidate(sorted)?['title'], 'TA 的酸菜鱼');
-    expect(
-      wishlistSummaryText(sorted),
-      'TA 想吃：TA 的酸菜鱼，已有 3 票，可以一键安排到今晚。',
-    );
-    expect(
-      wishlistSummaryText(const []),
-      '当前没有待安排的想吃愿望，记录一个小馋念后就能排进今天晚餐。',
-    );
+    expect(wishlistSummaryText(sorted), 'TA 想吃：TA 的酸菜鱼，已有 3 票，可以一键安排到今晚。');
+    expect(wishlistSummaryText(const []), '当前没有待安排的想吃愿望，记录一个小馋念后就能排进今天晚餐。');
   });
 
   test('wishlist draft fields normalize add wish form data', () {
@@ -1173,13 +1178,13 @@ void main() {
         {
           '_id': 'wish-a',
           'title': '想吃酸菜鱼',
-          'mealId': {'_id': 'meal-a', 'name': '酸菜鱼'}
-        }
+          'mealId': {'_id': 'meal-a', 'name': '酸菜鱼'},
+        },
       ],
       'recentPhotos': [
         {
           'photo': 'http://113.44.50.108:3002/uploads/dinner.jpg',
-          'title': '晚餐'
+          'title': '晚餐',
         },
         '',
       ],
@@ -1192,16 +1197,21 @@ void main() {
 
     final wishes = dashboardPartnerWishlist(data);
     final photos = dashboardRecentPhotos(data);
-    final anniversaries =
-        dashboardAnniversaryMenus(data, today: DateTime(2026, 7, 10));
+    final anniversaries = dashboardAnniversaryMenus(
+      data,
+      today: DateTime(2026, 7, 10),
+    );
 
     expect(wishes, hasLength(1));
     expect(wishlistMealId(wishes.first), 'meal-a');
     expect(wishlistMealName(wishes.first), '酸菜鱼');
     expect(photos, hasLength(1));
     expect(photos.first['title'], '晚餐');
-    expect(
-        anniversaries.map((item) => item['title']), ['今天菜单', '恋爱纪念日', '已经过了']);
+    expect(anniversaries.map((item) => item['title']), [
+      '今天菜单',
+      '恋爱纪念日',
+      '已经过了',
+    ]);
   });
 
   test('dashboard shopping helpers summarize current week groceries', () {
@@ -1211,7 +1221,7 @@ void main() {
           {'name': '鸡蛋', 'amount': '10个', 'checked': true},
           {'name': '番茄', 'amount': '3个', 'checked': false},
         ],
-      }
+      },
     });
 
     expect(items, hasLength(2));
@@ -1220,35 +1230,34 @@ void main() {
     expect(shoppingItemPreviewText(items.last), '番茄 3个');
   });
 
-  test('dashboard maintenance helpers count default meals and image issues',
-      () {
-    final data = {
-      'defaultMeals': {
-        'total': 200,
-        'imported': 180,
-        'missing': 20,
-      },
-      'imageIssues': {
-        'items': [
-          {'_id': 'issue-a'},
-          {'_id': 'issue-b'},
-        ],
-      },
-    };
+  test(
+    'dashboard maintenance helpers count default meals and image issues',
+    () {
+      final data = {
+        'defaultMeals': {'total': 200, 'imported': 180, 'missing': 20},
+        'imageIssues': {
+          'items': [
+            {'_id': 'issue-a'},
+            {'_id': 'issue-b'},
+          ],
+        },
+      };
 
-    final status = dashboardDefaultMealStatus(data);
+      final status = dashboardDefaultMealStatus(data);
 
-    expect(defaultMealTotalCount(status), 200);
-    expect(defaultMealImportedCount(status), 180);
-    expect(defaultMealMissingCount(status), 20);
-    expect(dashboardImageIssueOpenCount(data), 2);
-    expect(dashboardNeedsMaintenance(data), isTrue);
-    expect(
+      expect(defaultMealTotalCount(status), 200);
+      expect(defaultMealImportedCount(status), 180);
+      expect(defaultMealMissingCount(status), 20);
+      expect(dashboardImageIssueOpenCount(data), 2);
+      expect(dashboardNeedsMaintenance(data), isTrue);
+      expect(
         dashboardNeedsMaintenance({
-          'defaultMeals': {'missing': 0}
+          'defaultMeals': {'missing': 0},
         }),
-        isFalse);
-  });
+        isFalse,
+      );
+    },
+  );
 
   test('image issue helpers extract meal identity and note', () {
     final populated = {
@@ -1269,10 +1278,7 @@ void main() {
       imageIssueDraftNote(issueType: 'low_quality', note: '画面太暗'),
       '图片模糊或太暗：画面太暗',
     );
-    expect(
-      imageIssueDraftNote(issueType: 'missing'),
-      '没有展示成品',
-    );
+    expect(imageIssueDraftNote(issueType: 'missing'), '没有展示成品');
   });
 
   test('image issue summaries group type counts and priority hints', () {
@@ -1293,10 +1299,7 @@ void main() {
       'low_quality:1',
       'duplicate:1',
     ]);
-    expect(
-      imageIssueFixPriorityText(issues),
-      '优先替换不是菜品照片的项目，避免默认菜库出现明显错图。',
-    );
+    expect(imageIssueFixPriorityText(issues), '优先替换不是菜品照片的项目，避免默认菜库出现明显错图。');
     expect(
       imageIssueFixPriorityText([
         {'issueType': 'mismatch'},
@@ -1358,13 +1361,18 @@ void main() {
     expect(shoppingItemChecked(items.first), isTrue);
     expect(shoppingItemChecked(items.last), isFalse);
     expect(shoppingPurchasedCount(items), 2);
-    expect(shoppingRemainingItems(items).map((item) => item['name']),
-        ['\u9762\u6761']);
+    expect(shoppingRemainingItems(items).map((item) => item['name']), [
+      '\u9762\u6761',
+    ]);
     expect(shoppingProgressValue(items), closeTo(2 / 3, 0.001));
-    expect(shoppingProgressText(items),
-        '\u5df2\u8d2d 2 / \u5171 3\uff0c\u5269\u4f59 1 \u9879');
     expect(
-        shoppingProgressText(const []), '\u8fd8\u6ca1\u6709\u91c7\u8d2d\u9879');
+      shoppingProgressText(items),
+      '\u5df2\u8d2d 2 / \u5171 3\uff0c\u5269\u4f59 1 \u9879',
+    );
+    expect(
+      shoppingProgressText(const []),
+      '\u8fd8\u6ca1\u6709\u91c7\u8d2d\u9879',
+    );
   });
 
   test('shopping remaining category summary groups unchecked items', () {
@@ -1412,8 +1420,9 @@ void main() {
       }
     }
 
-    final outputBytes =
-        renderFoodFocusBytes(Uint8List.fromList(img.encodeJpg(source)));
+    final outputBytes = renderFoodFocusBytes(
+      Uint8List.fromList(img.encodeJpg(source)),
+    );
     final output = img.decodeImage(Uint8List.fromList(outputBytes));
 
     expect(outputBytes.length, greaterThan(100));
@@ -1460,6 +1469,82 @@ void main() {
     expect(output, isNotNull);
     expect(output!.width, lessThanOrEqualTo(kFoodFocusMaxSide));
     expect(output.height, lessThanOrEqualTo(kFoodFocusMaxSide));
+  });
+
+  test('guest order session helpers normalize lists and statuses', () {
+    final sessions = guestOrderSessions({
+      'sessions': [
+        {'_id': 'session-a', 'title': '周末家宴', 'status': 'open'},
+        {'id': 'session-b', 'title': '生日晚餐', 'status': 'locked'},
+        {'title': '缺少 ID'},
+      ],
+    });
+
+    expect(sessions.length, 2);
+    expect(idOf(sessions.first), 'session-a');
+    expect(guestOrderStatusLabel('open'), '开放点菜');
+    expect(guestOrderStatusLabel('locked'), '已锁单');
+    expect(guestOrderStatusLabel('expired'), '已过期');
+  });
+
+  test('guest order summary supports nested and flattened payloads', () {
+    final nested = guestOrderSummary({
+      'summary': {'guestCount': 3, 'dishCount': 5, 'totalQuantity': 8},
+    });
+    final flat = guestOrderSummary({
+      'guestCount': 2,
+      'dishCount': 4,
+      'totalQuantity': 6,
+    });
+
+    expect(guestOrderNumber(nested['guestCount']), 3);
+    expect(guestOrderNumber(nested['totalQuantity']), 8);
+    expect(guestOrderNumber(flat['dishCount']), 4);
+    expect(guestOrderNumber('6'), 6);
+  });
+
+  testWidgets('guest order sessions page renders restaurant-style summary', (
+    tester,
+  ) async {
+    final appState = _FakeAppState((method, uri, headers, body) async {
+      expect(method, 'GET');
+      expect(uri.path, endsWith('/guest-orders'));
+      return http.Response.bytes(
+        utf8.encode(
+          jsonEncode({
+            'sessions': [
+              {
+                'id': 'session-a',
+                'title': '周六朋友家宴',
+                'status': 'open',
+                'guestCount': 3,
+                'totalQuantity': 8,
+                'expiresAt': '2026-07-24T12:00:00.000Z',
+              },
+            ],
+          }),
+        ),
+        200,
+      );
+    })
+      ..token = fakeJwt(DateTime.now().add(const Duration(hours: 2)))
+      ..user = {'id': 'host-a'}
+      ..household = {'id': 'home-a', 'name': '测试小家'};
+    addTearDown(appState.dispose);
+
+    await tester.pumpWidget(
+      AppScope(
+        appState: appState,
+        child: const MaterialApp(home: GuestOrderSessionsPage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('宴请点菜'), findsOneWidget);
+    expect(find.text('周六朋友家宴'), findsOneWidget);
+    expect(find.text('3 位客人'), findsOneWidget);
+    expect(find.text('8 份菜'), findsOneWidget);
+    expect(find.text('开放点菜'), findsOneWidget);
   });
 }
 
