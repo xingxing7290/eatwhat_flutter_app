@@ -977,6 +977,61 @@ void main() {
     expect(photos.last['title'], '周末晚餐');
   });
 
+  test('album summary counts photos memories days meals and nudges', () {
+    final summary = albumSummary([
+      {
+        'memoryId': 'memory-a',
+        'date': '2026-07-09T12:00:00.000Z',
+        'mood': '开心',
+        'meals': [
+          {'name': '番茄牛腩'},
+          {'name': '凉拌黄瓜'},
+        ],
+      },
+      {
+        'memoryId': 'memory-a',
+        'date': '2026-07-09T19:00:00.000Z',
+        'mood': '满足',
+        'meal': {'name': '番茄牛腩'},
+      },
+      {
+        'memory': {'_id': 'memory-b'},
+        'date': '2026-07-10',
+        'mood': '开心',
+        'meals': [
+          {'name': '牛肉面'},
+        ],
+      },
+    ]);
+
+    expect(summary.photoCount, 3);
+    expect(summary.memoryCount, 2);
+    expect(summary.dayCount, 2);
+    expect(summary.topMeals, ['番茄牛腩', '凉拌黄瓜', '牛肉面']);
+    expect(summary.moods, ['开心', '满足']);
+    expect(albumSummaryText(summary), '这个月留下 3 张照片，记录 2 顿饭，覆盖 2 天。');
+    expect(albumSummaryNudge(summary), '再补几张饭桌照片，这个月的小家味道会更完整。');
+  });
+
+  test('album summary handles empty and unlinked photos', () {
+    final empty = albumSummary(const []);
+
+    expect(empty.photoCount, 0);
+    expect(albumSummaryText(empty), '这个月还没有饭桌照片，下一顿饭可以先拍一张开场照。');
+    expect(albumSummaryNudge(empty), '拍照后补上心情和评分，相册会更像两个人的饮食日记。');
+
+    final unlinked = albumSummary([
+      {'date': '2026-07-01', 'photo': '/uploads/one.jpg'},
+      {'date': '2026-07-02', 'photo': '/uploads/two.jpg'},
+    ]);
+
+    expect(unlinked.memoryCount, 2);
+    expect(unlinked.dayCount, 2);
+    expect(unlinked.topMeals, isEmpty);
+    expect(albumSummaryText(unlinked), '这个月留下 2 张照片，记录 2 顿饭，覆盖 2 天。');
+    expect(albumSummaryNudge(unlinked), '照片已经留下了，记得关联菜品，之后能自动沉淀常吃菜。');
+  });
+
   test('mealRelatedMemoryItems reads wrapped memories and limits preview', () {
     final memories = mealRelatedMemoryItems({
       'memories': [

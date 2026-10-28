@@ -10352,6 +10352,7 @@ class _PhotoAlbumPageState extends State<PhotoAlbumPage> {
               );
             }
             final photos = photoItems(snapshot.data);
+            final summary = albumSummary(photos);
             return RefreshIndicator(
               onRefresh: () async => reload(),
               child: ListView(
@@ -10363,6 +10364,14 @@ class _PhotoAlbumPageState extends State<PhotoAlbumPage> {
                       suffix: '饭桌相册',
                       onChanged: setMonth,
                     ),
+                  ),
+                  const SizedBox(height: 12),
+                  PhotoAlbumSummaryCard(
+                    summary: summary,
+                    onAddMemory: () =>
+                        pushPage(context, const MemoryEditPage()),
+                    onOpenReview: () =>
+                        pushPage(context, const TableReviewPage()),
                   ),
                   const SizedBox(height: 12),
                   if (photos.isEmpty)
@@ -10436,6 +10445,170 @@ List<Map<String, dynamic>> photoItems(dynamic response) {
     }
     return asMap(item);
   }).toList();
+}
+
+class AlbumSummary {
+  const AlbumSummary({
+    required this.photoCount,
+    required this.memoryCount,
+    required this.dayCount,
+    required this.topMeals,
+    required this.moods,
+  });
+
+  final int photoCount;
+  final int memoryCount;
+  final int dayCount;
+  final List<String> topMeals;
+  final List<String> moods;
+}
+
+AlbumSummary albumSummary(List<Map<String, dynamic>> photos) {
+  final memoryIds = <String>{};
+  final dates = <String>{};
+  final mealCounts = <String, int>{};
+  final moods = <String>{};
+
+  for (final photo in photos) {
+    final memoryId = albumPhotoMemoryId(photo);
+    if (memoryId.isNotEmpty) {
+      memoryIds.add(memoryId);
+    }
+    final date = albumPhotoDate(photo);
+    if (date.isNotEmpty) {
+      dates.add(date);
+    }
+    final mood = friendlyText(photo['mood']);
+    if (mood.isNotEmpty) {
+      moods.add(mood);
+    }
+    for (final meal in photoMealNames(photo)) {
+      mealCounts[meal] = (mealCounts[meal] ?? 0) + 1;
+    }
+  }
+
+  final topMeals = mealCounts.entries.toList()
+    ..sort((a, b) {
+      final byCount = b.value.compareTo(a.value);
+      return byCount == 0 ? a.key.compareTo(b.key) : byCount;
+    });
+
+  return AlbumSummary(
+    photoCount: photos.length,
+    memoryCount: memoryIds.isNotEmpty ? memoryIds.length : dates.length,
+    dayCount: dates.length,
+    topMeals: topMeals.map((entry) => entry.key).take(3).toList(),
+    moods: moods.take(4).toList(),
+  );
+}
+
+String albumSummaryText(AlbumSummary summary) {
+  if (summary.photoCount == 0) {
+    return '这个月还没有饭桌照片，下一顿饭可以先拍一张开场照。';
+  }
+  final memoryText =
+      summary.memoryCount == 0 ? '饭桌瞬间' : '${summary.memoryCount} 顿饭';
+  final dayText = summary.dayCount == 0 ? '' : '，覆盖 ${summary.dayCount} 天';
+  return '这个月留下 ${summary.photoCount} 张照片，记录 $memoryText$dayText。';
+}
+
+String albumSummaryNudge(AlbumSummary summary) {
+  if (summary.photoCount == 0) {
+    return '拍照后补上心情和评分，相册会更像两个人的饮食日记。';
+  }
+  if (summary.topMeals.isEmpty) {
+    return '照片已经留下了，记得关联菜品，之后能自动沉淀常吃菜。';
+  }
+  if (summary.photoCount < 4) {
+    return '再补几张饭桌照片，这个月的小家味道会更完整。';
+  }
+  return '照片和回忆都有积累了，适合去饭桌回顾里看看本月高光。';
+}
+
+class PhotoAlbumSummaryCard extends StatelessWidget {
+  const PhotoAlbumSummaryCard({
+    super.key,
+    required this.summary,
+    required this.onAddMemory,
+    required this.onOpenReview,
+  });
+
+  final AlbumSummary summary;
+  final VoidCallback onAddMemory;
+  final VoidCallback onOpenReview;
+
+  @override
+  Widget build(BuildContext context) {
+    return SoftCard(
+      gradient: const LinearGradient(
+        colors: [Color(0xFFFFFAF2), Color(0xFFFFE3D8)],
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const SectionTitle(
+            icon: Icons.photo_album_outlined,
+            title: '本月饭桌影集',
+          ),
+          const SizedBox(height: 10),
+          Text(
+            albumSummaryText(summary),
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: kCocoa,
+                  fontWeight: FontWeight.w800,
+                ),
+          ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              InfoChip('${summary.photoCount} 张照片',
+                  icon: Icons.photo_library_outlined),
+              InfoChip('${summary.memoryCount} 顿回忆',
+                  icon: Icons.auto_stories_outlined),
+              if (summary.dayCount > 0)
+                InfoChip('${summary.dayCount} 天',
+                    icon: Icons.calendar_today_outlined),
+              ...summary.topMeals.map(
+                (meal) => InfoChip(meal, icon: Icons.restaurant_menu),
+              ),
+              ...summary.moods.map(
+                (mood) => InfoChip(mood, icon: Icons.favorite_outline),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Text(
+            albumSummaryNudge(summary),
+            style: const TextStyle(
+              color: kCocoa,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 14),
+          Wrap(
+            spacing: 10,
+            runSpacing: 10,
+            children: [
+              FilledButton.icon(
+                onPressed: onAddMemory,
+                icon: const Icon(Icons.add_a_photo_outlined),
+                label: const Text('记一顿饭'),
+              ),
+              OutlinedButton.icon(
+                onPressed: onOpenReview,
+                icon: const Icon(Icons.auto_graph_outlined),
+                label: const Text('饭桌回顾'),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 String albumPhotoMemoryId(Map<String, dynamic> photo) {
